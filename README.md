@@ -3,7 +3,7 @@
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
-> A unified interface on top of hypervisor's VMI APIs
+> A cross-platform unified interface on top of hypervisor's VMI APIs
 
 ## Table of Contents
 
@@ -15,12 +15,15 @@
 
 ## Overview
 
-`libmicrovmi` aims to provide a cross-platform unified API and the necessary drivers to be
+`libmicrovmi` simply aims to provide a cross-platform unified API and the necessary drivers to be
 compatible with the diversity of hypervisors available today.
 
-It aims to solve the problem of `libvmi` being written in `C` and a
+Its main goal is to solve the problem of [`libvmi`](https://github.com/libvmi/libvmi) being written in `C` and a
 Linux-centered library, not yet ready to offer drivers for other platforms such
 as Windows and MacOS.
+
+The term micro (μ) refers to the library's simplicity as well as the letter `U`
+standing for `Unified` interface.
 
 ## Requirements
 
