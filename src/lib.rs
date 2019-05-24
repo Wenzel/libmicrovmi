@@ -2,11 +2,18 @@ pub mod api;
 mod driver;
 
 use api::Introspectable;
+use api::DriverType;
 
-pub fn vmi_init() -> impl Introspectable {
+pub fn vmi_init(driver_type: DriverType) -> impl Introspectable {
     println!("vmi init");
 
-    let drv = driver::dummy::Dummy;
+    let drv;
+    match driver_type {
+        DriverType::Dummy => {
+            drv = driver::dummy::Dummy;
+        }
+    }
+    // instantiate the driver
     drv.new();
     drv
 }
