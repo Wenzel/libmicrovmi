@@ -6,7 +6,7 @@ pub fn vmi_init() {
     println!("vmi init");
 
     let drv = driver::dummy::Dummy;
-    drv.init();
+    drv.new();
 }
 
 pub fn vmi_close() {

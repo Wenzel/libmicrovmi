@@ -4,7 +4,7 @@ use crate::intro;
 pub struct Dummy;
 
 impl intro::Introspectable for Dummy {
-    fn init(&self) {
+    fn new(&self) {
         println!("dummy driver init !");
     }
 
