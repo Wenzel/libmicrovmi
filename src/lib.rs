@@ -4,7 +4,7 @@ mod driver;
 use api::Introspectable;
 use api::DriverType;
 
-pub fn vmi_init(driver_type: DriverType) -> impl Introspectable {
+pub fn init(driver_type: DriverType) -> impl Introspectable {
     println!("vmi init");
 
     let drv;

@@ -10,7 +10,7 @@ fn main() {
 
     // instantiate the dummy driver
     let drv_type = DriverType::Dummy;
-    let drv = microvmi::vmi_init(drv_type);
+    let drv = microvmi::init(drv_type);
     // close driver
     drv.close();
 }
