@@ -1,17 +1,12 @@
-mod intro;
+pub mod api;
 mod driver;
-use crate::intro::Introspectable;
 
-pub fn vmi_init() {
+use api::Introspectable;
+
+pub fn vmi_init() -> impl Introspectable {
     println!("vmi init");
 
     let drv = driver::dummy::Dummy;
     drv.new();
-}
-
-pub fn vmi_close() {
-    println!("vmi close");
-
-    let drv = driver::dummy::Dummy;
-    drv.close();
+    drv
 }
