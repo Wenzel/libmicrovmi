@@ -22,6 +22,8 @@ Its main goal is to solve the problem of [`libvmi`](https://github.com/libvmi/li
 Linux-centered library, not yet ready to offer drivers for other platforms such
 as Windows and MacOS.
 
+It doesn't aim to **replace** `libvmi`, since it doesn't implement features like rekall profile parsing or operating system knowledge, but rather to provide a foundation for high-level VMI libraries.
+
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
 
