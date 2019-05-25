@@ -25,6 +25,8 @@ as Windows and MacOS.
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
 
+![libmicrovmi_image](https://user-images.githubusercontent.com/964610/58368164-bec30b80-7ed8-11e9-8a39-c85257cfbe38.png)
+
 ## Requirements
 
 - `cargo`
