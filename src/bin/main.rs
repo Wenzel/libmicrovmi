@@ -9,7 +9,7 @@ fn main() {
 
 
     let drv_type = DriverType::Dummy;
-    let drv = microvmi::init(drv_type);
+    let drv: Box<Introspectable> = microvmi::init(drv_type);
     // init driver
     drv.new();
     // close driver
