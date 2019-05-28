@@ -9,10 +9,10 @@ pub fn init(driver_type: DriverType) -> Box<Introspectable> {
 
     match driver_type {
         DriverType::Dummy => {
-            Box::new(driver::dummy::Dummy) as Box<Introspectable>
+            Box::new(driver::dummy::Dummy::new()) as Box<Introspectable>
         },
         DriverType::Xen => {
-            Box::new(driver::xen::Xen) as Box<Introspectable>
+            Box::new(driver::xen::Xen::new()) as Box<Introspectable>
         },
     }
 }

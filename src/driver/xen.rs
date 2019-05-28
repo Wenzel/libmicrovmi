@@ -7,15 +7,21 @@ pub struct Xen {
     xc: Xc,
 }
 
-impl api::Introspectable for Xen {
-    fn new(&self) {
+impl Xen {
+
+    pub fn new() -> Self {
         println!("Xen driver init !");
-        self.xc = Xc::new();
+        let xen = Xen { xc: Xc::new() };
+        xen
     }
 
+
+}
+
+impl api::Introspectable for Xen {
     fn close(&self) {
         println!("Xen driver close !");
-        self.xc::close();
+        // self.xc::close();
     }
 }
 
