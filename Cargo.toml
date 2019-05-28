@@ -5,7 +5,4 @@ authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
-xenctrl-sys = { version = "0.1.0", optional = true }
-
-[features]
-xen = ["xenctrl-sys"]
+xenctrl = { version = "0.1.0", path = "../xenctrl" }
