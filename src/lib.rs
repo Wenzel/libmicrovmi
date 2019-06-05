@@ -4,7 +4,7 @@ mod driver;
 use api::Introspectable;
 use api::DriverType;
 
-pub fn init(driver_type: DriverType) -> Box<Introspectable> {
+pub fn init(driver_type: DriverType, domid: u32) -> Box<Introspectable> {
     println!("vmi init");
 
     match driver_type {
@@ -12,7 +12,7 @@ pub fn init(driver_type: DriverType) -> Box<Introspectable> {
             Box::new(driver::dummy::Dummy::new()) as Box<Introspectable>
         },
         DriverType::Xen => {
-            Box::new(driver::xen::Xen::new()) as Box<Introspectable>
+            Box::new(driver::xen::Xen::new(domid)) as Box<Introspectable>
         },
     }
 }

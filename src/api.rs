@@ -5,5 +5,5 @@ pub enum DriverType {
 
 pub trait Introspectable {
     // destroys the VMI subsystem instance
-    fn close(&self);
+    fn close(&mut self);
 }

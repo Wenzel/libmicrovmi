@@ -13,7 +13,7 @@ impl Dummy {
 
 impl api::Introspectable for Dummy {
 
-    fn close(&self) {
+    fn close(&mut self) {
         println!("dummy driver close !");
     }
 }
