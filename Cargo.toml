@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 
 [features]
 # Xen driver
-xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
+xen = ["xenctrl", "xenstore", "xenforeignmemory", "xenevtchn", "libc"]
 # KVM driver
 kvm = ["kvmi"]
 # VirtualBox driver
@@ -24,6 +24,7 @@ libc = { version = "0.2.58", optional = true }
 xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
+xenevtchn = { git = "https://github.com/Wenzel/xenevtchn", optional = true }
 kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
 fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
 winapi = { version = "0.3.8", features = ["tlhelp32", "winnt", "handleapi", "securitybaseapi"], optional = true }
