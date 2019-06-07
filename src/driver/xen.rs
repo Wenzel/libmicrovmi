@@ -37,7 +37,7 @@ impl api::Introspectable for Xen {
 
     fn close(&mut self) {
         println!("Xen driver close");
-        self.xc.close();
+        self.xc.close().unwrap();
     }
 }
 
