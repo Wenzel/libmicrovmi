@@ -12,8 +12,15 @@ impl Dummy {
 }
 
 impl api::Introspectable for Dummy {
+    fn pause(&self) {
+        println!("dummy pause");
+    }
+
+    fn resume(&self) {
+        println!("dummy resume");
+    }
 
     fn close(&mut self) {
-        println!("dummy driver close !");
+        println!("dummy driver close");
     }
 }
