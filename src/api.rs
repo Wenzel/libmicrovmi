@@ -4,6 +4,12 @@ pub enum DriverType {
 }
 
 pub trait Introspectable {
-    // destroys the VMI subsystem instance
+    // pause the VM
+    fn pause(&self);
+
+    // resume the VM
+    fn resume(&self);
+
+    // destroy the VMI subsystem instance
     fn close(&mut self);
 }
