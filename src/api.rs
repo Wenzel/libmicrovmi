@@ -9,7 +9,4 @@ pub trait Introspectable {
 
     // resume the VM
     fn resume(&self);
-
-    // destroy the VMI subsystem instance
-    fn close(&mut self);
 }

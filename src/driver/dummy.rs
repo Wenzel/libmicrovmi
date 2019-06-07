@@ -20,8 +20,4 @@ impl api::Introspectable for Dummy {
     fn resume(&self) {
         println!("dummy resume");
     }
-
-    fn close(&mut self) {
-        println!("dummy driver close");
-    }
 }

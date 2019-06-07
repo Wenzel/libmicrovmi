@@ -16,7 +16,7 @@ fn main() {
     let domain_name = &args[1];
 
     let drv_type = DriverType::Xen;
-    let mut drv: Box<Introspectable> = microvmi::init(drv_type, domain_name);
+    let drv: Box<Introspectable> = microvmi::init(drv_type, domain_name);
 
     // play with pause and resume
     println!("pausing the VM");
@@ -27,6 +27,4 @@ fn main() {
     println!("resuming the VM");
     drv.resume();
 
-    // close driver
-    drv.close();
 }

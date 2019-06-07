@@ -21,6 +21,11 @@ impl Xen {
         };
         xen
     }
+
+    fn close(&mut self) {
+        println!("Xen driver close");
+        self.xc.close().unwrap();
+    }
 }
 
 impl api::Introspectable for Xen {
@@ -35,9 +40,10 @@ impl api::Introspectable for Xen {
         self.xc.domain_unpause(self.domid).unwrap();
     }
 
-    fn close(&mut self) {
-        println!("Xen driver close");
-        self.xc.close().unwrap();
-    }
 }
 
+impl Drop for Xen {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
