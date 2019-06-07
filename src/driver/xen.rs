@@ -5,17 +5,19 @@ use xenctrl::Xc;
 // unit struct
 pub struct Xen {
     xc: Xc,
+    dom_name: String,
     domid: u32,
 }
 
 impl Xen {
 
-    pub fn new(domid: u32) -> Self {
-        println!("Xen driver init");
-        let xc = Xc::new();
+    pub fn new(domain_name: &String) -> Self {
+        println!("Xen driver init on {}", domain_name);
+        let xc = Xc::new().unwrap();
         let xen = Xen {
             xc: xc,
-            domid: domid
+            dom_name: domain_name.clone(),
+            domid: 0,
         };
         xen
     }

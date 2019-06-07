@@ -9,12 +9,14 @@ use microvmi::api::DriverType;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let domid = args[1].parse::<u32>().unwrap();
-    println!("hello world !");
-
+    if args.len() != 2 {
+        println!("Usage: {} <domain_id>", args[0]);
+        return;
+    }
+    let domain_name = &args[1];
 
     let drv_type = DriverType::Xen;
-    let mut drv: Box<Introspectable> = microvmi::init(drv_type, domid);
+    let mut drv: Box<Introspectable> = microvmi::init(drv_type, domain_name);
 
     // play with pause and resume
     println!("pausing the VM");
