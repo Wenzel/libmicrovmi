@@ -12,8 +12,11 @@ impl Xen {
 
     pub fn new(domid: u32) -> Self {
         println!("Xen driver init !");
-        let xen = Xen { xc: Xc::new(), domid: domid };
-        xen.xc.monitor_enable(domid);
+        let xc = Xc::new();
+        let xen = Xen {
+            xc: xc,
+            domid: domid
+        };
         xen
     }
 }
@@ -21,7 +24,6 @@ impl Xen {
 impl api::Introspectable for Xen {
     fn close(&mut self) {
         println!("Xen driver close !");
-        self.xc.monitor_disable(self.domid);
         self.xc.close();
     }
 }
