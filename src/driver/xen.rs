@@ -1,6 +1,8 @@
 extern crate xenctrl;
+extern crate xenstore;
 use crate::api;
 use xenctrl::Xc;
+use xenstore::{Xs, XBTransaction, XsOpenFlags};
 
 // unit struct
 pub struct Xen {
@@ -13,6 +15,11 @@ impl Xen {
 
     pub fn new(domain_name: &String) -> Self {
         println!("Xen driver init on {}", domain_name);
+        // find domain id
+        let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
+        for x in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
+            println!("found domain: {}", x);
+        }
         let xc = Xc::new().unwrap();
         let xen = Xen {
             xc: xc,
