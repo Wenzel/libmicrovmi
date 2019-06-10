@@ -5,6 +5,7 @@ use xenctrl::Xc;
 use xenstore::{Xs, XBTransaction, XsOpenFlags};
 
 // unit struct
+#[derive(Debug)]
 pub struct Xen {
     xc: Xc,
     dom_name: String,
@@ -15,17 +16,29 @@ impl Xen {
 
     pub fn new(domain_name: &String) -> Self {
         println!("Xen driver init on {}", domain_name);
-        // find domain id
+        // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
-        for x in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
-            println!("found domain: {}", x);
+        let mut found: bool = false;
+        let mut cand_domid = 0;
+        for domid_str in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
+            let name_path = format!("/local/domain/{}/name", domid_str);
+            let candidate = xs.read(XBTransaction::Null, name_path);
+            println!("Xenstore entry: [{}] {}", domid_str, candidate);
+            if candidate == *domain_name {
+                cand_domid = domid_str.parse::<u32>().unwrap();
+                found = true;
+            }
+        }
+        if !found {
+            panic!("Cannot find domain {}", domain_name);
         }
         let xc = Xc::new().unwrap();
         let xen = Xen {
             xc: xc,
             dom_name: domain_name.clone(),
-            domid: 0,
+            domid: cand_domid,
         };
+        println!("Initialized {:#?}", xen);
         xen
     }
 
