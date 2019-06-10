@@ -10,7 +10,7 @@ use microvmi::api::DriverType;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        println!("Usage: {} <domain_id>", args[0]);
+        println!("Usage: {} <vm_name>", args[0]);
         return;
     }
     let domain_name = &args[1];
