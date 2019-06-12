@@ -3,12 +3,21 @@ use crate::api;
 // unit struct
 pub struct Dummy;
 
+impl Dummy {
+
+    pub fn new(domain_name: &String) -> Self {
+        println!("dummy driver init on {}", domain_name);
+        let drv = Dummy { };
+        return drv;
+    }
+}
+
 impl api::Introspectable for Dummy {
-    fn new(&self) {
-        println!("dummy driver init !");
+    fn pause(&self) {
+        println!("dummy pause");
     }
 
-    fn close(&self) {
-        println!("dummy driver close !");
+    fn resume(&self) {
+        println!("dummy resume");
     }
 }
