@@ -44,7 +44,6 @@ impl Xen {
 
     fn close(&mut self) {
         println!("Xen driver close");
-        self.xc.close().unwrap();
     }
 }
 
