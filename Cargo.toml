@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 xenctrl = { version = "0.1.0", path = "../xenctrl" }
 xenstore = { version = "0.1.0", path = "../xenstore" }
+xenforeignmemory = { version = "0.1.0", path = "../xenforeignmemory" }
+libc = "0.2.58"
