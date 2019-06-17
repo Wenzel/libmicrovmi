@@ -13,6 +13,11 @@ impl Dummy {
 }
 
 impl api::Introspectable for Dummy {
+    fn read_physical(&self, paddr: u64, count: u32) -> Result<Vec<u8>,&str> {
+        println!("dummy read physical - @{}, count: {}", paddr, count);
+        Ok(Vec::new())
+    }
+
     fn pause(&self) {
         println!("dummy pause");
     }
