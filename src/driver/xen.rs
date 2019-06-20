@@ -87,6 +87,11 @@ impl api::Introspectable for Xen {
         Ok(())
     }
 
+    fn get_max_physical_addr(&self) -> Result<u64,&str> {
+        let max_gpfn = self.xc.domain_maximum_gpfn(self.domid).unwrap();
+        Ok(max_gpfn << xenctrl::PAGE_SHIFT)
+    }
+
     fn pause(&self) {
         println!("Xen driver pause");
         self.xc.domain_pause(self.domid).unwrap();

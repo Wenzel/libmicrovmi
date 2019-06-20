@@ -18,6 +18,11 @@ impl api::Introspectable for Dummy {
         Ok(())
     }
 
+    fn get_max_physical_addr(&self) -> Result<u64,&str> {
+        println!("dummy get max physical address");
+        Ok(0)
+    }
+
     fn pause(&self) {
         println!("dummy pause");
     }
