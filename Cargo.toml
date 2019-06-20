@@ -9,3 +9,7 @@ xenctrl = { version = "0.1.0", path = "../xenctrl" }
 xenstore = { version = "0.1.0", path = "../xenstore" }
 xenforeignmemory = { version = "0.1.0", path = "../xenforeignmemory" }
 libc = "0.2.58"
+
+[[bin]]
+name = "mem-dump"
+path = "src/bin/mem-dump.rs"
