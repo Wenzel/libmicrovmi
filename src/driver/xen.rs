@@ -68,7 +68,7 @@ impl api::Introspectable for Xen {
             let gfn = cur_paddr >> xenctrl::PAGE_SHIFT;
             offset = ((xenctrl::PAGE_SIZE - 1) as u64) & cur_paddr;
             // map gfn
-            let page = self.xen_fgn.map(self.domid, PROT_READ, gfn).unwrap();
+            let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
             // determine how much we can read
             if (offset + count_mut as u64) > xenctrl::PAGE_SIZE as u64 {
                 read_len = (xenctrl::PAGE_SIZE as u64) - offset;
