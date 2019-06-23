@@ -32,7 +32,7 @@ fn main() {
     let max_addr = drv.get_max_physical_addr().unwrap();
     println!("Max address @{:x}", max_addr);
     println!("Dumping physical memory to {}", dump_path.display());
-    while cur_addr < max_addr {
+    for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
         let result = drv.read_physical(cur_addr, &mut buffer);
         match result {
             Ok(()) => {
@@ -41,7 +41,6 @@ fn main() {
             },
             Err(_error) => (),
         }
-        cur_addr += PAGE_SIZE as u64;
     }
 
     println!("resuming the VM");
