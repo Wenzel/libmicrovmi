@@ -29,6 +29,23 @@ standing for `Unified` interface.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/58368164-bec30b80-7ed8-11e9-8a39-c85257cfbe38.png)
 
+## VMI API
+
+* Query and modify the VM hardware state
+    - read/write VCPU registers
+    - read/write physical memory
+* Subscribe and listen to hardware events
+    - mov to/from CR3/CR8
+    - mov to/from DRx
+    - mov to/from MSR
+    - interrupts
+    - singlestep (MTF)
+    - SLAT (Second Level Address Translation) events
+        - `r/w/x` event on a page
+        - dynamically switch to multiple memory _views_ using alternate SLAT pointers
+- Utilities
+    - pagefault injection
+
 ## Requirements
 
 - `cargo`
