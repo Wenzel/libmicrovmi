@@ -4,11 +4,15 @@ version = "0.1.0"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 
+[features]
+# Xen driver
+xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
+
 [dependencies]
-xenctrl = { version = "0.1.0", path = "../xenctrl" }
-xenstore = { version = "0.1.0", path = "../xenstore" }
-xenforeignmemory = { version = "0.1.0", path = "../xenforeignmemory" }
-libc = "0.2.58"
+xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
+xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
+xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
+libc = { version = "0.2.58", optional = true }
 
 [[bin]]
 name = "mem-dump"
