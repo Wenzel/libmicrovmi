@@ -1,5 +1,6 @@
 # libmicrovmi
 
+[![Build Status](https://travis-ci.com/Wenzel/libmicrovmi.svg?branch=master)](https://travis-ci.com/Wenzel/libmicrovmi)
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
