@@ -1,0 +1,16 @@
+language: rust
+rust:
+  - stable
+
+sudo: required
+matrix:
+  include:
+    - name: "Dummy"
+      script:
+        - cargo build
+
+    - name: "Xen"
+      install:
+        - sudo apt-get install libxen-dev
+      script:
+        - cargo build --features xen
