@@ -1,7 +1,3 @@
-extern crate xenctrl;
-extern crate xenstore;
-extern crate xenforeignmemory;
-extern crate libc;
 use crate::api;
 use xenctrl::Xc;
 use xenstore::{Xs, XBTransaction, XsOpenFlags};
@@ -58,7 +54,6 @@ impl api::Introspectable for Xen {
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),&str> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
-        let mut read_len: u64;
         let mut count_mut: u64 = buf.len() as u64;
         let mut buf_offset: u64 = 0;
         while count_mut > 0 {
@@ -70,11 +65,11 @@ impl api::Introspectable for Xen {
             // map gfn
             let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
             // determine how much we can read
-            if (offset + count_mut as u64) > xenctrl::PAGE_SIZE as u64 {
-                read_len = (xenctrl::PAGE_SIZE as u64) - offset;
+            let read_len = if (offset + count_mut as u64) > xenctrl::PAGE_SIZE as u64 {
+                (xenctrl::PAGE_SIZE as u64) - offset
             } else {
-                read_len = buf.len() as u64;
-            }
+                buf.len() as u64
+            };
 
             // do the read
             buf[buf_offset as usize..].copy_from_slice(&page[..read_len as usize]);

@@ -1,5 +1,6 @@
 pub enum DriverType {
     Dummy,
+    #[cfg(feature="xen")]
     Xen,
 }
 

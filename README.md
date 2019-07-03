@@ -50,6 +50,19 @@ standing for `Unified` interface.
 
 - `cargo`
 
+## Build
+
+To build the library, simply run
+
+    cargo build
+
+By default, only the `Dummy` driver will be available (it does nothing).
+
+To enable a driver, for example `xen`, enable the corresponding feature
+(`Cargo.toml`)
+
+    cargo build --features xen
+
 ## References
 
 - [LibVMI C library](https://github.com/libvmi/libvmi): Simplified Virtual Machine Introspection

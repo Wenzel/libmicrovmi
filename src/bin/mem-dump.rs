@@ -21,7 +21,7 @@ fn main() {
     let dump_path = Path::new(&dump_name);
     let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
 
-    let drv_type = DriverType::Xen;
+    let drv_type = DriverType::Dummy;
     let drv: Box<Introspectable> = microvmi::init(drv_type, domain_name);
 
     println!("pausing the VM");
