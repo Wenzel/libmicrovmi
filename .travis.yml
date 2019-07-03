@@ -1,6 +1,7 @@
 language: rust
 rust:
   - stable
+dist: xenial
 
 sudo: required
 matrix:
