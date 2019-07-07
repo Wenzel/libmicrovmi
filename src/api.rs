@@ -2,6 +2,8 @@ pub enum DriverType {
     Dummy,
     #[cfg(feature="xen")]
     Xen,
+    #[cfg(feature="kvm")]
+    KVM,
 }
 
 pub trait Introspectable {
