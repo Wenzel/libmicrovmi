@@ -1,12 +1,13 @@
 use crate::api;
-use xenctrl::Xc;
+use xenctrl::XenControl;
+use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenstore::{Xs, XBTransaction, XsOpenFlags};
 use libc::PROT_READ;
 
 // unit struct
 #[derive(Debug)]
 pub struct Xen {
-    xc: Xc,
+    xc: XenControl,
     xen_fgn: xenforeignmemory::XenForeignMem,
     dom_name: String,
     domid: u32,
@@ -32,7 +33,7 @@ impl Xen {
         if !found {
             panic!("Cannot find domain {}", domain_name);
         }
-        let xc = Xc::new().unwrap();
+        let xc = XenControl::new(None, None, 0).unwrap();
         let xen_fgn = xenforeignmemory::XenForeignMem::new().unwrap();
         let xen = Xen {
             xc: xc,
@@ -60,13 +61,13 @@ impl api::Introspectable for Xen {
             // compute new paddr
             cur_paddr = paddr + offset;
             // get the current gfn
-            let gfn = cur_paddr >> xenctrl::PAGE_SHIFT;
-            offset = ((xenctrl::PAGE_SIZE - 1) as u64) & cur_paddr;
+            let gfn = cur_paddr >> PAGE_SHIFT;
+            offset = ((PAGE_SIZE - 1) as u64) & cur_paddr;
             // map gfn
             let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
             // determine how much we can read
-            let read_len = if (offset + count_mut as u64) > xenctrl::PAGE_SIZE as u64 {
-                (xenctrl::PAGE_SIZE as u64) - offset
+            let read_len = if (offset + count_mut as u64) > PAGE_SIZE as u64 {
+                (PAGE_SIZE as u64) - offset
             } else {
                 buf.len() as u64
             };
@@ -84,7 +85,7 @@ impl api::Introspectable for Xen {
 
     fn get_max_physical_addr(&self) -> Result<u64,&str> {
         let max_gpfn = self.xc.domain_maximum_gpfn(self.domid).unwrap();
-        Ok(max_gpfn << xenctrl::PAGE_SHIFT)
+        Ok(max_gpfn << PAGE_SHIFT)
     }
 
     fn pause(&self) {
