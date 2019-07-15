@@ -1,14 +1,21 @@
 use crate::api;
+use kvmi::{KVMi};
 
 // unit struct
 #[derive(Debug)]
-pub struct Kvm;
+pub struct Kvm {
+    kvmi: KVMi,
+}
 
 impl Kvm {
 
-    pub fn new(domain_name: &String) -> Self {
+    pub fn new(domain_name: &str) -> Self {
         println!("KVM driver init on {}", domain_name);
-        Kvm
+        let socket_path = "/tmp/introspector";
+        let kvm = Kvm {
+            kvmi: KVMi::new(socket_path),
+        };
+        kvm
     }
 
     fn close(&mut self) {
