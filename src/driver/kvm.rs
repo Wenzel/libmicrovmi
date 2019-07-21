@@ -1,6 +1,5 @@
 use crate::api;
-use kvmi::{KVMi};
-use std::io::Error;
+use kvmi::{KVMi, KVMiEventType};
 
 // unit struct
 #[derive(Debug)]
@@ -43,8 +42,24 @@ impl api::Introspectable for Kvm {
         println!("expected pause events: {}", self.expect_pause_ev);
     }
 
-    fn resume(&self) {
+    fn resume(&mut self) {
         println!("KVM driver resume");
+        while self.expect_pause_ev > 0 {
+            // wait
+            self.kvmi.wait_event(1000)
+                .expect("Failed to wait for next KVMi event");
+            // pop
+            let kvmi_event = self.kvmi.pop_event()
+                .expect("Failed to pop KVMi event");
+            match kvmi_event.kind {
+                KVMiEventType::PauseVCPU => {
+                    println!("Received Pause Event");
+                    self.expect_pause_ev -= 1;
+                    // TODO: reply continue
+                }
+                _ => panic!("Unexpected {:?} event type while resuming VM", kvmi_event.kind),
+            }
+        }
     }
 
 }
