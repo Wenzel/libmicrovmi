@@ -27,7 +27,7 @@ impl Kvm {
 
 impl api::Introspectable for Kvm {
 
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),&str> {
+    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(),&str> {
         Ok(())
     }
 

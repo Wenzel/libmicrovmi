@@ -28,7 +28,6 @@ fn main() {
     drv.pause();
 
     let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
-    let mut cur_addr: u64 = 0;
     let max_addr = drv.get_max_physical_addr().unwrap();
     println!("Max address @{:x}", max_addr);
     println!("Dumping physical memory to {}", dump_path.display());
