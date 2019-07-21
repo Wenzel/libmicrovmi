@@ -1,4 +1,5 @@
 use crate::api;
+use std::error::Error;
 
 // unit struct
 pub struct Dummy;
@@ -23,7 +24,7 @@ impl api::Introspectable for Dummy {
         Ok(0)
     }
 
-    fn pause(&self) {
+    fn pause(&mut self) {
         println!("dummy pause");
     }
 
