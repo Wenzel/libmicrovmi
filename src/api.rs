@@ -17,5 +17,5 @@ pub trait Introspectable {
     fn pause(&mut self);
 
     // resume the VM
-    fn resume(&self);
+    fn resume(&mut self);
 }
