@@ -55,7 +55,8 @@ impl api::Introspectable for Kvm {
                 KVMiEventType::PauseVCPU => {
                     println!("Received Pause Event");
                     self.expect_pause_ev -= 1;
-                    // TODO: reply continue
+                    self.kvmi.reply_continue(&kvmi_event)
+                        .expect("Failed to send reply");
                 }
                 _ => panic!("Unexpected {:?} event type while resuming VM", kvmi_event.kind),
             }
