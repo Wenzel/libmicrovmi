@@ -1,10 +1,12 @@
 use crate::api;
 use kvmi::{KVMi};
+use std::io::Error;
 
 // unit struct
 #[derive(Debug)]
 pub struct Kvm {
     kvmi: KVMi,
+    expect_pause_ev: u32,
 }
 
 impl Kvm {
@@ -14,6 +16,7 @@ impl Kvm {
         let socket_path = "/tmp/introspector";
         let kvm = Kvm {
             kvmi: KVMi::new(socket_path),
+            expect_pause_ev: 0,
         };
         kvm
     }
@@ -33,8 +36,11 @@ impl api::Introspectable for Kvm {
         Ok(0)
     }
 
-    fn pause(&self) {
+    fn pause(&mut self) {
         println!("KVM driver pause");
+        self.expect_pause_ev = self.kvmi.pause()
+            .expect("Failed to pause KVM VCPUs");
+        println!("expected pause events: {}", self.expect_pause_ev);
     }
 
     fn resume(&self) {
