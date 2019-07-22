@@ -27,8 +27,11 @@ impl Kvm {
 
 impl api::Introspectable for Kvm {
 
-    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(),&str> {
-        Ok(())
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),&str> {
+        match self.kvmi.read_physical(paddr, buf) {
+            Err(_) => Err("Failed to read physical memory"),
+            Ok(_) => Ok(()),
+        }
     }
 
     fn get_max_physical_addr(&self) -> Result<u64,&str> {
