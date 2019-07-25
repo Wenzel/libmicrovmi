@@ -23,11 +23,11 @@ impl api::Introspectable for Dummy {
         Ok(0)
     }
 
-    fn pause(&self) {
+    fn pause(&mut self) {
         println!("dummy pause");
     }
 
-    fn resume(&self) {
+    fn resume(&mut self) {
         println!("dummy resume");
     }
 }

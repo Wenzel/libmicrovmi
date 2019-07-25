@@ -2,6 +2,8 @@ pub enum DriverType {
     Dummy,
     #[cfg(feature="xen")]
     Xen,
+    #[cfg(feature="kvm")]
+    KVM,
 }
 
 pub trait Introspectable {
@@ -12,8 +14,8 @@ pub trait Introspectable {
     fn get_max_physical_addr(&self) -> Result<u64,&str>;
 
     // pause the VM
-    fn pause(&self);
+    fn pause(&mut self);
 
     // resume the VM
-    fn resume(&self);
+    fn resume(&mut self);
 }
