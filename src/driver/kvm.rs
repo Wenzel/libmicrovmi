@@ -43,6 +43,11 @@ impl api::Introspectable for Kvm {
 
     fn pause(&mut self) {
         println!("KVM driver pause");
+        // already paused ?
+        if self.expect_pause_ev > 0 {
+            ()
+        }
+
         self.expect_pause_ev = self.kvmi.pause()
             .expect("Failed to pause KVM VCPUs");
         println!("expected pause events: {}", self.expect_pause_ev);
@@ -50,6 +55,11 @@ impl api::Introspectable for Kvm {
 
     fn resume(&mut self) {
         println!("KVM driver resume");
+        // already resumed ?
+        if self.expect_pause_ev == 0{
+            ()
+        }
+
         while self.expect_pause_ev > 0 {
             // wait
             self.kvmi.wait_event(1000)
