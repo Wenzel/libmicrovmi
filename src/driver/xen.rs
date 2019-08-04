@@ -1,3 +1,4 @@
+use std::error::Error;
 use crate::api;
 use xenctrl::XenControl;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
@@ -52,7 +53,7 @@ impl Xen {
 
 impl api::Introspectable for Xen {
 
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),&str> {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<Error>> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
@@ -83,19 +84,19 @@ impl api::Introspectable for Xen {
         Ok(())
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64,&str> {
-        let max_gpfn = self.xc.domain_maximum_gpfn(self.domid).unwrap();
+    fn get_max_physical_addr(&self) -> Result<u64,Box<Error>> {
+        let max_gpfn = self.xc.domain_maximum_gpfn(self.domid)?;
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
-    fn pause(&self) {
+    fn pause(&mut self) -> Result<(),Box<Error>> {
         println!("Xen driver pause");
-        self.xc.domain_pause(self.domid).unwrap();
+        Ok(self.xc.domain_pause(self.domid)?)
     }
 
-    fn resume(&self) {
+    fn resume(&mut self) -> Result<(),Box<Error>> {
         println!("Xen driver resume");
-        self.xc.domain_unpause(self.domid).unwrap();
+        Ok(self.xc.domain_unpause(self.domid)?)
     }
 
 }
