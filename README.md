@@ -40,11 +40,16 @@ standing for `Unified` interface.
     - mov to/from MSR
     - interrupts
     - singlestep (MTF)
+    - hypercalls
+    - descriptors
     - SLAT (Second Level Address Translation) events
         - `r/w/x` event on a page
         - dynamically switch to multiple memory _views_ using alternate SLAT pointers
 - Utilities
+    - foreign mapping
     - pagefault injection
+
+For more detailed information, please check the [Wiki](https://github.com/Wenzel/libmicrovmi/wiki)
 
 ## Requirements
 
