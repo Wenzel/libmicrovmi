@@ -9,6 +9,7 @@ use driver::xen::Xen;
 #[cfg(feature="kvm")]
 use driver::kvm::Kvm;
 
+#[allow(unreachable_code)]
 pub fn init(domain_name: &String, driver_type: Option<DriverType>) -> Box<Introspectable> {
     println!("vmi init");
 
