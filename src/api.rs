@@ -1,5 +1,7 @@
 use std::error::Error;
 
+
+#[derive(Debug)]
 pub enum DriverType {
     Dummy,
     #[cfg(feature="xen")]
