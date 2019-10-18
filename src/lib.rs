@@ -13,6 +13,8 @@ use driver::kvm::Kvm;
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
+#[cfg(feature="hyper-v")]
+use driver::hyperv::HyperV;
 
 #[allow(unreachable_code)]
 pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Introspectable> {
@@ -26,6 +28,8 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             DriverType::VirtualBox => Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "kvm")]
             DriverType::KVM => Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>,
+            #[cfg(feature="hyper-v")]
+            DriverType::HyperV => Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>,
         },
         None => {
             // test Xen
@@ -43,6 +47,11 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             #[cfg(feature = "kvm")]
             {
                 return Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>;
+            }
+
+            // test Hyper-V
+            #[cfg(feature="hyper-v")] {
+                return Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // return Dummy if no other driver has been compiled

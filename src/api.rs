@@ -9,6 +9,8 @@ pub enum DriverType {
     KVM,
     #[cfg(feature = "virtualbox")]
     VirtualBox,
+	#[cfg(feature="hyper-v")]
+	HyperV
 }
 
 #[derive(Debug)]
