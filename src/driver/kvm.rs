@@ -46,7 +46,8 @@ impl api::Introspectable for Kvm {
             ()
         }
 
-        self.expect_pause_ev = self.kvmi.pause()?;
+        self.kvmi.pause()?;
+        self.expect_pause_ev = self.kvmi.get_vcpu_count()?;
         println!("expected pause events: {}", self.expect_pause_ev);
         Ok(())
     }
