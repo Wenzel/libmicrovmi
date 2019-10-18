@@ -7,6 +7,8 @@ pub enum DriverType {
     Xen,
     #[cfg(feature="kvm")]
     KVM,
+	#[cfg(feature="hyper-v")]
+	HyperV
 }
 
 #[derive(Debug)]

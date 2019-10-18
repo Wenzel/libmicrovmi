@@ -3,3 +3,5 @@ pub mod dummy;
 pub mod xen;
 #[cfg(feature="kvm")]
 pub mod kvm;
+#[cfg(feature="hyper-v")]
+pub mod hyperv;

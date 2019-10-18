@@ -9,6 +9,8 @@ edition = "2018"
 xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
 # KVM driver
 kvm = ["kvmi"]
+# Hyper-v driver
+hyper-v = []
 
 [dependencies]
 log = "0.4.8"
