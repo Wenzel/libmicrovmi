@@ -19,7 +19,7 @@ xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
 kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
 libc = { version = "0.2.58", optional = true }
-winapi = { version = "0.3.8", features = ["tlhelp32", "winnt"], optional = true }
+winapi = { version = "0.3.8", features = ["tlhelp32", "winnt", "handleapi"], optional = true }
 
 [dev-dependencies]
 env_logger = "0.7.1"
