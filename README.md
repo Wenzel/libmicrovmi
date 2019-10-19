@@ -106,14 +106,17 @@ let drv_type = DriverType::Dummy;
 // init library
 let mut drv: Box<dyn Introspectable> = microvmi::init(drv_type, domain_name);
 // pause VM
-drv.pause().expect("Failed to pause VM");
+drv.pause()
+    .expect("Failed to pause VM");
 // get max physical address
-let max_addr = drv.get_max_physical_addr().unwrap();
+let max_addr = drv.get_max_physical_addr()
+                    .expect("Failed to get max physical address");
 // read physical memory
 let mut buffer: [u8; 4096] = [0; 4096];
 let result = drv.read_physical(0x804d7000, &mut buffer);
 // resume VM
-drv.resume().expect("Failed to resume VM");
+drv.resume()
+    .expect("Failed to resume VM");
 ~~~
 
 ## References
