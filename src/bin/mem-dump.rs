@@ -22,7 +22,7 @@ fn main() {
     let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
 
     let drv_type = DriverType::Dummy;
-    let mut drv: Box<Introspectable> = microvmi::init(drv_type, domain_name);
+    let mut drv: Box<dyn Introspectable> = microvmi::init(drv_type, domain_name);
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
