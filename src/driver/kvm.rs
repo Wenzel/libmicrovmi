@@ -28,18 +28,18 @@ impl Kvm {
 
 impl api::Introspectable for Kvm {
 
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<Error>> {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64,Box<Error>> {
+    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
         // No API in KVMi at the moment
         // fake 512MB
         let max_addr = 1024 * 1024 * 512;
         Ok(max_addr)
     }
 
-    fn pause(&mut self) -> Result<(),Box<Error>> {
+    fn pause(&mut self) -> Result<(),Box<dyn Error>> {
         println!("KVM driver pause");
         // already paused ?
         if self.expect_pause_ev > 0 {
@@ -52,7 +52,7 @@ impl api::Introspectable for Kvm {
         Ok(())
     }
 
-    fn resume(&mut self) -> Result<(),Box<Error>> {
+    fn resume(&mut self) -> Result<(),Box<dyn Error>> {
         println!("KVM driver resume");
         // already resumed ?
         if self.expect_pause_ev == 0{
