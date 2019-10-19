@@ -8,7 +8,10 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [VMI API](#vmi-api)
 - [Requirements](#requirements)
+- [Build](#build)
+- [Example](#example)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
 - [License](#license)
@@ -53,6 +56,7 @@ For more detailed information, please check the [Wiki](https://github.com/Wenzel
 
 ## Requirements
 
+- `Rust` stable
 - `cargo`
 
 ## Build
@@ -67,6 +71,50 @@ To enable a driver, for example `xen`, enable the corresponding feature
 (`Cargo.toml`)
 
     cargo build --features xen
+
+## Example
+
+### mem-dump
+
+A small binary is available to demonstrate what the `libmicrovmi` can do: `mem-dump`
+
+Edit `src/bin/mem-dump.rs` and replace the `Dummy` driver type by the one you
+want.
+
+(hypervisor autodetection is not implemented yet)
+
+For example with Xen
+~~~Rust
+// replace
+let drv_type = DriverType::Dummy;
+// by
+let drv_type = DriverType::Xen;
+~~~
+
+~~~
+$ cargo build --features xen
+$ ./target/debug/mem-dump winxp
+~~~
+
+A memory dump should have been written in `winxp.dump`.
+
+### API example
+
+~~~Rust
+// select drive type (Dummy, Xen, KVM, ...)
+let drv_type = DriverType::Dummy;
+// init library
+let mut drv: Box<dyn Introspectable> = microvmi::init(drv_type, domain_name);
+// pause VM
+drv.pause().expect("Failed to pause VM");
+// get max physical address
+let max_addr = drv.get_max_physical_addr().unwrap();
+// read physical memory
+let mut buffer: [u8; 4096] = [0; 4096];
+let result = drv.read_physical(0x804d7000, &mut buffer);
+// resume VM
+drv.resume().expect("Failed to resume VM");
+~~~
 
 ## References
 
