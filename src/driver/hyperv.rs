@@ -1,6 +1,7 @@
 use std::error::Error;
 use crate::api;
-
+use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS};
+use winapi::um::winnt::HANDLE;
 
 // unit struct
 #[derive(Debug)]
@@ -12,7 +13,11 @@ impl HyperV {
 
     pub fn new(domain_name: &str) -> Self {
         println!("HyperV driver init on {}", domain_name);
-        let socket_path = "/tmp/introspector";
+        // snapshot
+        let snapshot_handle: HANDLE = unsafe {
+            CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        };
+
         let hyperv = HyperV {
 			a: 0
         };
