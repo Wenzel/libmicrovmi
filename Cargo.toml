@@ -15,7 +15,7 @@ kvm = ["kvmi"]
 # VirtualBox driver
 virtualbox = ["fdp"]
 # Hyper-v driver
-hyper-v = []
+hyper-v = ["winapi"]
 
 
 [dependencies]
@@ -26,6 +26,7 @@ xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
 kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
 fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
+winapi = { version = "0.3.8", features = ["tlhelp32"], optional = true }
 
 [dev-dependencies]
 env_logger = "0.7.1"
