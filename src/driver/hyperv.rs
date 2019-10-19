@@ -48,3 +48,9 @@ impl api::Introspectable for HyperV {
     }
 
 }
+
+impl Drop for HyperV {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
