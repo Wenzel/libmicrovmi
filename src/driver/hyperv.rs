@@ -4,9 +4,10 @@ use std::convert::TryInto;
 
 use crate::api;
 use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, Process32FirstW, Process32NextW, PROCESSENTRY32W};
-use winapi::um::winnt::{HANDLE, WCHAR};
+use winapi::um::winnt::HANDLE;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::shared::minwindef::{TRUE, FALSE};
+use widestring::U16CString;
 
 // unit struct
 #[derive(Debug)]
@@ -34,23 +35,19 @@ impl HyperV {
         proc_entry.dwSize = mem::size_of::<PROCESSENTRY32W>().try_into().unwrap();
         
         // get first process
-        let mut res = unsafe {
+        let res = unsafe {
             Process32FirstW(snapshot_handle, &mut proc_entry)
         };
         if res != TRUE {
             panic!("Process32FirstW failed !");
         }
 
-        //let exe_file = U16String::from_ptr(proc_entry.szExeFile, 260);
-        let mut exe_file = String::from_utf16_lossy(&proc_entry.szExeFile);
-        println!("process: {}", exe_file);
-
+        let vmwp_name: U16CString = U16CString::from_str("vmwp.exe").unwrap();
         while unsafe { Process32NextW(snapshot_handle, &mut proc_entry) } != FALSE
         {
             // find vmwp.exe
-            exe_file = String::from_utf16_lossy(&proc_entry.szExeFile);
-            println!("process: {}", exe_file);
-            if (exe_file == "vmwp.exe") {
+            let exe_file = unsafe { U16CString::from_ptr_str(&proc_entry.szExeFile as *const u16) };
+            if exe_file == vmwp_name {
                 println!("found a VM process !");
             }
         }
