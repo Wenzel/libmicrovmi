@@ -30,7 +30,17 @@ It doesn't aim to **replace** `libvmi`, since it doesn't implement features like
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
 
-![libmicrovmi_image](https://user-images.githubusercontent.com/964610/58368164-bec30b80-7ed8-11e9-8a39-c85257cfbe38.png)
+The grand goal is to be the foundation for a VMI abstraction library that will
+be
+- multi-hypervisor
+- multi-emulator
+- cross-plaform
+- high-level
+
+So that it provides the necessary abstractions and semantic context to let
+developers focus on building VMI apps.
+
+![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
 ## VMI API
 
