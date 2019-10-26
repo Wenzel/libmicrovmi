@@ -15,3 +15,11 @@ matrix:
         - sudo apt-get install libxen-dev
       script:
         - cargo build --features xen
+
+    - name: "KVM"
+      install:
+        - sudo apt-get install git
+        - git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
+        - cd kvm/tools/kvm/kvmi && make && sudo cp -rv include/ /usr/local && sudo cp libkvmi.so /usr/local/lib
+      script:
+        - cargo build --features kvm
