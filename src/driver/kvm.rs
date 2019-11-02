@@ -33,9 +33,9 @@ impl api::Introspectable for Kvm {
     }
 
     fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
-        // No API in KVMi at the moment
-        // fake 512MB
-        let max_addr = 1024 * 1024 * 512;
+        let max_gfn = self.kvmi.get_maximum_gfn()?;
+        println!("max gfn {:x}", max_gfn);
+        let max_addr = max_gfn << 12;
         Ok(max_addr)
     }
 
