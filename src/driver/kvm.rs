@@ -14,11 +14,10 @@ impl Kvm {
     pub fn new(domain_name: &str) -> Self {
         println!("KVM driver init on {}", domain_name);
         let socket_path = "/tmp/introspector";
-        let kvm = Kvm {
+        Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-        };
-        kvm
+        }
     }
 
     fn close(&mut self) {
@@ -43,7 +42,7 @@ impl api::Introspectable for Kvm {
         println!("KVM driver pause");
         // already paused ?
         if self.expect_pause_ev > 0 {
-            ()
+            return Ok(());
         }
 
         self.kvmi.pause()?;
@@ -55,8 +54,8 @@ impl api::Introspectable for Kvm {
     fn resume(&mut self) -> Result<(),Box<dyn Error>> {
         println!("KVM driver resume");
         // already resumed ?
-        if self.expect_pause_ev == 0{
-            ()
+        if self.expect_pause_ev == 0 {
+            return Ok(());
         }
 
         while self.expect_pause_ev > 0 {

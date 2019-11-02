@@ -16,7 +16,7 @@ pub struct Xen {
 
 impl Xen {
 
-    pub fn new(domain_name: &String) -> Self {
+    pub fn new(domain_name: &str) -> Self {
         println!("Xen driver init on {}", domain_name);
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
@@ -37,9 +37,9 @@ impl Xen {
         let xc = XenControl::new(None, None, 0).unwrap();
         let xen_fgn = xenforeignmemory::XenForeignMem::new().unwrap();
         let xen = Xen {
-            xc: xc,
-            xen_fgn: xen_fgn,
-            dom_name: domain_name.clone(),
+            xc,
+            xen_fgn,
+            dom_name: domain_name.to_string(),
             domid: cand_domid,
         };
         println!("Initialized {:#?}", xen);
@@ -63,12 +63,12 @@ impl api::Introspectable for Xen {
             cur_paddr = paddr + offset;
             // get the current gfn
             let gfn = cur_paddr >> PAGE_SHIFT;
-            offset = ((PAGE_SIZE - 1) as u64) & cur_paddr;
+            offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
             let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
             // determine how much we can read
-            let read_len = if (offset + count_mut as u64) > PAGE_SIZE as u64 {
-                (PAGE_SIZE as u64) - offset
+            let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+                u64::from(PAGE_SIZE) - offset
             } else {
                 buf.len() as u64
             };

@@ -9,7 +9,7 @@ use driver::xen::Xen;
 #[cfg(feature="kvm")]
 use driver::kvm::Kvm;
 
-pub fn init(driver_type: DriverType, domain_name: &String) -> Box<dyn Introspectable> {
+pub fn init(driver_type: DriverType, domain_name: &str) -> Box<dyn Introspectable> {
     println!("vmi init");
 
     match driver_type {

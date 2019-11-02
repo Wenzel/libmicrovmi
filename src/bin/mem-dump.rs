@@ -35,8 +35,7 @@ fn main() {
         let result = drv.read_physical(cur_addr, &mut buffer);
         match result {
             Ok(()) => {
-                dump_file.write(&buffer).expect("failed to write to file");
-                ()
+                dump_file.write_all(&buffer).expect("failed to write to file");
             },
             Err(_error) => (),
         }
