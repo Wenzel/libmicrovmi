@@ -6,10 +6,9 @@ pub struct Dummy;
 
 impl Dummy {
 
-    pub fn new(domain_name: &String) -> Self {
+    pub fn new(domain_name: &str) -> Self {
         println!("dummy driver init on {}", domain_name);
-        let drv = Dummy { };
-        return drv;
+        Dummy
     }
 }
 
