@@ -89,7 +89,7 @@ To enable a driver, for example `xen`, enable the corresponding feature
 
 A small binary is available to demonstrate what the `libmicrovmi` can do: `mem-dump`
 
-Edit `src/bin/mem-dump.rs` and replace the `Dummy` driver type by the one you
+Edit `examples/mem-dump.rs` and replace the `Dummy` driver type by the one you
 want.
 
 (hypervisor autodetection is not implemented yet)
@@ -104,7 +104,7 @@ let drv_type = DriverType::Xen;
 
 ~~~
 $ cargo build --features xen
-$ ./target/debug/mem-dump winxp
+$ cargo run --example mem-dump winxp
 ~~~
 
 A memory dump should have been written in `winxp.dump`.
