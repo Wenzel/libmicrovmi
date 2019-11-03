@@ -17,7 +17,7 @@ pub struct Xen {
 impl Xen {
 
     pub fn new(domain_name: &str) -> Self {
-        debug!("Xen driver init on {}", domain_name);
+        debug!("init on {}", domain_name);
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
         let mut found: bool = false;
@@ -47,7 +47,7 @@ impl Xen {
     }
 
     fn close(&mut self) {
-        debug!("Xen driver close");
+        debug!("close");
     }
 }
 
@@ -90,12 +90,12 @@ impl api::Introspectable for Xen {
     }
 
     fn pause(&mut self) -> Result<(),Box<dyn Error>> {
-        debug!("Xen driver pause");
+        debug!("pause");
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
     fn resume(&mut self) -> Result<(),Box<dyn Error>> {
-        debug!("Xen driver resume");
+        debug!("resume");
         Ok(self.xc.domain_unpause(self.domid)?)
     }
 

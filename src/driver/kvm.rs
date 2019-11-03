@@ -13,7 +13,7 @@ impl Kvm {
 
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
-        debug!("KVM driver init on {} (socket: {})", domain_name, socket_path);
+        debug!("init on {} (socket: {})", domain_name, socket_path);
         Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
@@ -21,7 +21,7 @@ impl Kvm {
     }
 
     fn close(&mut self) {
-        debug!("KVM driver close");
+        debug!("close");
     }
 }
 
@@ -64,7 +64,7 @@ impl Introspectable for Kvm {
     }
 
     fn pause(&mut self) -> Result<(),Box<dyn Error>> {
-        debug!("KVM driver pause");
+        debug!("pause");
         // already paused ?
         if self.expect_pause_ev > 0 {
             return Ok(());
@@ -77,7 +77,7 @@ impl Introspectable for Kvm {
     }
 
     fn resume(&mut self) -> Result<(),Box<dyn Error>> {
-        debug!("KVM driver resume");
+        debug!("resume");
         // already resumed ?
         if self.expect_pause_ev == 0 {
             return Ok(());
