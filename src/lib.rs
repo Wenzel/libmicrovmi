@@ -10,36 +10,36 @@ use driver::xen::Xen;
 use driver::kvm::Kvm;
 
 #[allow(unreachable_code)]
-pub fn init(domain_name: &String, driver_type: Option<DriverType>) -> Box<Introspectable> {
+pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Introspectable> {
     println!("vmi init");
 
     match driver_type {
         Some(drv_type) => match drv_type {
             DriverType::Dummy => {
-                Box::new(Dummy::new(domain_name)) as Box<Introspectable>
+                Box::new(Dummy::new(domain_name)) as Box<dyn Introspectable>
             },
             #[cfg(feature="xen")]
             DriverType::Xen => {
-                Box::new(Xen::new(domain_name)) as Box<Introspectable>
+                Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>
             },
             #[cfg(feature="kvm")]
             DriverType::KVM => {
-                Box::new(Kvm::new(domain_name)) as Box<Introspectable>
+                Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>
             },
         },
         None => {
             // test Xen
             #[cfg(feature="xen")] {
-                return Box::new(Xen::new(domain_name)) as Box<Introspectable>;
+                return Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test KVM
             #[cfg(feature="kvm")] {
-                return Box::new(Kvm::new(domain_name)) as Box<Introspectable>;
+                return Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // return Dummy if no other driver has been compiled
-            return Box::new(Dummy::new(domain_name)) as Box<Introspectable>;
+            Box::new(Dummy::new(domain_name)) as Box<dyn Introspectable>
         }
     }
 }
