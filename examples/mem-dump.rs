@@ -6,7 +6,6 @@ extern crate microvmi;
 
 // traits method can only be used if the trait is in the scope
 use microvmi::api::Introspectable;
-use microvmi::api::DriverType;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -21,8 +20,7 @@ fn main() {
     let dump_path = Path::new(&dump_name);
     let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
 
-    let drv_type = DriverType::Dummy;
-    let mut drv: Box<dyn Introspectable> = microvmi::init(drv_type, domain_name);
+    let mut drv: Box<Introspectable> = microvmi::init(domain_name, None);
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
