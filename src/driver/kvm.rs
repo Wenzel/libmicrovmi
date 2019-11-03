@@ -12,8 +12,8 @@ pub struct Kvm {
 impl Kvm {
 
     pub fn new(domain_name: &str) -> Self {
-        println!("KVM driver init on {}", domain_name);
         let socket_path = "/tmp/introspector";
+        debug!("KVM driver init on {} (socket: {})", domain_name, socket_path);
         Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
@@ -21,7 +21,7 @@ impl Kvm {
     }
 
     fn close(&mut self) {
-        println!("KVM driver close");
+        debug!("KVM driver close");
     }
 }
 
@@ -64,7 +64,7 @@ impl Introspectable for Kvm {
     }
 
     fn pause(&mut self) -> Result<(),Box<dyn Error>> {
-        println!("KVM driver pause");
+        debug!("KVM driver pause");
         // already paused ?
         if self.expect_pause_ev > 0 {
             return Ok(());
@@ -72,12 +72,12 @@ impl Introspectable for Kvm {
 
         self.kvmi.pause()?;
         self.expect_pause_ev = self.kvmi.get_vcpu_count()?;
-        println!("expected pause events: {}", self.expect_pause_ev);
+        debug!("expected pause events: {}", self.expect_pause_ev);
         Ok(())
     }
 
     fn resume(&mut self) -> Result<(),Box<dyn Error>> {
-        println!("KVM driver resume");
+        debug!("KVM driver resume");
         // already resumed ?
         if self.expect_pause_ev == 0 {
             return Ok(());
@@ -90,7 +90,7 @@ impl Introspectable for Kvm {
             let kvmi_event = self.kvmi.pop_event()?;
             match kvmi_event.kind {
                 KVMiEventType::PauseVCPU => {
-                    println!("Received Pause Event");
+                    debug!("Received Pause Event");
                     self.expect_pause_ev -= 1;
                     self.kvmi.reply_continue(&kvmi_event)?;
                 }

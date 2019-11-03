@@ -1,6 +1,9 @@
 pub mod api;
 mod driver;
 
+#[macro_use]
+extern crate log;
+
 use api::Introspectable;
 use api::DriverType;
 use driver::dummy::Dummy;
@@ -11,8 +14,7 @@ use driver::kvm::Kvm;
 
 #[allow(unreachable_code)]
 pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Introspectable> {
-    println!("vmi init");
-
+    debug!("Microvmi init");
     match driver_type {
         Some(drv_type) => match drv_type {
             DriverType::Dummy => {

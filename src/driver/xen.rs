@@ -17,7 +17,7 @@ pub struct Xen {
 impl Xen {
 
     pub fn new(domain_name: &str) -> Self {
-        println!("Xen driver init on {}", domain_name);
+        debug!("Xen driver init on {}", domain_name);
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
         let mut found: bool = false;
@@ -25,7 +25,7 @@ impl Xen {
         for domid_str in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
             let name_path = format!("/local/domain/{}/name", domid_str);
             let candidate = xs.read(XBTransaction::Null, name_path);
-            println!("Xenstore entry: [{}] {}", domid_str, candidate);
+            debug!("Xenstore entry: [{}] {}", domid_str, candidate);
             if candidate == *domain_name {
                 cand_domid = domid_str.parse::<u32>().unwrap();
                 found = true;
@@ -42,12 +42,12 @@ impl Xen {
             dom_name: domain_name.to_string(),
             domid: cand_domid,
         };
-        println!("Initialized {:#?}", xen);
+        debug!("Initialized {:#?}", xen);
         xen
     }
 
     fn close(&mut self) {
-        println!("Xen driver close");
+        debug!("Xen driver close");
     }
 }
 
@@ -90,12 +90,12 @@ impl api::Introspectable for Xen {
     }
 
     fn pause(&mut self) -> Result<(),Box<dyn Error>> {
-        println!("Xen driver pause");
+        debug!("Xen driver pause");
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
     fn resume(&mut self) -> Result<(),Box<dyn Error>> {
-        println!("Xen driver resume");
+        debug!("Xen driver resume");
         Ok(self.xc.domain_unpause(self.domid)?)
     }
 
