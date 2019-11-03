@@ -11,8 +11,12 @@ xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
 kvm = ["kvmi"]
 
 [dependencies]
+log = "0.4.8"
 xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
 kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
 libc = { version = "0.2.58", optional = true }
+
+[dev-dependencies]
+env_logger = "0.7.1"
