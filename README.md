@@ -89,22 +89,12 @@ To enable a driver, for example `xen`, enable the corresponding feature
 
 A small binary is available to demonstrate what the `libmicrovmi` can do: `mem-dump`
 
-Edit `examples/mem-dump.rs` and replace the `Dummy` driver type by the one you
-want.
+It will dump the raw memory of the specified domain in a `domain_name.dump`
+file.
 
-(hypervisor autodetection is not implemented yet)
-
-For example with Xen
-~~~Rust
-// replace
-let drv_type = DriverType::Dummy;
-// by
-let drv_type = DriverType::Xen;
+Example with the `xen` driver:
 ~~~
-
-~~~
-$ cargo build --features xen
-$ cargo run --example mem-dump winxp
+$ cargo run --features xen --example mem-dump winxp
 ~~~
 
 A memory dump should have been written in `winxp.dump`.
