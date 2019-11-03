@@ -1,6 +1,5 @@
 use std::error::Error;
 
-
 #[derive(Debug)]
 pub enum DriverType {
     Dummy,
@@ -10,6 +9,7 @@ pub enum DriverType {
     KVM,
 }
 
+#[derive(Debug)]
 pub struct X86Registers {
     pub rax: u64,
     pub rbx: u64,
@@ -31,6 +31,7 @@ pub struct X86Registers {
     pub rflags: u64,
 }
 
+#[derive(Debug)]
 pub enum Registers {
     X86(X86Registers),
 }
