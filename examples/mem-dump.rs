@@ -20,7 +20,7 @@ fn main() {
     let dump_path = Path::new(&dump_name);
     let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
 
-    let mut drv: Box<Introspectable> = microvmi::init(domain_name, None);
+    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
