@@ -69,6 +69,7 @@ For more detailed information, please check the [Wiki](https://github.com/Wenzel
 
 - `Rust` stable
 - `cargo`
+- `clang` (bindgen)
 
 ## Build
 
