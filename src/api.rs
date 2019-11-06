@@ -38,18 +38,16 @@ pub enum Registers {
 
 pub trait Introspectable {
     // read physical memory
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>>;
+    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(),Box<dyn Error>>  { unimplemented!(); }
 
     // get max physical address
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>>;
+    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>>  { unimplemented!(); }
 
-    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        unimplemented!();
-    }
+    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> { unimplemented!(); }
 
     // pause the VM
-    fn pause(&mut self) -> Result<(),Box<dyn Error>>;
+    fn pause(&mut self) -> Result<(),Box<dyn Error>> { unimplemented!(); }
 
     // resume the VM
-    fn resume(&mut self) -> Result<(),Box<dyn Error>>;
+    fn resume(&mut self) -> Result<(),Box<dyn Error>> { unimplemented!(); }
 }
