@@ -1,7 +1,5 @@
 use std::env;
 extern crate microvmi;
-#[macro_use]
-extern crate log;
 extern crate env_logger;
 
 // traits method can only be used if the trait is in the scope
