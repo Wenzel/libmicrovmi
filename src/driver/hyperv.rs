@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::mem;
 use std::convert::TryInto;
 use std::iter::Iterator;
@@ -95,22 +94,6 @@ impl HyperV {
 }
 
 impl api::Introspectable for HyperV {
-
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>> {
-        Ok(())
-    }
-
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
-        Ok(0)
-    }
-
-    fn pause(&mut self) -> Result<(),Box<dyn Error>> {
-        Ok(())
-    }
-
-    fn resume(&mut self) -> Result<(),Box<dyn Error>> {
-        Ok(())
-    }
 
 }
 
