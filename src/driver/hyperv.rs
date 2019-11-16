@@ -4,10 +4,11 @@ use std::iter::Iterator;
 
 use crate::api;
 use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, Process32FirstW, Process32NextW, PROCESSENTRY32W};
-use winapi::um::winnt::HANDLE;
+use winapi::um::winnt::{HANDLE, PVOID};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-use winapi::shared::minwindef::{TRUE, FALSE, BOOL, DWORD};
+use winapi::shared::minwindef::{TRUE, FALSE, BOOL, DWORD, ULONG};
 use widestring::U16CString;
+use ntapi::ntexapi::{NtQuerySystemInformation, SYSTEM_HANDLE_INFORMATION};
 
 // iterator over processes
 struct ProcessList {
@@ -22,7 +23,7 @@ impl ProcessList {
         let snapshot_handle = unsafe {
             CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
         };
-        println!("CreateToolHelp32Snapshot handle: {:?}", snapshot_handle);
+        debug!("CreateToolHelp32Snapshot handle: {:?}", snapshot_handle);
         if snapshot_handle == INVALID_HANDLE_VALUE {
             panic!("CreateToolHelp32Snapshot failed !");
         }
@@ -72,7 +73,7 @@ pub struct HyperV;
 impl HyperV {
 
     pub fn new(domain_name: &str) -> Self {
-        println!("HyperV driver init on {}", domain_name);
+        debug!("HyperV driver init on {}", domain_name);
         let vmwp_name: U16CString = U16CString::from_str("vmwp.exe").unwrap();
 
         let process_list = ProcessList::new();
@@ -80,16 +81,27 @@ impl HyperV {
             let exe_file = unsafe { U16CString::from_ptr_str(&proc_entry.szExeFile as *const u16) };
             let pid: DWORD = proc_entry.th32ProcessID;
             if exe_file == vmwp_name {
-                println!("Found Hyper-V VM process - PID: {}", pid);
+                debug!("Found Hyper-V VM process - PID: {}", pid);
             }
         }
+
+        let mut arr_handle: [SYSTEM_HANDLE_INFORMATION; 1000] = [unsafe { mem::MaybeUninit::<SYSTEM_HANDLE_INFORMATION>::zeroed().assume_init() }; 1000];
+        let ptr: PVOID = arr_handle.as_mut_ptr() as PVOID;
+        let size: ULONG = 1000;
+        let mut ret_len: ULONG = 0;
+        // TODO: use SYSTEM_INFORMATION_CLASS::SystemHandleInformation Enum ? howto ?
+        let status = unsafe {
+            NtQuerySystemInformation(16, ptr, size, &mut ret_len)
+        };
+
+        debug!("NtQueryInformation: {}, len: {}", status, ret_len);
 
         let hyperv = HyperV;
         hyperv
     }
 
     fn close(&mut self) {
-        println!("HyperV driver close");
+        debug!("HyperV driver close");
     }
 }
 
