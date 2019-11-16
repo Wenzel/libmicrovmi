@@ -15,7 +15,7 @@ kvm = ["kvmi"]
 # VirtualBox driver
 virtualbox = ["fdp"]
 # Hyper-v driver
-hyper-v = ["winapi", "widestring"]
+hyper-v = ["winapi", "widestring", "ntapi"]
 
 
 [dependencies]
@@ -28,6 +28,7 @@ kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
 fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
 winapi = { version = "0.3.8", features = ["tlhelp32", "winnt", "handleapi"], optional = true }
 widestring = { version = "0.4.0", optional = true }
+ntapi = { version = "0.3.3", optional = true }
 
 [dev-dependencies]
 env_logger = "0.7.1"
