@@ -29,3 +29,8 @@ matrix:
         - rustup component add clippy
       script:
         - cargo clippy --features kvm -- -D warnings
+
+    - name: "Hyper-V"
+      os: windows
+      script:
+        - cargo build --features hyper-v
