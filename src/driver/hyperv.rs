@@ -1,14 +1,17 @@
 use std::mem;
 use std::convert::TryInto;
 use std::iter::Iterator;
+use std::vec::Vec;
+use std::slice;
 
 use crate::api;
 use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, Process32FirstW, Process32NextW, PROCESSENTRY32W};
 use winapi::um::winnt::{HANDLE, PVOID};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::shared::minwindef::{TRUE, FALSE, BOOL, DWORD, ULONG};
+use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use widestring::U16CString;
-use ntapi::ntexapi::{NtQuerySystemInformation, SYSTEM_HANDLE_INFORMATION};
+use ntapi::ntexapi::{NtQuerySystemInformation, SYSTEM_HANDLE_INFORMATION, SystemHandleInformation, SYSTEM_HANDLE_TABLE_ENTRY_INFO};
 
 // iterator over processes
 struct ProcessList {
@@ -82,19 +85,38 @@ impl HyperV {
             let pid: DWORD = proc_entry.th32ProcessID;
             if exe_file == vmwp_name {
                 debug!("Found Hyper-V VM process - PID: {}", pid);
+                // find handles
+                let mut size: ULONG = 1000;
+                let mut status = STATUS_INFO_LENGTH_MISMATCH;
+                let mut array_handle: Vec<SYSTEM_HANDLE_INFORMATION> = Vec::with_capacity(size as usize);
+                let mut ret_len: ULONG = 0;
+                while status == STATUS_INFO_LENGTH_MISMATCH {
+                    array_handle = Vec::with_capacity(size as usize);
+                    let ptr: PVOID = array_handle.as_mut_ptr() as PVOID;
+                    status = unsafe {
+                        NtQuerySystemInformation(SystemHandleInformation, ptr, size, &mut ret_len)
+                    };
+                    // double size
+                    size = size * 2;
+                }
+
+                if status != STATUS_SUCCESS {
+                    panic!("NtQuerySystemInformation failed !");
+                }
+                // set vector's new len
+                unsafe { array_handle.set_len(ret_len.try_into().unwrap()) };
+
+                debug!("NtQuerySystemInformation: Handle count: {}", array_handle[0].NumberOfHandles);
+                let max_handles = array_handle[0].NumberOfHandles as usize;
+                let dyn_array: &[SYSTEM_HANDLE_TABLE_ENTRY_INFO] = unsafe { slice::from_raw_parts(array_handle[0].Handles.as_ptr(), max_handles) };
+                for index in 0..max_handles {
+                    if dyn_array[index].UniqueProcessId == pid.try_into().unwrap() {
+                        let handle = dyn_array[index].HandleValue;
+                        debug!("[{}] vmwp.exe handle: {}", pid, handle);
+                    }
+                }
             }
         }
-
-        let mut arr_handle: [SYSTEM_HANDLE_INFORMATION; 1000] = [unsafe { mem::MaybeUninit::<SYSTEM_HANDLE_INFORMATION>::zeroed().assume_init() }; 1000];
-        let ptr: PVOID = arr_handle.as_mut_ptr() as PVOID;
-        let size: ULONG = 1000;
-        let mut ret_len: ULONG = 0;
-        // TODO: use SYSTEM_INFORMATION_CLASS::SystemHandleInformation Enum ? howto ?
-        let status = unsafe {
-            NtQuerySystemInformation(16, ptr, size, &mut ret_len)
-        };
-
-        debug!("NtQueryInformation: {}, len: {}", status, ret_len);
 
         let hyperv = HyperV;
         hyperv
