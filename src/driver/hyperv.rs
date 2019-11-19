@@ -3,6 +3,8 @@ use std::iter::Iterator;
 use std::mem;
 use std::slice;
 use std::vec::Vec;
+use std::ptr::{null, null_mut};
+use std::ffi::CString;
 
 use crate::api;
 use ntapi::ntexapi::{
@@ -11,12 +13,16 @@ use ntapi::ntexapi::{
 };
 use widestring::U16CString;
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG, USHORT};
+use winapi::shared::ntdef::{NULL, LUID};
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
-use winapi::um::winnt::{HANDLE, PVOID};
+use winapi::um::winnt::{HANDLE, PVOID, PROCESS_DUP_HANDLE, TOKEN_ADJUST_PRIVILEGES, SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED};
+use winapi::um::winbase::LookupPrivilegeValueA;
+use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
+use winapi::um::securitybaseapi::AdjustTokenPrivileges;
 
 // iterator over processes
 struct ProcessList {
@@ -145,6 +151,9 @@ pub struct HyperV;
 impl HyperV {
     pub fn new(domain_name: &str) -> Self {
         debug!("HyperV driver init on {}", domain_name);
+
+        Self::enable_se_debug_privilege();
+
         let vmwp_name: U16CString = U16CString::from_str("vmwp.exe").unwrap();
 
         let process_list = ProcessList::new();
@@ -155,6 +164,13 @@ impl HyperV {
                 debug!("Found Hyper-V VM process - PID: {}", pid);
                 // find handles
                 let handle_list = VMWPHandleIter::new(pid);
+                let worker_handle = unsafe {
+                    OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid)
+                };
+                if worker_handle == NULL {
+                    panic!("Failed to open process");
+                }
+                debug!("vmwp.exe process handle: {:?}", worker_handle);
                 for handle in handle_list {
                     debug!("[{}] vmwp.exe handle: {}", pid, handle);
                 }
@@ -167,6 +183,41 @@ impl HyperV {
 
     fn close(&mut self) {
         debug!("HyperV driver close");
+    }
+
+    fn enable_se_debug_privilege() {
+        // OpenProcessToken
+        let cur_proc_handle = unsafe { GetCurrentProcess() };
+        let mut h_token: HANDLE = null_mut();
+        let mut res = unsafe {
+            OpenProcessToken(cur_proc_handle, TOKEN_ADJUST_PRIVILEGES, &mut h_token)
+        };
+        if res == FALSE {
+            panic!("Failed to get current process privilege token")
+        }
+        debug!("OpenProcessToken: OK");
+        // LookupPrivilegeValue
+        let mut luid_debug: LUID = unsafe { mem::MaybeUninit::<LUID>::zeroed().assume_init() };
+        let se_debug_name = CString::new(SE_DEBUG_NAME).unwrap();
+        res = unsafe {
+            LookupPrivilegeValueA(null(), se_debug_name.as_ptr(), &mut luid_debug)
+        };
+        if res == FALSE {
+            panic!("Failed to lookup current SE_DEBUG privileges");
+        }
+        debug!("LookupPrivilegeValue: OK");
+        // AdjustPrivilege
+        let mut token_priv: TOKEN_PRIVILEGES = unsafe { mem::MaybeUninit::<TOKEN_PRIVILEGES>::zeroed().assume_init() };
+        token_priv.PrivilegeCount = 1;
+        token_priv.Privileges[0].Luid = luid_debug;
+        token_priv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        res = unsafe {
+            AdjustTokenPrivileges(h_token, FALSE, &mut token_priv, 0, null_mut(), null_mut())
+        };
+        if res == FALSE {
+            panic!("Failed to elevate privileges to SeDebug");
+        }
+        debug!("AdjustTokenPrivileges: OK");
     }
 }
 
