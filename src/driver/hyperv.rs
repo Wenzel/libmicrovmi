@@ -7,22 +7,29 @@ use std::ptr::{null, null_mut};
 use std::ffi::CString;
 
 use crate::api;
+
+use widestring::U16CString;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
     SYSTEM_HANDLE_TABLE_ENTRY_INFO,
 };
-use widestring::U16CString;
+use ntapi::ntobapi::{NtDuplicateObject};
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG, USHORT};
 use winapi::shared::ntdef::{NULL, LUID};
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+    TH32CS_SNAPPROCESS,
 };
-use winapi::um::winnt::{HANDLE, PVOID, PROCESS_DUP_HANDLE, TOKEN_ADJUST_PRIVILEGES, SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED};
+use winapi::um::winnt::{
+    HANDLE, PVOID, PROCESS_DUP_HANDLE, TOKEN_ADJUST_PRIVILEGES,
+    SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED, DUPLICATE_SAME_ACCESS
+};
 use winapi::um::winbase::LookupPrivilegeValueA;
 use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
 use winapi::um::securitybaseapi::AdjustTokenPrivileges;
+
 
 // iterator over processes
 struct ProcessList {
@@ -164,6 +171,7 @@ impl HyperV {
                 debug!("Found Hyper-V VM process - PID: {}", pid);
                 // find handles
                 let handle_list = VMWPHandleIter::new(pid);
+                // get handle to vmwp process
                 let worker_handle = unsafe {
                     OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid)
                 };
@@ -172,7 +180,20 @@ impl HyperV {
                 }
                 debug!("vmwp.exe process handle: {:?}", worker_handle);
                 for handle in handle_list {
-                    debug!("[{}] vmwp.exe handle: {}", pid, handle);
+                    // handle is a USHORT, cast it to HANDLE
+                    let cur_handle: HANDLE = handle as HANDLE;
+                    debug!("[{}] vmwp.exe handle: {:p}", pid, cur_handle);
+                    // duplicate current handle into our process
+                    let cur_proc_handle: HANDLE = unsafe { GetCurrentProcess() };
+                    let mut duplicated_handle: HANDLE = INVALID_HANDLE_VALUE;
+
+                    let res = unsafe {
+                        NtDuplicateObject(worker_handle, handle as HANDLE, cur_proc_handle, &mut duplicated_handle, 0, FALSE.try_into().unwrap(), DUPLICATE_SAME_ACCESS)
+                    };
+                    if res != STATUS_SUCCESS {
+                        panic!("Failed to duplicate handle");
+                    }
+
                 }
             }
         }
