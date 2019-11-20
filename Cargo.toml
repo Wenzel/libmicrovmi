@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 
+[lib]
+crate-type = ["cdylib", "lib"]
+
 [features]
 # Xen driver
 xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
