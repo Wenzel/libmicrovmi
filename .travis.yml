@@ -9,16 +9,20 @@ matrix:
     - name: "Dummy"
       before_script:
         - rustup component add clippy
+        - rustup component add rustfmt
       script:
         - cargo clippy -- -D warnings
+        - cargo fmt -- --check
 
     - name: "Xen"
       install:
         - sudo apt-get install libxen-dev
       before_script:
         - rustup component add clippy
+        - rustup component add rustfmt
       script:
         - cargo clippy --features xen -- -D warnings
+        - cargo fmt -- --check
 
     - name: "KVM"
       install:
@@ -27,5 +31,7 @@ matrix:
         - cd kvm/tools/kvm/kvmi && make && sudo cp -rv include/ /usr/local && sudo cp libkvmi.so /usr/local/lib
       before_script:
         - rustup component add clippy
+        - rustup component add rustfmt
       script:
         - cargo clippy --features kvm -- -D warnings
+        - cargo fmt -- --check

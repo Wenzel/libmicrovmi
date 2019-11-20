@@ -1,9 +1,9 @@
-use std::error::Error;
 use crate::api::{Introspectable, Registers, X86Registers};
-use xenctrl::XenControl;
-use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenstore::{Xs, XBTransaction, XsOpenFlags};
 use libc::PROT_READ;
+use std::error::Error;
+use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
+use xenctrl::XenControl;
+use xenstore::{XBTransaction, Xs, XsOpenFlags};
 
 // unit struct
 #[derive(Debug)]
