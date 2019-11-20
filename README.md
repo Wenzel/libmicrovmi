@@ -2,7 +2,8 @@
 
 [![Build Status](https://travis-ci.com/Wenzel/libmicrovmi.svg?branch=master)](https://travis-ci.com/Wenzel/libmicrovmi)
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![](https://tokei.rs/b1/github/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
+[![tokei](https://tokei.rs/b1/github/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
+[![repo size](https://img.shields.io/github/repo-size/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
 > A cross-platform unified interface on top of hypervisor's VMI APIs
