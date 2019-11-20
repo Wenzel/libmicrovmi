@@ -1,5 +1,5 @@
 use std::error::Error;
-use crate::api;
+use crate::api::{Introspectable, Registers, X86Registers};
 use xenctrl::XenControl;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenstore::{Xs, XBTransaction, XsOpenFlags};
@@ -15,7 +15,6 @@ pub struct Xen {
 }
 
 impl Xen {
-
     pub fn new(domain_name: &str) -> Self {
         debug!("init on {}", domain_name);
         // find domain name in xenstore
@@ -51,9 +50,8 @@ impl Xen {
     }
 }
 
-impl api::Introspectable for Xen {
-
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>> {
+impl Introspectable for Xen {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
@@ -84,21 +82,45 @@ impl api::Introspectable for Xen {
         Ok(())
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gpfn = self.xc.domain_maximum_gpfn(self.domid)?;
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
-    fn pause(&mut self) -> Result<(),Box<dyn Error>> {
+    fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
+        let hvm_cpu = self.xc.domain_hvm_getcontext_partial(self.domid, vcpu)?;
+        // TODO: hardcoded for x86 for now
+        Ok(Registers::X86(X86Registers {
+            rax: hvm_cpu.rax,
+            rbx: hvm_cpu.rbx,
+            rcx: hvm_cpu.rcx,
+            rdx: hvm_cpu.rdx,
+            rsi: hvm_cpu.rsi,
+            rdi: hvm_cpu.rdi,
+            rsp: hvm_cpu.rsp,
+            rbp: hvm_cpu.rbp,
+            r8: hvm_cpu.r8,
+            r9: hvm_cpu.r9,
+            r10: hvm_cpu.r10,
+            r11: hvm_cpu.r11,
+            r12: hvm_cpu.r12,
+            r13: hvm_cpu.r13,
+            r14: hvm_cpu.r14,
+            r15: hvm_cpu.r15,
+            rip: hvm_cpu.rip,
+            rflags: hvm_cpu.rflags,
+        }))
+    }
+
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
-    fn resume(&mut self) -> Result<(),Box<dyn Error>> {
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         Ok(self.xc.domain_unpause(self.domid)?)
     }
-
 }
 
 impl Drop for Xen {
