@@ -1,9 +1,9 @@
-use std::error::Error;
 use crate::api;
-use xenctrl::XenControl;
-use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenstore::{Xs, XBTransaction, XsOpenFlags};
 use libc::PROT_READ;
+use std::error::Error;
+use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
+use xenctrl::XenControl;
+use xenstore::{XBTransaction, Xs, XsOpenFlags};
 
 // unit struct
 #[derive(Debug)]
@@ -15,7 +15,6 @@ pub struct Xen {
 }
 
 impl Xen {
-
     pub fn new(domain_name: &str) -> Self {
         debug!("init on {}", domain_name);
         // find domain name in xenstore
@@ -52,8 +51,7 @@ impl Xen {
 }
 
 impl api::Introspectable for Xen {
-
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>> {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
@@ -84,21 +82,20 @@ impl api::Introspectable for Xen {
         Ok(())
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gpfn = self.xc.domain_maximum_gpfn(self.domid)?;
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
-    fn pause(&mut self) -> Result<(),Box<dyn Error>> {
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
-    fn resume(&mut self) -> Result<(),Box<dyn Error>> {
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         Ok(self.xc.domain_unpause(self.domid)?)
     }
-
 }
 
 impl Drop for Xen {

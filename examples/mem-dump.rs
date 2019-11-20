@@ -1,7 +1,7 @@
 use std::env;
-use std::path::Path;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 extern crate microvmi;
 use env_logger;
@@ -37,8 +37,10 @@ fn main() {
         let result = drv.read_physical(cur_addr, &mut buffer);
         match result {
             Ok(()) => {
-                dump_file.write_all(&buffer).expect("failed to write to file");
-            },
+                dump_file
+                    .write_all(&buffer)
+                    .expect("failed to write to file");
+            }
             Err(_error) => (),
         }
     }

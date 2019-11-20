@@ -1,6 +1,6 @@
-use std::error::Error;
 use crate::api::{Introspectable, Registers, X86Registers};
 use kvmi::{KVMi, KVMiEventType};
+use std::error::Error;
 
 // unit struct
 #[derive(Debug)]
@@ -10,7 +10,6 @@ pub struct Kvm {
 }
 
 impl Kvm {
-
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
@@ -26,12 +25,11 @@ impl Kvm {
 }
 
 impl Introspectable for Kvm {
-
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(),Box<dyn Error>> {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>> {
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         // No API in KVMi at the moment
         // fake 512MB
         let max_addr = 1024 * 1024 * 512;
@@ -50,8 +48,8 @@ impl Introspectable for Kvm {
             rdi: regs.rdi,
             rsp: regs.rsp,
             rbp: regs.rbp,
-            r8:  regs.r8,
-            r9:  regs.r9,
+            r8: regs.r8,
+            r9: regs.r9,
             r10: regs.r10,
             r11: regs.r11,
             r12: regs.r12,
@@ -63,7 +61,7 @@ impl Introspectable for Kvm {
         }))
     }
 
-    fn pause(&mut self) -> Result<(),Box<dyn Error>> {
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
         // already paused ?
         if self.expect_pause_ev > 0 {
@@ -76,7 +74,7 @@ impl Introspectable for Kvm {
         Ok(())
     }
 
-    fn resume(&mut self) -> Result<(),Box<dyn Error>> {
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         // already resumed ?
         if self.expect_pause_ev == 0 {
@@ -94,12 +92,14 @@ impl Introspectable for Kvm {
                     self.expect_pause_ev -= 1;
                     self.kvmi.reply_continue(&kvmi_event)?;
                 }
-                _ => panic!("Unexpected {:?} event type while resuming VM", kvmi_event.kind),
+                _ => panic!(
+                    "Unexpected {:?} event type while resuming VM",
+                    kvmi_event.kind
+                ),
             }
         }
         Ok(())
     }
-
 }
 
 impl Drop for Kvm {
@@ -107,4 +107,3 @@ impl Drop for Kvm {
         self.close();
     }
 }
-

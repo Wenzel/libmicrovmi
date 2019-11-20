@@ -3,9 +3,9 @@ use std::error::Error;
 #[derive(Debug)]
 pub enum DriverType {
     Dummy,
-    #[cfg(feature="xen")]
+    #[cfg(feature = "xen")]
     Xen,
-    #[cfg(feature="kvm")]
+    #[cfg(feature = "kvm")]
     KVM,
 }
 
@@ -38,16 +38,26 @@ pub enum Registers {
 
 pub trait Introspectable {
     // read physical memory
-    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(),Box<dyn Error>>  { unimplemented!(); }
+    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
 
     // get max physical address
-    fn get_max_physical_addr(&self) -> Result<u64,Box<dyn Error>>  { unimplemented!(); }
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
+        unimplemented!();
+    }
 
-    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> { unimplemented!(); }
+    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
+        unimplemented!();
+    }
 
     // pause the VM
-    fn pause(&mut self) -> Result<(),Box<dyn Error>> { unimplemented!(); }
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
 
     // resume the VM
-    fn resume(&mut self) -> Result<(),Box<dyn Error>> { unimplemented!(); }
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
 }
