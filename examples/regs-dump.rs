@@ -1,6 +1,6 @@
 use std::env;
-extern crate microvmi;
 extern crate env_logger;
+extern crate microvmi;
 
 // traits method can only be used if the trait is in the scope
 use microvmi::api::{Introspectable, Registers};
@@ -21,8 +21,7 @@ fn main() {
     drv.pause().expect("Failed to pause VM");
 
     println!("dumping registers on VCPU 0");
-    let regs: Registers = drv.read_registers(0)
-        .expect("Failed to read registers");
+    let regs: Registers = drv.read_registers(0).expect("Failed to read registers");
     println!("{:#x?}", regs);
 
     println!("resuming the VM");
