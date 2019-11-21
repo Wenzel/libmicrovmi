@@ -13,7 +13,10 @@ use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
     SYSTEM_HANDLE_TABLE_ENTRY_INFO,
 };
-use ntapi::ntobapi::{NtDuplicateObject};
+use ntapi::ntobapi::{
+    NtDuplicateObject, NtQueryObject, ObjectTypeInformation,
+    ObjectNameInformation, OBJECT_INFORMATION_CLASS, OBJECT_TYPE_INFORMATION,
+    OBJECT_NAME_INFORMATION};
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG, USHORT};
 use winapi::shared::ntdef::{NULL, LUID};
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
@@ -175,7 +178,7 @@ impl HyperV {
                 let worker_handle = unsafe {
                     OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid)
                 };
-                if worker_handle == NULL {
+                if worker_handle == INVALID_HANDLE_VALUE {
                     panic!("Failed to open process");
                 }
                 debug!("vmwp.exe process handle: {:?}", worker_handle);
@@ -191,9 +194,30 @@ impl HyperV {
                         NtDuplicateObject(worker_handle, handle as HANDLE, cur_proc_handle, &mut duplicated_handle, 0, FALSE.try_into().unwrap(), DUPLICATE_SAME_ACCESS)
                     };
                     if res != STATUS_SUCCESS {
-                        panic!("Failed to duplicate handle");
+                        continue;
                     }
+                    // NtQueryObject type
+                    let mut obj_type: OBJECT_TYPE_INFORMATION = unsafe { mem::MaybeUninit::<OBJECT_TYPE_INFORMATION>::zeroed().assume_init() };
+                    let ptr_obj_type = &mut obj_type as *mut _ as PVOID;
+                    Self::query_object(duplicated_handle, ObjectTypeInformation, ptr_obj_type);
+                    
+                    // check that type is "File"
+                    let obj_buffer = unsafe { U16CString::from_ptr_str(obj_type.TypeName.Buffer) };
+                    let file_cmp = U16CString::from_str("File").unwrap();
+                    if obj_buffer == file_cmp {
+                        debug!("type: File");
+                        // NtQueryObject name
+                        let mut obj_name: OBJECT_NAME_INFORMATION = unsafe { mem::MaybeUninit::<OBJECT_NAME_INFORMATION>::zeroed().assume_init() };
+                        let ptr_obj_name = &mut obj_name as *mut _ as PVOID;
+                        Self::query_object(duplicated_handle, ObjectNameInformation, ptr_obj_name);
 
+                        // check that name is "\\Device\\00000"
+                        let name_buffer = unsafe { U16CString::from_ptr_str(obj_name.Name.Buffer) }.to_string_lossy();
+                        debug!("name: {}", name_buffer);
+                        if name_buffer.starts_with("\\Device\\000000") {
+                            debug!("Potential PT_HANDLE !");
+                        }
+                    }
                 }
             }
         }
@@ -204,6 +228,23 @@ impl HyperV {
 
     fn close(&mut self) {
         debug!("HyperV driver close");
+    }
+
+    fn query_object(handle: HANDLE, query_type: OBJECT_INFORMATION_CLASS, ptr: PVOID) {
+        let mut bytes_ret: u32 = 0;
+        let mut status = unsafe {
+            NtQueryObject(handle, query_type, NULL, 0, &mut bytes_ret)
+        };
+        if status != STATUS_INFO_LENGTH_MISMATCH {
+            debug!("NtQueryObject failed");
+        }
+
+        status = unsafe {
+            NtQueryObject(handle, query_type, ptr, bytes_ret, &mut bytes_ret)
+        };
+        if status != STATUS_SUCCESS {
+            debug!("NtQueryObject failed");
+        }
     }
 
     fn enable_se_debug_privilege() {
