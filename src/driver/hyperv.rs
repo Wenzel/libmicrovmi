@@ -4,7 +4,8 @@ use std::mem;
 use std::slice;
 use std::vec::Vec;
 use std::ptr::{null, null_mut};
-use std::ffi::CString;
+use std::ffi::{CString, OsString};
+use std::os::windows::ffi::OsStringExt;
 
 use crate::api;
 
@@ -17,7 +18,7 @@ use ntapi::ntobapi::{
     NtDuplicateObject, NtQueryObject, ObjectTypeInformation,
     ObjectNameInformation, OBJECT_INFORMATION_CLASS, OBJECT_TYPE_INFORMATION,
     OBJECT_NAME_INFORMATION};
-use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG, USHORT};
+use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG};
 use winapi::shared::ntdef::{NULL, LUID};
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -32,6 +33,7 @@ use winapi::um::winnt::{
 use winapi::um::winbase::LookupPrivilegeValueA;
 use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
 use winapi::um::securitybaseapi::AdjustTokenPrivileges;
+use vid_sys::VidGetPartitionFriendlyName;
 
 
 // iterator over processes
@@ -138,14 +140,14 @@ impl VMWPHandleIter {
 }
 
 impl Iterator for VMWPHandleIter {
-    type Item = USHORT;
+    type Item = HANDLE;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.index < self.max_handles {
             if self.vmwp_handles[self.index].UniqueProcessId == self.pid.try_into().unwrap() {
                 let handle = self.vmwp_handles[self.index].HandleValue;
                 self.index = self.index + 1;
-                return Some(handle);
+                return Some(handle as HANDLE);
             } else {
                 self.index = self.index + 1;
             }
@@ -183,15 +185,13 @@ impl HyperV {
                 }
                 debug!("vmwp.exe process handle: {:?}", worker_handle);
                 for handle in handle_list {
-                    // handle is a USHORT, cast it to HANDLE
-                    let cur_handle: HANDLE = handle as HANDLE;
-                    debug!("[{}] vmwp.exe handle: {:p}", pid, cur_handle);
+                    debug!("[{}] vmwp.exe handle: {:p}", pid, handle);
                     // duplicate current handle into our process
                     let cur_proc_handle: HANDLE = unsafe { GetCurrentProcess() };
                     let mut duplicated_handle: HANDLE = INVALID_HANDLE_VALUE;
 
                     let res = unsafe {
-                        NtDuplicateObject(worker_handle, handle as HANDLE, cur_proc_handle, &mut duplicated_handle, 0, FALSE.try_into().unwrap(), DUPLICATE_SAME_ACCESS)
+                        NtDuplicateObject(worker_handle, handle, cur_proc_handle, &mut duplicated_handle, 0, FALSE.try_into().unwrap(), DUPLICATE_SAME_ACCESS)
                     };
                     if res != STATUS_SUCCESS {
                         continue;
@@ -216,6 +216,16 @@ impl HyperV {
                         debug!("name: {}", name_buffer);
                         if name_buffer.starts_with("\\Device\\000000") {
                             debug!("Potential PT_HANDLE !");
+                            let friendly_name_max_size: u32 = 256;
+                            let mut vec_friendly_name: Vec<u16> = Vec::with_capacity(friendly_name_max_size.try_into().unwrap());
+                            let res = unsafe {
+                                VidGetPartitionFriendlyName(handle, vec_friendly_name.as_mut_ptr(), friendly_name_max_size)
+                            };
+                            if res == TRUE {
+                                let friendly_name = OsString::from_wide(&vec_friendly_name);
+                                debug!("VM name: {}", friendly_name.to_string_lossy());
+                                debug!("Found PT_HANDLE: {:?}", handle);
+                            }
                         }
                     }
                 }
