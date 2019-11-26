@@ -1,10 +1,12 @@
 use std::convert::TryInto;
-use std::iter::Iterator;
+use std::iter::{Iterator, once};
 use std::mem;
 use std::slice;
 use std::vec::Vec;
 use std::ptr::{null, null_mut};
-use std::ffi::CString;
+use std::ffi::{CString, OsStr, c_void};
+use std::os::windows::ffi::OsStrExt;
+use std::io::Error;
 
 use crate::api;
 
@@ -27,11 +29,15 @@ use winapi::um::tlhelp32::{
 };
 use winapi::um::winnt::{
     HANDLE, PVOID, PROCESS_DUP_HANDLE, TOKEN_ADJUST_PRIVILEGES,
-    SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED, DUPLICATE_SAME_ACCESS
+    SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED, DUPLICATE_SAME_ACCESS,
+    GENERIC_READ, GENERIC_WRITE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_ATTRIBUTE_NORMAL
 };
 use winapi::um::winbase::LookupPrivilegeValueA;
 use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
 use winapi::um::securitybaseapi::AdjustTokenPrivileges;
+use winapi::um::fileapi::{CreateFileW, OPEN_EXISTING};
+use winapi::um::ioapiset::{DeviceIoControl};
+use winapi::um::winioctl::{CTL_CODE, FILE_DEVICE_UNKNOWN, METHOD_BUFFERED, FILE_ANY_ACCESS};
 
 
 // iterator over processes
@@ -184,7 +190,7 @@ impl HyperV {
                 debug!("vmwp.exe process handle: {:?}", worker_handle);
                 for handle in handle_list {
                     // handle is a USHORT, cast it to HANDLE
-                    let cur_handle: HANDLE = handle as HANDLE;
+                    let mut cur_handle: HANDLE = handle as HANDLE;
                     debug!("[{}] vmwp.exe handle: {:p}", pid, cur_handle);
                     // duplicate current handle into our process
                     let cur_proc_handle: HANDLE = unsafe { GetCurrentProcess() };
@@ -216,6 +222,40 @@ impl HyperV {
                         debug!("name: {}", name_buffer);
                         if name_buffer.starts_with("\\Device\\000000") {
                             debug!("Potential PT_HANDLE !");
+                            // CreateFileW
+                            let device_path: Vec<u16> = OsStr::new("\\\\.\\hvlckd").encode_wide().chain(once(0)).collect()    ;
+                            let h_device = unsafe {
+                                CreateFileW(device_path.as_ptr(),
+                                            GENERIC_READ | GENERIC_WRITE,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                            null_mut(),
+                                            OPEN_EXISTING,
+                                            FILE_ATTRIBUTE_NORMAL,
+                                            NULL)
+                            };
+
+                            if h_device == null_mut() {
+                                panic!("CreateFileW failed !");
+                            }
+                            debug!("hdevice: {:?}", h_device);
+
+                            let mut vec_buff: Vec<u8> = Vec::with_capacity(0x200);
+                            let buff = vec_buff.as_mut_ptr() as *mut c_void;
+                            let ioctl_friendly_name = CTL_CODE(FILE_DEVICE_UNKNOWN, 0x820, METHOD_BUFFERED, FILE_ANY_ACCESS);
+                            let mut bytes_ret: DWORD = 0;
+                            let part_ptr_handle = &mut cur_handle as *mut _ as *mut c_void;
+                            let res = unsafe {
+                                DeviceIoControl(h_device, ioctl_friendly_name, part_ptr_handle, mem::size_of::<HANDLE>().try_into().unwrap(),
+                                                buff, 0x200, &mut bytes_ret, null_mut())
+                            };
+
+                            if res == FALSE {
+                                panic!("DeviceIoControl failed: {}", Error::last_os_error());
+                            }
+
+                            if bytes_ret > 0 {
+                                debug!("bytes !!");
+                            }
                         }
                     }
                 }
