@@ -44,6 +44,14 @@ developers focus on building VMI apps.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
+Drivers available:
+
+- [x] Xen
+- [x] KVM (based on [KVM-VMI](https://github.com/KVM-VMI/kvm-vmi))
+- [ ] VirtualBox (based on [icebox](https://github.com/thalium/icebox))
+- [ ] Hyper-V (based on [LiveCloudKd](https://github.com/comaeio/LiveCloudKd))
+- [ ] QEMU (based on [TCG Plugins](https://github.com/comaeio/LiveCloudKd))
+
 ## VMI API
 
 * Query and modify the VM hardware state
