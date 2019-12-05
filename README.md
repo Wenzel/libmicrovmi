@@ -45,7 +45,7 @@ developers focus on building VMI apps.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
-Drivers available:
+### Drivers
 
 - [x] Xen
 - [x] KVM (based on [KVM-VMI](https://github.com/KVM-VMI/kvm-vmi))
