@@ -131,6 +131,21 @@ drv.resume()
     .expect("Failed to resume VM");
 ~~~
 
+## C Interoperability
+
+It is possible to call *libmicrovmi* functions from C code. To this end, a header file has to be generated.
+This requires the `cbindgen` tool which can be installed via the following command:
+
+~~~
+cargo install --force cbindgen
+~~~
+
+Command to generate `libmicrovmi.h`:
+
+~~~
+cbindgen --config cbindgen.toml --crate microvmi --output libmicrovmi.h
+~~~
+
 ## References
 
 - [LibVMI C library](https://github.com/libvmi/libvmi): Simplified Virtual Machine Introspection

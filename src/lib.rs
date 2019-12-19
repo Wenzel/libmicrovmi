@@ -1,4 +1,5 @@
 pub mod api;
+pub mod capi;
 mod driver;
 
 #[macro_use]

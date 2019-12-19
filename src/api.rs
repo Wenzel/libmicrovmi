@@ -1,6 +1,7 @@
 use std::error::Error;
 
-#[derive(Debug)]
+#[repr(C)]
+#[derive(Clone, Debug)]
 pub enum DriverType {
     Dummy,
     #[cfg(feature = "hyper-v")]
@@ -13,6 +14,7 @@ pub enum DriverType {
     Xen,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct X86Registers {
     pub rax: u64,
@@ -35,6 +37,7 @@ pub struct X86Registers {
     pub rflags: u64,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub enum Registers {
     X86(X86Registers),
