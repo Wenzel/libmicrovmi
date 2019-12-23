@@ -3,3 +3,5 @@ pub mod dummy;
 pub mod kvm;
 #[cfg(feature = "xen")]
 pub mod xen;
+#[cfg(feature = "virtualbox")]
+pub mod virtualbox;
