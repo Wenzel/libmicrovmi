@@ -1,6 +1,6 @@
 # libmicrovmi
 
-[![Build Status](https://travis-ci.com/Wenzel/libmicrovmi.svg?branch=master)](https://travis-ci.com/Wenzel/libmicrovmi)
+![](https://github.com/Wenzel/libmicrovmi/workflows/Build/badge.svg)
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![tokei](https://tokei.rs/b1/github/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
 [![repo size](https://img.shields.io/github/repo-size/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
