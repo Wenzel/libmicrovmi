@@ -48,6 +48,26 @@ jobs:
     - name: clippy check
       run: cargo clippy --features kvm -- -D warnings
 
+  virtualbox:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clone Icebox repository
+      run: git clone https://github.com/thalium/icebox --depth 1
+    - name: Compile and install FDP library
+      run: |
+        cd icebox/src/FDP
+        gcc -shared -fPIC FDP.c -o libFDP.so
+        sudo cp include/* /usr/local/include
+        sudo cp libFDP.so /usr/local/lib
+    - name: install clippy
+      run: rustup component add clippy
+    - uses: actions/checkout@v1
+    - name: build VirtualBox driver
+      run: cargo build --features virtualbox
+    - name: clippy check
+      run: cargo clippy --features virtualbox -- -D warnings
+
   rustfmt:
     runs-on: ubuntu-latest
 
@@ -57,4 +77,6 @@ jobs:
     - uses: actions/checkout@v1
     - name: rustfmt check
       run: cargo fmt -- --check
+
+
 
