@@ -9,15 +9,11 @@ jobs:
     steps:
     - name: install clippy
       run: rustup component add clippy
-    - name: install rustfmt
-      run: rustup component add rustfmt
     - uses: actions/checkout@v1
     - name: build Dummy driver
       run: cargo build
     - name: clippy check
       run: cargo clippy -- -D warnings
-    - name: rustfmt check
-      run: cargo fmt -- --check
 
   xen:
     runs-on: ubuntu-latest
@@ -27,15 +23,11 @@ jobs:
       run: sudo apt-get install -y libxen-dev
     - name: install clippy
       run: rustup component add clippy
-    - name: install rustfmt
-      run: rustup component add rustfmt
     - uses: actions/checkout@v1
     - name: build Xen driver
       run: cargo build --features xen
     - name: clippy check
       run: cargo clippy --features xen -- -D warnings
-    - name: rustfmt check
-      run: cargo fmt -- --check
 
   kvm:
     runs-on: ubuntu-latest
@@ -50,12 +42,19 @@ jobs:
         sudo cp libkvmi.so /usr/local/lib
     - name: install clippy
       run: rustup component add clippy
-    - name: install rustfmt
-      run: rustup component add rustfmt
     - uses: actions/checkout@v1
     - name: build KVM driver
       run: cargo build --features kvm
     - name: clippy check
       run: cargo clippy --features kvm -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: install rustfmt
+      run: rustup component add rustfmt
+    - uses: actions/checkout@v1
     - name: rustfmt check
       run: cargo fmt -- --check
+
