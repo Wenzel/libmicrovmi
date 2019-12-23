@@ -12,9 +12,50 @@ jobs:
     - name: install rustfmt
       run: rustup component add rustfmt
     - uses: actions/checkout@v1
-    - name: build dummy
+    - name: build Dummy driver
       run: cargo build
     - name: clippy check
       run: cargo clippy -- -D warnings
+    - name: rustfmt check
+      run: cargo fmt -- --check
+
+  xen:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: install Xen headers and libraries
+      run: sudo apt-get install -y libxen-dev
+    - name: install clippy
+      run: rustup component add clippy
+    - name: install rustfmt
+      run: rustup component add rustfmt
+    - uses: actions/checkout@v1
+    - name: build Xen driver
+      run: cargo build --features xen
+    - name: clippy check
+      run: cargo clippy --features xen -- -D warnings
+    - name: rustfmt check
+      run: cargo fmt -- --check
+
+  kvm:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: install libkvmi
+      run: |
+        git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
+        cd kvm/tools/kvm/kvmi
+        make
+        sudo cp -rv include/ /usr/local
+        sudo cp libkvmi.so /usr/local/lib
+    - name: install clippy
+      run: rustup component add clippy
+    - name: install rustfmt
+      run: rustup component add rustfmt
+    - uses: actions/checkout@v1
+    - name: build KVM driver
+      run: cargo build --features kvm
+    - name: clippy check
+      run: cargo clippy --features kvm -- -D warnings
     - name: rustfmt check
       run: cargo fmt -- --check
