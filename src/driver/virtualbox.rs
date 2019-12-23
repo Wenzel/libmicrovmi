@@ -22,6 +22,11 @@ impl VBox {
 }
 
 impl Introspectable for VBox {
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
+        self.fdp.pause()
+    }
 
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+        self.fdp.resume()
+    }
 }
-
