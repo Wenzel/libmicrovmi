@@ -1,0 +1,20 @@
+name: Build
+
+on: [push]
+
+jobs:
+  dummy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: install clippy
+      run: rustup component add clippy
+    - name: install rustfmt
+      run: rustup component add rustfmt
+    - uses: actions/checkout@v1
+    - name: build dummy
+      run: cargo build
+    - name: clippy check
+      run: cargo clippy -- -D warnings
+    - name: rustfmt check
+      run: cargo fmt -- --check
