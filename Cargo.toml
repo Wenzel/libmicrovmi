@@ -12,14 +12,17 @@ crate-type = ["cdylib", "lib"]
 xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
 # KVM driver
 kvm = ["kvmi"]
+# VirtualBox driver
+virtualbox = ["fdp"]
 
 [dependencies]
 log = "0.4.8"
+libc = { version = "0.2.58", optional = true }
 xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
 kvmi = { git = "https://github.com/Wenzel/kvmi.git", optional = true }
-libc = { version = "0.2.58", optional = true }
+fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
 
 [dev-dependencies]
 env_logger = "0.7.1"
