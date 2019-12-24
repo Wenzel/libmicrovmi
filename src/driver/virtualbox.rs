@@ -19,6 +19,14 @@ impl VBox {
 }
 
 impl Introspectable for VBox {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        self.fdp.read_physical_memory(paddr, buf)
+    }
+
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
+        self.fdp.get_physical_memory_size()
+    }
+
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         self.fdp.pause()
     }
