@@ -9,6 +9,8 @@ use api::Introspectable;
 use driver::dummy::Dummy;
 #[cfg(feature = "kvm")]
 use driver::kvm::Kvm;
+#[cfg(feature = "virtualbox")]
+use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
 
@@ -20,6 +22,8 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             DriverType::Dummy => Box::new(Dummy::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "xen")]
             DriverType::Xen => Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>,
+            #[cfg(feature = "virtualbox")]
+            DriverType::VirtualBox => Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "kvm")]
             DriverType::KVM => Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>,
         },
@@ -28,6 +32,11 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             #[cfg(feature = "xen")]
             {
                 return Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>;
+            }
+            // test VirtualBox
+            #[cfg(feature = "virtualbox")]
+            {
+                return Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test KVM
