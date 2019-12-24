@@ -49,7 +49,7 @@ developers focus on building VMI apps.
 
 - [x] Xen
 - [x] KVM (based on [KVM-VMI](https://github.com/KVM-VMI/kvm-vmi))
-- [ ] VirtualBox (based on [icebox](https://github.com/thalium/icebox))
+- [x] VirtualBox (based on [icebox](https://github.com/thalium/icebox))
 - [ ] Hyper-V (based on [LiveCloudKd](https://github.com/comaeio/LiveCloudKd))
 - [ ] QEMU (based on [TCG Plugins](https://github.com/comaeio/LiveCloudKd))
 
