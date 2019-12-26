@@ -1,4 +1,6 @@
 pub mod dummy;
+#[cfg(feature = "hyper-v")]
+pub mod hyperv;
 #[cfg(feature = "kvm")]
 pub mod kvm;
 #[cfg(feature = "virtualbox")]
