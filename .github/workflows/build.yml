@@ -68,6 +68,16 @@ jobs:
     - name: clippy check
       run: cargo clippy --features virtualbox -- -D warnings
 
+  hyper-v:
+    runs-on: windows-latest
+
+    steps:
+    - name: install LLVM
+      run: choco install llvm
+    - uses: actions/checkout@v1
+    - name: build Hyper-V driver
+      run: cargo build --features hyper-v
+
   rustfmt:
     runs-on: ubuntu-latest
 
