@@ -4,8 +4,7 @@ use std::mem;
 use std::slice;
 use std::vec::Vec;
 use std::ptr::{null, null_mut};
-use std::ffi::{CString, OsString};
-use std::os::windows::ffi::OsStringExt;
+use std::ffi::CString;
 
 use crate::api;
 
@@ -14,12 +13,9 @@ use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
     SYSTEM_HANDLE_TABLE_ENTRY_INFO,
 };
-use ntapi::ntobapi::{
-    NtDuplicateObject, NtQueryObject, ObjectTypeInformation,
-    ObjectNameInformation, OBJECT_INFORMATION_CLASS, OBJECT_TYPE_INFORMATION,
-    OBJECT_NAME_INFORMATION};
+use ntapi::ntobapi::NtDuplicateObject;
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG};
-use winapi::shared::ntdef::{NULL, LUID};
+use winapi::shared::ntdef::LUID;
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{
@@ -33,7 +29,7 @@ use winapi::um::winnt::{
 use winapi::um::winbase::LookupPrivilegeValueA;
 use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
 use winapi::um::securitybaseapi::AdjustTokenPrivileges;
-use vid_sys::VidGetPartitionFriendlyName;
+use vid_sys::VidGetHvPartitionId;
 
 
 // iterator over processes
@@ -158,7 +154,11 @@ impl Iterator for VMWPHandleIter {
 
 // unit struct
 #[derive(Debug)]
-pub struct HyperV;
+pub struct HyperV {
+    pid: DWORD,
+    partition: HANDLE,
+    partition_id: u64,  // should be HV_PARTITION_ID
+}
 
 impl HyperV {
     pub fn new(domain_name: &str) -> Self {
@@ -173,7 +173,7 @@ impl HyperV {
             let exe_file = unsafe { U16CString::from_ptr_str(&proc_entry.szExeFile as *const u16) };
             let pid: DWORD = proc_entry.th32ProcessID;
             if exe_file == vmwp_name {
-                debug!("Found Hyper-V VM process - PID: {}", pid);
+                info!("Hyper-V VM process - PID: {}", pid);
                 // find handles
                 let handle_list = VMWPHandleIter::new(pid);
                 // get handle to vmwp process
@@ -196,65 +196,31 @@ impl HyperV {
                     if res != STATUS_SUCCESS {
                         continue;
                     }
-                    // NtQueryObject type
-                    let mut obj_type: OBJECT_TYPE_INFORMATION = unsafe { mem::MaybeUninit::<OBJECT_TYPE_INFORMATION>::zeroed().assume_init() };
-                    let ptr_obj_type = &mut obj_type as *mut _ as PVOID;
-                    Self::query_object(duplicated_handle, ObjectTypeInformation, ptr_obj_type);
-                    
-                    // check that type is "File"
-                    let obj_buffer = unsafe { U16CString::from_ptr_str(obj_type.TypeName.Buffer) };
-                    let file_cmp = U16CString::from_str("File").unwrap();
-                    if obj_buffer == file_cmp {
-                        debug!("type: File");
-                        // NtQueryObject name
-                        let mut obj_name: OBJECT_NAME_INFORMATION = unsafe { mem::MaybeUninit::<OBJECT_NAME_INFORMATION>::zeroed().assume_init() };
-                        let ptr_obj_name = &mut obj_name as *mut _ as PVOID;
-                        Self::query_object(duplicated_handle, ObjectNameInformation, ptr_obj_name);
-
-                        // check that name is "\\Device\\00000"
-                        let name_buffer = unsafe { U16CString::from_ptr_str(obj_name.Name.Buffer) }.to_string_lossy();
-                        debug!("name: {}", name_buffer);
-                        if name_buffer.starts_with("\\Device\\000000") {
-                            debug!("Potential PT_HANDLE !");
-                            let friendly_name_max_size: u32 = 256;
-                            let mut vec_friendly_name: Vec<u16> = Vec::with_capacity(friendly_name_max_size.try_into().unwrap());
-                            let res = unsafe {
-                                VidGetPartitionFriendlyName(handle, vec_friendly_name.as_mut_ptr(), friendly_name_max_size)
-                            };
-                            if res == TRUE {
-                                let friendly_name = OsString::from_wide(&vec_friendly_name);
-                                debug!("VM name: {}", friendly_name.to_string_lossy());
-                                debug!("Found PT_HANDLE: {:?}", handle);
-                            }
-                        }
+                    // call VidGetHvPartitionId to validate handle
+                    let mut partition_id: u64 = 0;
+                    let res = unsafe {
+                        VidGetHvPartitionId(duplicated_handle, &mut partition_id)
+                    };
+                    debug!("partition_id: {}", partition_id);
+                    if res == TRUE {
+                        info!("[{}] Partition HANDLE: {:p}", pid, duplicated_handle);
+                        info!("[{}] Partition ID: {}", pid, partition_id);
+                        
+                        return HyperV {
+                            pid,
+                            partition: duplicated_handle,
+                            partition_id,
+                        };
                     }
                 }
             }
         }
 
-        let hyperv = HyperV;
-        hyperv
+        panic!("Unable to find Hyper-V VM partition handle");
     }
 
     fn close(&mut self) {
         debug!("HyperV driver close");
-    }
-
-    fn query_object(handle: HANDLE, query_type: OBJECT_INFORMATION_CLASS, ptr: PVOID) {
-        let mut bytes_ret: u32 = 0;
-        let mut status = unsafe {
-            NtQueryObject(handle, query_type, NULL, 0, &mut bytes_ret)
-        };
-        if status != STATUS_INFO_LENGTH_MISMATCH {
-            debug!("NtQueryObject failed");
-        }
-
-        status = unsafe {
-            NtQueryObject(handle, query_type, ptr, bytes_ret, &mut bytes_ret)
-        };
-        if status != STATUS_SUCCESS {
-            debug!("NtQueryObject failed");
-        }
     }
 
     fn enable_se_debug_privilege() {
