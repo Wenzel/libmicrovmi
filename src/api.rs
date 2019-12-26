@@ -3,14 +3,14 @@ use std::error::Error;
 #[derive(Debug)]
 pub enum DriverType {
     Dummy,
-    #[cfg(feature = "xen")]
-    Xen,
+    #[cfg(feature = "hyper-v")]
+    HyperV,
     #[cfg(feature = "kvm")]
     KVM,
     #[cfg(feature = "virtualbox")]
     VirtualBox,
-	#[cfg(feature = "hyper-v")]
-	HyperV
+    #[cfg(feature = "xen")]
+    Xen,
 }
 
 #[derive(Debug)]

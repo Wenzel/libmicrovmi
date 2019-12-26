@@ -1,36 +1,34 @@
 use std::convert::TryInto;
+use std::ffi::CString;
 use std::iter::Iterator;
 use std::mem;
+use std::ptr::{null, null_mut};
 use std::slice;
 use std::vec::Vec;
-use std::ptr::{null, null_mut};
-use std::ffi::CString;
 
 use crate::api;
 
-use widestring::U16CString;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
     SYSTEM_HANDLE_TABLE_ENTRY_INFO,
 };
-use ntapi::ntobapi::{NtDuplicateObject, NtClose};
+use ntapi::ntobapi::{NtClose, NtDuplicateObject};
+use vid_sys::VidGetHvPartitionId;
+use widestring::U16CString;
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG};
 use winapi::shared::ntdef::LUID;
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcess, OpenProcessToken};
+use winapi::um::securitybaseapi::AdjustTokenPrivileges;
 use winapi::um::tlhelp32::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-    TH32CS_SNAPPROCESS,
-};
-use winapi::um::winnt::{
-    HANDLE, PVOID, PROCESS_DUP_HANDLE, TOKEN_ADJUST_PRIVILEGES,
-    SE_DEBUG_NAME, TOKEN_PRIVILEGES, SE_PRIVILEGE_ENABLED, DUPLICATE_SAME_ACCESS
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
 use winapi::um::winbase::LookupPrivilegeValueA;
-use winapi::um::processthreadsapi::{OpenProcess, OpenProcessToken, GetCurrentProcess};
-use winapi::um::securitybaseapi::AdjustTokenPrivileges;
-use vid_sys::VidGetHvPartitionId;
-
+use winapi::um::winnt::{
+    DUPLICATE_SAME_ACCESS, HANDLE, PROCESS_DUP_HANDLE, PVOID, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED,
+    TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES,
+};
 
 // iterator over processes
 struct ProcessList {
@@ -157,7 +155,7 @@ impl Iterator for VMWPHandleIter {
 pub struct HyperV {
     pid: DWORD,
     partition: HANDLE,
-    partition_id: u64,  // should be HV_PARTITION_ID
+    partition_id: u64, // should be HV_PARTITION_ID
 }
 
 impl HyperV {
@@ -177,9 +175,7 @@ impl HyperV {
                 // find handles
                 let handle_list = VMWPHandleIter::new(pid);
                 // get handle to vmwp process
-                let worker_handle = unsafe {
-                    OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid)
-                };
+                let worker_handle = unsafe { OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid) };
                 if worker_handle == INVALID_HANDLE_VALUE {
                     panic!("Failed to open process");
                 }
@@ -191,21 +187,27 @@ impl HyperV {
                     let mut duplicated_handle: HANDLE = INVALID_HANDLE_VALUE;
 
                     let res = unsafe {
-                        NtDuplicateObject(worker_handle, handle, cur_proc_handle, &mut duplicated_handle, 0, FALSE.try_into().unwrap(), DUPLICATE_SAME_ACCESS)
+                        NtDuplicateObject(
+                            worker_handle,
+                            handle,
+                            cur_proc_handle,
+                            &mut duplicated_handle,
+                            0,
+                            FALSE.try_into().unwrap(),
+                            DUPLICATE_SAME_ACCESS,
+                        )
                     };
                     if res != STATUS_SUCCESS {
                         continue;
                     }
                     // call VidGetHvPartitionId to validate handle
                     let mut partition_id: u64 = 0;
-                    let res = unsafe {
-                        VidGetHvPartitionId(duplicated_handle, &mut partition_id)
-                    };
+                    let res = unsafe { VidGetHvPartitionId(duplicated_handle, &mut partition_id) };
                     debug!("partition_id: {}", partition_id);
                     if res == TRUE {
                         info!("[{}] Partition HANDLE: {:p}", pid, duplicated_handle);
                         info!("[{}] Partition ID: {}", pid, partition_id);
-                        
+
                         return HyperV {
                             pid,
                             partition: duplicated_handle,
@@ -223,9 +225,8 @@ impl HyperV {
         // OpenProcessToken
         let cur_proc_handle = unsafe { GetCurrentProcess() };
         let mut h_token: HANDLE = null_mut();
-        let mut res = unsafe {
-            OpenProcessToken(cur_proc_handle, TOKEN_ADJUST_PRIVILEGES, &mut h_token)
-        };
+        let mut res =
+            unsafe { OpenProcessToken(cur_proc_handle, TOKEN_ADJUST_PRIVILEGES, &mut h_token) };
         if res == FALSE {
             panic!("Failed to get current process privilege token")
         }
@@ -233,15 +234,14 @@ impl HyperV {
         // LookupPrivilegeValue
         let mut luid_debug: LUID = unsafe { mem::MaybeUninit::<LUID>::zeroed().assume_init() };
         let se_debug_name = CString::new(SE_DEBUG_NAME).unwrap();
-        res = unsafe {
-            LookupPrivilegeValueA(null(), se_debug_name.as_ptr(), &mut luid_debug)
-        };
+        res = unsafe { LookupPrivilegeValueA(null(), se_debug_name.as_ptr(), &mut luid_debug) };
         if res == FALSE {
             panic!("Failed to lookup current SE_DEBUG privileges");
         }
         debug!("LookupPrivilegeValue: OK");
         // AdjustPrivilege
-        let mut token_priv: TOKEN_PRIVILEGES = unsafe { mem::MaybeUninit::<TOKEN_PRIVILEGES>::zeroed().assume_init() };
+        let mut token_priv: TOKEN_PRIVILEGES =
+            unsafe { mem::MaybeUninit::<TOKEN_PRIVILEGES>::zeroed().assume_init() };
         token_priv.PrivilegeCount = 1;
         token_priv.Privileges[0].Luid = luid_debug;
         token_priv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;

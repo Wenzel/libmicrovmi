@@ -7,14 +7,14 @@ extern crate log;
 use api::DriverType;
 use api::Introspectable;
 use driver::dummy::Dummy;
+#[cfg(feature = "hyper-v")]
+use driver::hyperv::HyperV;
 #[cfg(feature = "kvm")]
 use driver::kvm::Kvm;
 #[cfg(feature = "virtualbox")]
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
-#[cfg(feature="hyper-v")]
-use driver::hyperv::HyperV;
 
 #[allow(unreachable_code)]
 pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Introspectable> {
@@ -22,25 +22,20 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
     match driver_type {
         Some(drv_type) => match drv_type {
             DriverType::Dummy => Box::new(Dummy::new(domain_name)) as Box<dyn Introspectable>,
-            #[cfg(feature = "xen")]
-            DriverType::Xen => Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>,
-            #[cfg(feature = "virtualbox")]
-            DriverType::VirtualBox => Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>,
+            #[cfg(feature = "hyper-v")]
+            DriverType::HyperV => Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "kvm")]
             DriverType::KVM => Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>,
-            #[cfg(feature="hyper-v")]
-            DriverType::HyperV => Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>,
+            #[cfg(feature = "virtualbox")]
+            DriverType::VirtualBox => Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>,
+            #[cfg(feature = "xen")]
+            DriverType::Xen => Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>,
         },
         None => {
-            // test Xen
-            #[cfg(feature = "xen")]
+            // test Hyper-V
+            #[cfg(feature = "hyper-v")]
             {
-                return Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>;
-            }
-            // test VirtualBox
-            #[cfg(feature = "virtualbox")]
-            {
-                return Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>;
+                return Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test KVM
@@ -49,11 +44,17 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
                 return Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>;
             }
 
-            // test Hyper-V
-            #[cfg(feature="hyper-v")] {
-                return Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>;
+            // test VirtualBox
+            #[cfg(feature = "virtualbox")]
+            {
+                return Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>;
             }
 
+            // test Xen
+            #[cfg(feature = "xen")]
+            {
+                return Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>;
+            }
             // return Dummy if no other driver has been compiled
             Box::new(Dummy::new(domain_name)) as Box<dyn Introspectable>
         }
