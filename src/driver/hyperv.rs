@@ -13,7 +13,7 @@ use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
     SYSTEM_HANDLE_TABLE_ENTRY_INFO,
 };
-use ntapi::ntobapi::NtDuplicateObject;
+use ntapi::ntobapi::{NtDuplicateObject, NtClose};
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, ULONG};
 use winapi::shared::ntdef::LUID;
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
@@ -219,10 +219,6 @@ impl HyperV {
         panic!("Unable to find Hyper-V VM partition handle");
     }
 
-    fn close(&mut self) {
-        debug!("HyperV driver close");
-    }
-
     fn enable_se_debug_privilege() {
         // OpenProcessToken
         let cur_proc_handle = unsafe { GetCurrentProcess() };
@@ -263,6 +259,7 @@ impl api::Introspectable for HyperV {}
 
 impl Drop for HyperV {
     fn drop(&mut self) {
-        self.close();
+        // close duplicated handle
+        unsafe { NtClose(self.partition) };
     }
 }
