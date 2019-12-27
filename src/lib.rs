@@ -33,26 +33,22 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
         },
         None => {
             // test Hyper-V
-            #[cfg(feature = "hyper-v")]
-            {
+            if cfg!(feature = "hyper-v") {
                 return Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test KVM
-            #[cfg(feature = "kvm")]
-            {
+            if cfg!(feature = "kvm") {
                 return Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test VirtualBox
-            #[cfg(feature = "virtualbox")]
-            {
+            if cfg!(feature = "virtualbox") {
                 return Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>;
             }
 
             // test Xen
-            #[cfg(feature = "xen")]
-            {
+            if cfg!(feature = "xen") {
                 return Box::new(Xen::new(domain_name)) as Box<dyn Introspectable>;
             }
             // return Dummy if no other driver has been compiled
