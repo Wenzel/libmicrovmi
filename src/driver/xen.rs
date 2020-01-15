@@ -3,13 +3,16 @@ use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
-use xenstore::{XBTransaction, Xs, XsOpenFlags};
+//use xenevtchn::XenEventChannel;
+use xenforeignmemory::XenForeignMem;
+use xenstore::{Xs, XBTransaction, XsOpenFlags};
 
 // unit struct
 #[derive(Debug)]
 pub struct Xen {
     xc: XenControl,
-    xen_fgn: xenforeignmemory::XenForeignMem,
+//    xev: XenEventChannel,
+    xen_fgn: XenForeignMem,
     dom_name: String,
     domid: u32,
 }
@@ -33,8 +36,14 @@ impl Xen {
         if !found {
             panic!("Cannot find domain {}", domain_name);
         }
-        let xc = XenControl::new(None, None, 0).unwrap();
-        let xen_fgn = xenforeignmemory::XenForeignMem::new().unwrap();
+        let mut xc = XenControl::new(None, None, 0).unwrap();
+        let (ring_page, remote_port) = xc.monitor_enable(cand_domid).expect("Failed to map event ring page");
+        // open ring_page
+//        let ring_page = unsafe {
+//
+//        };
+//        let xev = XenEventChannel::new(cand_domid, remote_port);
+        let xen_fgn = XenForeignMem::new().unwrap();
         let xen = Xen {
             xc,
             xen_fgn,
@@ -43,10 +52,6 @@ impl Xen {
         };
         debug!("Initialized {:#?}", xen);
         xen
-    }
-
-    fn close(&mut self) {
-        debug!("close");
     }
 }
 
@@ -125,6 +130,7 @@ impl Introspectable for Xen {
 
 impl Drop for Xen {
     fn drop(&mut self) {
-        self.close();
+        debug!("Closing Xen driver");
+        self.xc.monitor_disable(self.domid).expect("Failed to unmap event ring page");
     }
 }
