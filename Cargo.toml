@@ -37,3 +37,8 @@ env_logger = "0.7.1"
 
 # [patch.crates-io]
 # vid-sys = { path = "../vid-sys" }
+
+# [patch.'https://github.com/Wenzel/xenctrl']
+# xenctrl = { path = '../xenctrl', optional = true }
+# [patch.'https://github.com/Wenzel/xenevtchn']
+# xenevtchn = { path = '../xenevtchn', optional = true }

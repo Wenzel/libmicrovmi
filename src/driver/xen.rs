@@ -3,7 +3,7 @@ use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
-//use xenevtchn::XenEventChannel;
+use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
 use xenstore::{Xs, XBTransaction, XsOpenFlags};
 
@@ -42,7 +42,10 @@ impl Xen {
 //        let ring_page = unsafe {
 //
 //        };
-//        let xev = XenEventChannel::new(cand_domid, remote_port);
+        let xev = XenEventChannel::new(cand_domid, remote_port);
+        // init shared and back rings
+        // SHARED_RING_INIT(ring_page);
+        // BACK_RING_INIT(& back_ring, ring_page, XC_PAGE_SIZE);
         let xen_fgn = XenForeignMem::new().unwrap();
         let xen = Xen {
             xc,
