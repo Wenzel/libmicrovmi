@@ -1,17 +1,20 @@
-use crate::api::{Introspectable, Registers, X86Registers};
-use libc::PROT_READ;
 use std::error::Error;
+use std::mem;
+
+use crate::api::{Introspectable, Registers, X86Registers};
+
+use libc::PROT_READ;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
-use xenstore::{Xs, XBTransaction, XsOpenFlags};
+use xenstore::{XBTransaction, Xs, XsOpenFlags};
+use xenvmevent_sys::{vm_event_back_ring, vm_event_sring};
 
-// unit struct
 #[derive(Debug)]
 pub struct Xen {
     xc: XenControl,
-//    xev: XenEventChannel,
+    xev: XenEventChannel,
     xen_fgn: XenForeignMem,
     dom_name: String,
     domid: u32,
@@ -37,18 +40,34 @@ impl Xen {
             panic!("Cannot find domain {}", domain_name);
         }
         let mut xc = XenControl::new(None, None, 0).unwrap();
-        let (ring_page, remote_port) = xc.monitor_enable(cand_domid).expect("Failed to map event ring page");
-        // open ring_page
-//        let ring_page = unsafe {
-//
-//        };
-        let xev = XenEventChannel::new(cand_domid, remote_port);
+        let (void_ring_page, remote_port) = xc
+            .monitor_enable(cand_domid)
+            .expect("Failed to map event ring page");
+
+        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
         // init shared and back rings
         // SHARED_RING_INIT(ring_page);
-        // BACK_RING_INIT(& back_ring, ring_page, XC_PAGE_SIZE);
+        let ring_page = void_ring_page as *mut vm_event_sring;
+        unsafe {
+            (*ring_page).req_prod = 0;
+            (*ring_page).rsp_prod = 0;
+            (*ring_page).req_event = 1;
+            (*ring_page).rsp_event = 1;
+            (*ring_page).pvt.pvt_pad = mem::MaybeUninit::zeroed().assume_init();
+            (*ring_page).__pad = mem::MaybeUninit::zeroed().assume_init();
+        }
+        // BACK_RING_INIT(&back_ring, ring_page, XC_PAGE_SIZE);
+        let mut back_ring: vm_event_back_ring =
+            unsafe { mem::MaybeUninit::<vm_event_back_ring>::zeroed().assume_init() };
+        back_ring.rsp_prod_pvt = 0;
+        back_ring.req_cons = 0;
+        back_ring.nr_ents = 0; // TODO
+        back_ring.sring = ring_page;
+
         let xen_fgn = XenForeignMem::new().unwrap();
         let xen = Xen {
             xc,
+            xev,
             xen_fgn,
             dom_name: domain_name.to_string(),
             domid: cand_domid,
@@ -134,6 +153,8 @@ impl Introspectable for Xen {
 impl Drop for Xen {
     fn drop(&mut self) {
         debug!("Closing Xen driver");
-        self.xc.monitor_disable(self.domid).expect("Failed to unmap event ring page");
+        self.xc
+            .monitor_disable(self.domid)
+            .expect("Failed to unmap event ring page");
     }
 }
