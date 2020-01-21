@@ -1,7 +1,7 @@
 use std::error::Error;
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum DriverType {
     Dummy,
     #[cfg(feature = "hyper-v")]
@@ -67,4 +67,6 @@ pub trait Introspectable {
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
+
+    fn get_driver_type(&self) -> DriverType;
 }

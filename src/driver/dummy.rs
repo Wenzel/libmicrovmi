@@ -1,4 +1,4 @@
-use crate::api;
+use crate::api::{DriverType, Introspectable};
 use std::error::Error;
 
 // unit struct
@@ -11,7 +11,7 @@ impl Dummy {
     }
 }
 
-impl api::Introspectable for Dummy {
+impl Introspectable for Dummy {
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         debug!("read physical - @{}, {:#?}", paddr, buf);
         Ok(())
@@ -30,5 +30,9 @@ impl api::Introspectable for Dummy {
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         Ok(())
+    }
+
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::Dummy
     }
 }
