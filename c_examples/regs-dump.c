@@ -16,6 +16,12 @@ void read_registers(MicrovmiContext* driver, const char* vm_name) {
         printf("rbx: 0x%llx\n", regs.x86._0.rbx);
         printf("rcx: 0x%llx\n", regs.x86._0.rcx);
         printf("rdx: 0x%llx\n", regs.x86._0.rdx);
+        printf("rsi: 0x%llx\n", regs.x86._0.rsi);
+        printf("rdi: 0x%llx\n", regs.x86._0.rdi);
+        printf("rsp: 0x%llx\n", regs.x86._0.rsp);
+        printf("rbp: 0x%llx\n", regs.x86._0.rbp);
+        printf("rip: 0x%llx\n", regs.x86._0.rip);
+        printf("rflags: 0x%llx\n", regs.x86._0.rflags);
     } else {
         printf("Unable to read registers.\n");
     }
