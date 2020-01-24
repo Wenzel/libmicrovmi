@@ -19,10 +19,7 @@ jobs:
       run: cargo clippy -- -D warnings
 
   xen:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
+    runs-on: ubuntu-latest
 
     steps:
     - name: install Xen headers and libraries
