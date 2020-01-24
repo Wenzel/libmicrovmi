@@ -44,8 +44,7 @@ jobs:
         git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
         cd kvm/tools/kvm/kvmi
         make
-        sudo cp -rv include/ /usr/local
-        sudo cp libkvmi.so /usr/local/lib
+        sudo make install
     - name: install clippy
       run: rustup component add clippy
     - uses: actions/checkout@v1
