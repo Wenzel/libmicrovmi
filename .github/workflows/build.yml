@@ -4,7 +4,10 @@ on: [push]
 
 jobs:
   dummy:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, ubuntu-18.04]
 
     steps:
     - name: install clippy
@@ -16,7 +19,10 @@ jobs:
       run: cargo clippy -- -D warnings
 
   xen:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, ubuntu-18.04]
 
     steps:
     - name: install Xen headers and libraries
@@ -30,7 +36,10 @@ jobs:
       run: cargo clippy --features xen -- -D warnings
 
   kvm:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, ubuntu-18.04]
 
     steps:
     - name: install libkvmi
@@ -49,7 +58,10 @@ jobs:
       run: cargo clippy --features kvm -- -D warnings
 
   virtualbox:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, ubuntu-18.04]
 
     steps:
     - name: Clone Icebox repository
