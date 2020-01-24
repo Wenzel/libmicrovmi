@@ -1,4 +1,4 @@
-use crate::api::{Introspectable, Registers, X86Registers};
+use crate::api::{DriverType, Introspectable, Registers, X86Registers};
 use kvmi::{KVMi, KVMiEventType};
 use std::error::Error;
 
@@ -99,6 +99,10 @@ impl Introspectable for Kvm {
             }
         }
         Ok(())
+    }
+
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::KVM
     }
 }
 

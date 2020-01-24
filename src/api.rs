@@ -1,5 +1,6 @@
 use std::error::Error;
 
+#[repr(C)]
 #[derive(Debug)]
 pub enum DriverType {
     Dummy,
@@ -13,6 +14,7 @@ pub enum DriverType {
     Xen,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct X86Registers {
     pub rax: u64,
@@ -35,6 +37,7 @@ pub struct X86Registers {
     pub rflags: u64,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub enum Registers {
     X86(X86Registers),
@@ -64,4 +67,8 @@ pub trait Introspectable {
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
+
+    // Introduced for the sole purpose of C interoperability.
+    // Should be deprecated as soon as more suitable solutions become available.
+    fn get_driver_type(&self) -> DriverType;
 }
