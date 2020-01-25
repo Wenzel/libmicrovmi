@@ -87,6 +87,23 @@ jobs:
     - name: build Hyper-V driver
       run: cargo build --features hyper-v
 
+  c_api:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, ubuntu-18.04]
+
+    steps:
+      - name: install cbindgen
+        run: cargo install --force cbindgen
+      - uses: actions/checkout@v1
+      - name: build libmicrovmi
+        run: cargo build
+      - name: build C API
+        run: |
+          cd c_examples
+          make
+
   rustfmt:
     runs-on: ubuntu-latest
 

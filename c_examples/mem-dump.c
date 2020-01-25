@@ -1,6 +1,9 @@
-#include "libmicrovmi.h"
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
+
+#include "libmicrovmi.h"
+
 
 size_t PAGE_SIZE = 4096;
 
@@ -13,7 +16,7 @@ void dump_memory(MicrovmiContext* driver, const char* vm_name) {
     }
     uint64_t max_address;
     if (microvmi_get_max_physical_addr(driver, &max_address) == MicrovmiSuccess) {
-        printf("Max physical address: %llx\n", max_address);
+        printf("Max physical address: 0x%" PRIx64 "\n", max_address);
     } else {
         printf("Unable to retrieve the max physical address.\n");
         return;
