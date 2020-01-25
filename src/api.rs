@@ -46,6 +46,12 @@ pub enum Registers {
     X86(X86Registers),
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub enum EventType {
+    CR3,
+}
+
 pub trait Introspectable {
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
@@ -68,6 +74,16 @@ pub trait Introspectable {
 
     // resume the VM
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    // toggle an event interception
+    fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        event_type: EventType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 

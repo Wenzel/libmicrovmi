@@ -15,14 +15,14 @@ impl Kvm {
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        Kvm {
+        let kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-        }
-    }
-
-    fn close(&mut self) {
-        debug!("close");
+        };
+        // enable CR event intercept by default
+        // (interception will take place when CR register will be specified)
+        kvm.kvmi.control_events(0, KVMiEventType::Cr, true).unwrap();
+        kvm
     }
 }
 
@@ -106,6 +106,17 @@ impl Introspectable for Kvm {
         Ok(())
     }
 
+    fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        event_type: EventType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        match event_type {
+            EventType::CR3 => Ok(self.kvmi.control_cr(vcpu, KVMiCr::Cr3, enabled)?),
+        }
+    }
+
     fn get_driver_type(&self) -> DriverType {
         DriverType::KVM
     }
@@ -113,6 +124,9 @@ impl Introspectable for Kvm {
 
 impl Drop for Kvm {
     fn drop(&mut self) {
-        self.close();
+        debug!("KVM driver close");
+        self.kvmi
+            .control_events(0, KVMiEventType::Cr, false)
+            .unwrap();
     }
 }
