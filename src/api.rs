@@ -52,6 +52,12 @@ pub enum EventType {
     CR3,
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct Event {
+    pub kind: EventType,
+}
+
 pub trait Introspectable {
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
@@ -84,6 +90,11 @@ pub trait Introspectable {
         _event_type: EventType,
         _enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    // listen and return the next event, or return None
+    fn listen(&self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         unimplemented!();
     }
 

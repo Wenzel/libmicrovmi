@@ -1,8 +1,9 @@
+use std::convert::TryInto;
 use std::error::Error;
 
-use kvmi::{KVMi, KVMiEventReply, KVMiEventType};
+use kvmi::{KVMi, KVMiCr, KVMiEventType, KVMiEventReply};
 
-use crate::api::{DriverType, Introspectable, Registers, X86Registers};
+use crate::api::{DriverType, Event, EventType, Introspectable, Registers, X86Registers};
 
 // unit struct
 #[derive(Debug)]
@@ -115,6 +116,27 @@ impl Introspectable for Kvm {
         match event_type {
             EventType::CR3 => Ok(self.kvmi.control_cr(vcpu, KVMiCr::Cr3, enabled)?),
         }
+    }
+
+    fn listen(&self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        // wait for next event and pop it
+        debug!("wait for next event");
+        if self.kvmi.wait_event(timeout.try_into().unwrap())?.is_none() {
+            // no events
+            return Ok(None);
+        }
+        debug!("Pop next event");
+        let kvmi_event = self.kvmi.pop_event()?;
+
+        let microvmi_event_kind = match kvmi_event.kind {
+            KVMiEventType::Cr => EventType::CR3,
+            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been poped by resume VM. (Did you forgot to resume your VM ?)"),
+            _ => unimplemented!(),
+        };
+
+        Ok(Some(Event {
+            kind: microvmi_event_kind,
+        }))
     }
 
     fn get_driver_type(&self) -> DriverType {
