@@ -1,28 +1,47 @@
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::error::Error;
 
-use kvmi::{KVMi, KVMiEventReply, KVMiEventType};
+use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
-use crate::api::{DriverType, Introspectable, Registers, X86Registers};
+use crate::api::{
+    CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
+    X86Registers,
+};
 
 // unit struct
 #[derive(Debug)]
 pub struct Kvm {
     kvmi: KVMi,
     expect_pause_ev: u32,
+    // VCPU -> KVMiEvent
+    map_events: HashMap<u16, KVMiEvent>,
+}
+
+impl InterceptType {
+    fn to_kvmi(self) -> KVMiInterceptType {
+        match self {
+            InterceptType::Cr(_micro_cr_type) => KVMiInterceptType::Cr,
+        }
+    }
 }
 
 impl Kvm {
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        Kvm {
+        let kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-        }
-    }
-
-    fn close(&mut self) {
-        debug!("close");
+            map_events: HashMap::with_capacity(1),
+        };
+        // enable CR event intercept by default
+        // (interception will take place when CR register will be specified)
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        kvm.kvmi
+            .control_events(0, inter_cr3.to_kvmi(), true)
+            .unwrap();
+        kvm
     }
 }
 
@@ -106,6 +125,69 @@ impl Introspectable for Kvm {
         Ok(())
     }
 
+    fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        match intercept_type {
+            InterceptType::Cr(micro_cr_type) => {
+                let kvmi_cr = match micro_cr_type {
+                    CrType::Cr0 => KVMiCr::Cr0,
+                    CrType::Cr3 => KVMiCr::Cr3,
+                    CrType::Cr4 => KVMiCr::Cr4,
+                };
+                Ok(self.kvmi.control_cr(vcpu, kvmi_cr, enabled)?)
+            }
+        }
+    }
+
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        // wait for next event and pop it
+        debug!("wait for next event");
+        if self.kvmi.wait_event(timeout.try_into().unwrap())?.is_none() {
+            // no events
+            return Ok(None);
+        }
+        debug!("Pop next event");
+        let kvmi_event = self.kvmi.pop_event()?;
+
+        let microvmi_event_kind = match kvmi_event.ev_type {
+            KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
+                cr_type: match cr_type {
+                    KVMiCr::Cr0 => CrType::Cr0,
+                    KVMiCr::Cr3 => CrType::Cr3,
+                    KVMiCr::Cr4 => CrType::Cr4,
+                },
+                new,
+                old,
+            },
+            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been poped by resume VM. (Did you forgot to resume your VM ?)"),
+        };
+
+        let vcpu = kvmi_event.vcpu;
+        self.map_events.insert(kvmi_event.vcpu, kvmi_event);
+
+        Ok(Some(Event {
+            vcpu,
+            kind: microvmi_event_kind,
+        }))
+    }
+
+    fn reply_event(
+        &mut self,
+        event: &Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        let kvm_reply_type = match reply_type {
+            EventReplyType::Continue => KVMiEventReply::Continue,
+        };
+        // get KVMiEvent associated with this VCPU
+        let kvmi_event = self.map_events.remove(&event.vcpu).unwrap();
+        Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
+    }
+
     fn get_driver_type(&self) -> DriverType {
         DriverType::KVM
     }
@@ -113,6 +195,10 @@ impl Introspectable for Kvm {
 
 impl Drop for Kvm {
     fn drop(&mut self) {
-        self.close();
+        debug!("KVM driver close");
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        self.kvmi
+            .control_events(0, inter_cr3.to_kvmi(), false)
+            .unwrap();
     }
 }
