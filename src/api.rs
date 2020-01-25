@@ -80,9 +80,9 @@ pub trait Introspectable {
     // toggle an event interception
     fn toggle_intercept(
         &mut self,
-        vcpu: u16,
-        event_type: EventType,
-        enabled: bool,
+        _vcpu: u16,
+        _event_type: EventType,
+        _enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
