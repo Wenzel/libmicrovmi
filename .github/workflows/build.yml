@@ -4,10 +4,7 @@ on: [push]
 
 jobs:
   dummy:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
+    runs-on: ubuntu-latest
 
     steps:
     - name: install clippy
