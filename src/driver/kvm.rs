@@ -1,6 +1,8 @@
-use crate::api::{DriverType, Introspectable, Registers, X86Registers};
-use kvmi::{KVMi, KVMiEventType};
 use std::error::Error;
+
+use kvmi::{KVMi, KVMiEventReply, KVMiEventType};
+
+use crate::api::{DriverType, Introspectable, Registers, X86Registers};
 
 // unit struct
 #[derive(Debug)]
@@ -90,7 +92,7 @@ impl Introspectable for Kvm {
                 KVMiEventType::PauseVCPU => {
                     debug!("Received Pause Event");
                     self.expect_pause_ev -= 1;
-                    self.kvmi.reply_continue(&kvmi_event)?;
+                    self.kvmi.reply(&kvmi_event, KVMiEventReply::Continue)?;
                 }
                 _ => panic!(
                     "Unexpected {:?} event type while resuming VM",
