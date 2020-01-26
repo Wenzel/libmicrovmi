@@ -46,18 +46,6 @@ pub enum Registers {
     X86(X86Registers),
 }
 
-#[repr(C)]
-#[derive(Debug)]
-pub enum EventType {
-    CR3,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct Event {
-    pub kind: EventType,
-}
-
 pub trait Introspectable {
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
@@ -98,7 +86,38 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    fn reply_event(&self, _event: Event, _reply_type: EventReplyType) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     // Introduced for the sole purpose of C interoperability.
     // Should be deprecated as soon as more suitable solutions become available.
     fn get_driver_type(&self) -> DriverType;
+}
+
+// Event handling
+#[repr(C)]
+#[derive(Debug)]
+pub enum EventType {
+    Cr { cr_type: CrType, new: u64, old: u64 },
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum CrType {
+    Cr0,
+    Cr3,
+    Cr4,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct Event {
+    pub kind: EventType,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum EventReplyType {
+    Continue,
 }
