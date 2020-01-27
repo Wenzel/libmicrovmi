@@ -88,7 +88,7 @@ impl Introspectable for Kvm {
             self.kvmi.wait_event(1000)?;
             // pop
             let kvmi_event = self.kvmi.pop_event()?;
-            match kvmi_event.kind {
+            match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
                     debug!("Received Pause Event");
                     self.expect_pause_ev -= 1;
@@ -96,7 +96,7 @@ impl Introspectable for Kvm {
                 }
                 _ => panic!(
                     "Unexpected {:?} event type while resuming VM",
-                    kvmi_event.kind
+                    kvmi_event.ev_type
                 ),
             }
         }
