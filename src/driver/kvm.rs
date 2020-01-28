@@ -39,7 +39,7 @@ impl Introspectable for Kvm {
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let (regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        let (regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         // TODO: hardcoded for x86 for now
         Ok(Registers::X86(X86Registers {
             rax: regs.rax,
@@ -60,6 +60,9 @@ impl Introspectable for Kvm {
             r15: regs.r15,
             rip: regs.rip,
             rflags: regs.rflags,
+            cr0: sregs.cr0,
+            cr3: sregs.cr3,
+            cr4: sregs.cr4,
         }))
     }
 

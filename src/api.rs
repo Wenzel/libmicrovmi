@@ -35,6 +35,9 @@ pub struct X86Registers {
     pub r15: u64,
     pub rip: u64,
     pub rflags: u64,
+    pub cr0: u64,
+    pub cr3: u64,
+    pub cr4: u64,
 }
 
 #[repr(C)]
