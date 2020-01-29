@@ -109,6 +109,9 @@ impl Introspectable for Xen {
             r15: hvm_cpu.r15,
             rip: hvm_cpu.rip,
             rflags: hvm_cpu.rflags,
+            cr0: hvm_cpu.cr0,
+            cr3: hvm_cpu.cr3,
+            cr4: hvm_cpu.cr4,
         }))
     }
 
