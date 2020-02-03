@@ -45,6 +45,13 @@ developers focus on building VMI apps.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
+### Presentations
+
+* [FOSDEM 2020](https://fosdem.org/2020/schedule/event/rust_vm_introspection/)
+  * [Slides](https://fosdem.org/2020/schedule/event/rust_vm_introspection/attachments/slides/4104/export/events/attachments/rust_vm_introspection/slides/4104/Rustifying_the_VM_Introspection_Ecosystem.pdf)
+  * [Video](https://video.fosdem.org/2020/K.3.401/rust_vm_introspection.webm)
+
+
 ### Drivers
 
 - [x] Xen
