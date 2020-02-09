@@ -1,10 +1,10 @@
 use std::convert::TryInto;
 use std::error::Error;
 
-use kvmi::{KVMi, KVMiCr, KVMiEventReply, KVMiEventType};
+use kvmi::{KVMi, KVMiCr, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
 use crate::api::{
-    CrType, DriverType, Event, EventReplyType, EventType, Introspectable, Registers,
+    CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
     X86Registers,
 };
 
@@ -13,6 +13,14 @@ use crate::api::{
 pub struct Kvm {
     kvmi: KVMi,
     expect_pause_ev: u32,
+}
+
+impl InterceptType {
+    fn to_kvmi(&self) -> KVMiInterceptType {
+        match self {
+            InterceptType::Cr(_micro_cr_type) => KVMiInterceptType::Cr,
+        }
+    }
 }
 
 impl Kvm {
@@ -25,12 +33,10 @@ impl Kvm {
         };
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
-        let empty_cr_enum = KVMiEventType::Cr {
-            cr_type: KVMiCr::Cr0,
-            new: 0,
-            old: 0,
-        };
-        kvm.kvmi.control_events(0, empty_cr_enum, true).unwrap();
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        kvm.kvmi
+            .control_events(0, inter_cr3.to_kvmi(), true)
+            .unwrap();
         kvm
     }
 }
@@ -118,16 +124,12 @@ impl Introspectable for Kvm {
     fn toggle_intercept(
         &mut self,
         vcpu: u16,
-        event_type: EventType,
+        intercept_type: InterceptType,
         enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
-        match event_type {
-            EventType::Cr {
-                cr_type,
-                new: _,
-                old: _,
-            } => {
-                let kvmi_cr = match cr_type {
+        match intercept_type {
+            InterceptType::Cr(micro_cr_type) => {
+                let kvmi_cr = match micro_cr_type {
                     CrType::Cr0 => KVMiCr::Cr0,
                     CrType::Cr3 => KVMiCr::Cr3,
                     CrType::Cr4 => KVMiCr::Cr4,
@@ -148,7 +150,7 @@ impl Introspectable for Kvm {
         let kvmi_event = self.kvmi.pop_event()?;
 
         let microvmi_event_kind = match kvmi_event.ev_type {
-            KVMiEventType::Cr { cr_type, new, old} => EventType::Cr {
+            KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
                 cr_type: match cr_type {
                     KVMiCr::Cr0 => CrType::Cr0,
                     KVMiCr::Cr3 => CrType::Cr3,
@@ -172,7 +174,7 @@ impl Introspectable for Kvm {
         // get kvmi_event from microvmi Event struct
         // match event type
         // set kvmi_event fields accordingly
-        Ok(self.kvmi.reply(, kvm_reply_type)?)
+        Ok(())
     }
 
     fn get_driver_type(&self) -> DriverType {
@@ -183,11 +185,9 @@ impl Introspectable for Kvm {
 impl Drop for Kvm {
     fn drop(&mut self) {
         debug!("KVM driver close");
-        let empty_cr_enum = KVMiEventType::Cr {
-            cr_type: KVMiCr::Cr0,
-            new: 0,
-            old: 0,
-        };
-        self.kvmi.control_events(0, empty_cr_enum, false).unwrap();
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        self.kvmi
+            .control_events(0, inter_cr3.to_kvmi(), false)
+            .unwrap();
     }
 }

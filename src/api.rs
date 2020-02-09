@@ -75,7 +75,7 @@ pub trait Introspectable {
     fn toggle_intercept(
         &mut self,
         _vcpu: u16,
-        _event_type: EventType,
+        _intercept_type: InterceptType,
         _enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
@@ -86,7 +86,11 @@ pub trait Introspectable {
         unimplemented!();
     }
 
-    fn reply_event(&self, _event: Event, _reply_type: EventReplyType) -> Result<(), Box<dyn Error>> {
+    fn reply_event(
+        &self,
+        _event: Event,
+        _reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 
@@ -97,13 +101,19 @@ pub trait Introspectable {
 
 // Event handling
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub enum InterceptType {
+    Cr(CrType),
+}
+
+#[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
     Cr { cr_type: CrType, new: u64, old: u64 },
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum CrType {
     Cr0,
     Cr3,
