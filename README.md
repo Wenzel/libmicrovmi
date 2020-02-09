@@ -21,14 +21,8 @@
 
 ## Overview
 
-`libmicrovmi` simply aims to provide a cross-platform unified API and the necessary drivers to be
+`libmicrovmi` simply aims to provide a cross-platform unified _Virtual Machine Introspection_ API and the necessary drivers to be
 compatible with the diversity of hypervisors available today.
-
-Its main goal is to solve the problem of [`libvmi`](https://github.com/libvmi/libvmi) being written in `C` and a
-Linux-centered library, not yet ready to offer drivers for other platforms such
-as Windows and MacOS.
-
-It doesn't aim to **replace** `libvmi`, since it doesn't implement features like rekall profile parsing or operating system knowledge, but rather to provide a foundation for high-level VMI libraries.
 
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
@@ -38,19 +32,32 @@ be
 - multi-hypervisor
 - multi-emulator
 - cross-plaform
-- high-level
-
-So that it provides the necessary abstractions and semantic context to let
-developers focus on building VMI apps.
+- high-level API
+    - OS-level semantics
+    - stealth breakpoints
+    - virtual address translation
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
-### Presentations
+### Virtual Machine Introspection Apps
 
-* [FOSDEM 2020](https://fosdem.org/2020/schedule/event/rust_vm_introspection/)
-  * [Slides](https://fosdem.org/2020/schedule/event/rust_vm_introspection/attachments/slides/4104/export/events/attachments/rust_vm_introspection/slides/4104/Rustifying_the_VM_Introspection_Ecosystem.pdf)
-  * [Video](https://video.fosdem.org/2020/K.3.401/rust_vm_introspection.webm)
-
+- Debugging
+    - [pyvmidbg](https://github.com/Wenzel/pyvmidbg)
+    - [icebox](https://github.com/thalium/icebox)
+    - [rVMI](https://github.com/fireeye/rvmi)
+    - [LiveCloudKd](https://github.com/comaeio/LiveCloudKd)
+- Dynamic Analysis / Sandboxing
+    - [DRAKVUF](https://github.com/tklengyel/drakvuf)
+    - [PyREBox](https://github.com/Cisco-Talos/pyrebox)
+    - [PANDA](https://github.com/panda-re/panda)
+    - [DECAF](https://github.com/decaf-project/DECAF)
+- Live Memory Analysis
+    - [Volatility](https://github.com/volatilityfoundation/volatility) with the [`VMIAddressSpace`](https://github.com/libvmi/python/blob/d50eca447c4b3ea2ba49df847bfb7a3d6f000bc0/volatility/vmi.py)
+    - [Rekall](https://github.com/google/rekall) with the [`VMIAddressSpace`](https://github.com/google/rekall/blob/e2424fb0cfd34db954101375a58fdfafeac3d2fa/rekall-core/rekall/plugins/addrspaces/vmi.py)
+- OS Hardening
+- Cloud Monitoring
+- Fuzzing
+    - [applepie](https://github.com/gamozolabs/applepie)
 
 ### Drivers
 
@@ -76,6 +83,7 @@ developers focus on building VMI apps.
     - SLAT (Second Level Address Translation) events
         - `r/w/x` event on a page
         - dynamically switch to multiple memory _views_ using alternate SLAT pointers
+    - Intel Processor Trace packets
 - Utilities
     - foreign mapping
     - pagefault injection
