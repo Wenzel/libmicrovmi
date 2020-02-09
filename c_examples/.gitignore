@@ -1,0 +1,7 @@
+# ignore cbindgen generated header
+libmicrovmi.h
+
+# ignore compiled C examples
+mem-dump
+pause
+regs-dump
