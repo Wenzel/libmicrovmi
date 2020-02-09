@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error;
 
-use kvmi::{KVMi, KVMiCr, KVMiEventReply, KVMiEventType, KVMiInterceptType};
+use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
 use crate::api::{
     CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
@@ -13,10 +14,12 @@ use crate::api::{
 pub struct Kvm {
     kvmi: KVMi,
     expect_pause_ev: u32,
+    // VCPU -> KVMiEvent
+    map_events: HashMap<u16, KVMiEvent>,
 }
 
 impl InterceptType {
-    fn to_kvmi(&self) -> KVMiInterceptType {
+    fn to_kvmi(self) -> KVMiInterceptType {
         match self {
             InterceptType::Cr(_micro_cr_type) => KVMiInterceptType::Cr,
         }
@@ -30,6 +33,7 @@ impl Kvm {
         let kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
+            map_events: HashMap::with_capacity(1),
         };
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
@@ -139,7 +143,7 @@ impl Introspectable for Kvm {
         }
     }
 
-    fn listen(&self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         // wait for next event and pop it
         debug!("wait for next event");
         if self.kvmi.wait_event(timeout.try_into().unwrap())?.is_none() {
@@ -162,19 +166,28 @@ impl Introspectable for Kvm {
             KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been poped by resume VM. (Did you forgot to resume your VM ?)"),
         };
 
+        let vcpu = kvmi_event.vcpu;
+        self.map_events.insert(kvmi_event.vcpu, kvmi_event);
+
         Ok(Some(Event {
+            vcpu,
             kind: microvmi_event_kind,
         }))
     }
 
-    fn reply_event(&self, event: Event, reply_type: EventReplyType) -> Result<(), Box<dyn Error>> {
+    fn reply_event(
+        &mut self,
+        event: &Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
         let kvm_reply_type = match reply_type {
             EventReplyType::Continue => KVMiEventReply::Continue,
         };
         // get kvmi_event from microvmi Event struct
         // match event type
         // set kvmi_event fields accordingly
-        Ok(())
+        let kvmi_event = self.map_events.remove(&event.vcpu).unwrap();
+        Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
     }
 
     fn get_driver_type(&self) -> DriverType {

@@ -82,13 +82,13 @@ pub trait Introspectable {
     }
 
     // listen and return the next event, or return None
-    fn listen(&self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         unimplemented!();
     }
 
     fn reply_event(
-        &self,
-        _event: Event,
+        &mut self,
+        _event: &Event,
         _reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
@@ -121,8 +121,8 @@ pub enum CrType {
 }
 
 #[repr(C)]
-#[derive(Debug)]
 pub struct Event {
+    pub vcpu: u16,
     pub kind: EventType,
 }
 

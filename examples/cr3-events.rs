@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use env_logger;
 
-use microvmi::api::{CrType, EventType, InterceptType, Introspectable};
+use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
 fn main() {
     env_logger::init();
@@ -50,7 +50,7 @@ fn main() {
                     } => new,
                 };
                 println!("[{}] CR3: 0x{:x}", i, new);
-                // ev.reply(EventReplyType::Continue);
+                drv.reply_event(&ev, EventReplyType::Continue).unwrap();
             }
             None => println!("No events yet..."),
         }
