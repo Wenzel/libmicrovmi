@@ -62,7 +62,7 @@ jobs:
     - name: Compile and install FDP library
       run: |
         cd icebox/src/FDP
-        gcc -shared -fPIC FDP.c -o libFDP.so
+        g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
         sudo cp include/* /usr/local/include
         sudo cp libFDP.so /usr/local/lib
     - name: install clippy
