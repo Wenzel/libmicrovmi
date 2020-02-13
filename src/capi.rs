@@ -1,5 +1,5 @@
 use crate::api::{DriverType, Introspectable, Registers};
-use crate::driver::dummy::Dummy;
+use crate::Ev;
 #[cfg(feature = "hyper-v")]
 use crate::driver::hyperv::HyperV;
 #[cfg(feature = "kvm")]
@@ -120,11 +120,11 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
-unsafe fn get_driver_mut_ptr(context: &MicrovmiContext) -> *mut dyn Introspectable {
+unsafe fn get_driver_mut_ptr(context: &MicrovmiContext) -> *mut dyn Introspectable<DriverEvent=Ev> {
     match context.driver_type {
-        DriverType::Dummy => context.driver as *mut Dummy as *mut dyn Introspectable,
+        // DriverType::Dummy => context.driver as *mut Dummy as *mut dyn Introspectable,
         #[cfg(feature = "kvm")]
-        DriverType::KVM => context.driver as *mut Kvm as *mut dyn Introspectable,
+        DriverType::KVM => context.driver as *mut Kvm as *mut dyn Introspectable<DriverEvent=Ev>,
         #[cfg(feature = "virtualbox")]
         DriverType::VirtualBox => context.driver as *mut VBox as *mut dyn Introspectable,
         #[cfg(feature = "xen")]
@@ -134,11 +134,11 @@ unsafe fn get_driver_mut_ptr(context: &MicrovmiContext) -> *mut dyn Introspectab
     }
 }
 
-unsafe fn get_driver_box(context: &MicrovmiContext) -> Box<dyn Introspectable> {
+unsafe fn get_driver_box(context: &MicrovmiContext) -> Box<dyn Introspectable<DriverEvent=Ev>> {
     match context.driver_type {
-        DriverType::Dummy => Box::from_raw(context.driver as *mut Dummy) as Box<dyn Introspectable>,
+        // DriverType::Dummy => Box::from_raw(context.driver as *mut Dummy) as Box<dyn Introspectable>,
         #[cfg(feature = "kvm")]
-        DriverType::KVM => Box::from_raw(context.driver as *mut Kvm) as Box<dyn Introspectable>,
+        DriverType::KVM => Box::from_raw(context.driver as *mut Kvm) as Box<dyn Introspectable<DriverEvent=Ev>>,
         #[cfg(feature = "virtualbox")]
         DriverType::VirtualBox => {
             Box::from_raw(context.driver as *mut VBox) as Box<dyn Introspectable>

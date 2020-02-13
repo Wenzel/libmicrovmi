@@ -30,6 +30,9 @@ use winapi::um::winnt::{
     TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES,
 };
 
+// Define empty event struct for the API
+pub struct HyperVEvent;
+
 // iterator over processes
 struct ProcessList {
     snapshot_handle: HANDLE,

@@ -5,7 +5,9 @@ use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
 use xenstore::{XBTransaction, Xs, XsOpenFlags};
 
-// unit struct
+// Define empty event struct for the API
+pub struct XenEvent;
+
 #[derive(Debug)]
 pub struct Xen {
     xc: XenControl,

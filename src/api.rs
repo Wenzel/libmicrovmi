@@ -3,7 +3,6 @@ use std::error::Error;
 #[repr(C)]
 #[derive(Debug)]
 pub enum DriverType {
-    Dummy,
     #[cfg(feature = "hyper-v")]
     HyperV,
     #[cfg(feature = "kvm")]
@@ -47,6 +46,8 @@ pub enum Registers {
 }
 
 pub trait Introspectable {
+    type DriverEvent;
+
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
@@ -82,15 +83,15 @@ pub trait Introspectable {
     }
 
     // listen and return the next event, or return None
-    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+    fn listen(&mut self, _timeout: u32) -> Result<Option<Event<Self::DriverEvent>>, Box<dyn Error>> where Self: Sized {
         unimplemented!();
     }
 
     fn reply_event(
         &mut self,
-        _event: &Event,
+        _event: &Event<Self::DriverEvent>,
         _reply_type: EventReplyType,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> where Self: Sized {
         unimplemented!();
     }
 
@@ -121,9 +122,11 @@ pub enum CrType {
 }
 
 #[repr(C)]
-pub struct Event {
+pub struct Event<T> {
     pub vcpu: u16,
     pub kind: EventType,
+    // hide underlying driver event
+    pub inner: T,
 }
 
 #[repr(C)]

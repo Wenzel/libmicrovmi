@@ -6,6 +6,7 @@ use std::time::Instant;
 use env_logger;
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::Ev;
 
 fn main() {
     env_logger::init();
@@ -25,7 +26,7 @@ fn main() {
     })
     .expect("Error setting Ctrl-C handler");
 
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
+    let mut drv: Box<dyn Introspectable<DriverEvent=Ev>> = microvmi::init(domain_name, None);
 
     println!("Enable CR3 interception");
     // enable CR3 interception

@@ -4,7 +4,9 @@ use fdp::FDP;
 
 use crate::api::{DriverType, Introspectable};
 
-// unit struct
+// Define empty event struct for the API
+pub struct VBoxEvent;
+
 #[derive(Debug)]
 pub struct VBox {
     fdp: FDP,
