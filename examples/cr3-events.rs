@@ -70,5 +70,10 @@ fn main() {
     drv.toggle_intercept(0, inter_cr3, false)
         .expect("Failed to enable CR3 interception");
 
-    println!("Catched {} events/sec", i / duration.as_secs());
+    println!(
+        "Catched {} events in {} seconds ({} events/sec)",
+        i,
+        duration.as_secs(),
+        i / duration.as_secs()
+    );
 }
