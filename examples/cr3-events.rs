@@ -32,8 +32,10 @@ fn main() {
 
     // enable CR3 interception
     let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-    drv.toggle_intercept(0, inter_cr3, true)
-        .expect("Failed to enable CR3 interception");
+    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        drv.toggle_intercept(vcpu, inter_cr3, true)
+            .expect("Failed to enable CR3 interception");
+    }
 
     drv.resume().expect("Failed to resume VM");
 
@@ -53,7 +55,7 @@ fn main() {
                         old: _,
                     } => new,
                 };
-                println!("[{}] VCPU {} - CR3: 0x{:x}", ev.vcpu, i, new);
+                println!("[{}] VCPU {} - CR3: 0x{:x}", i, ev.vcpu, new);
                 drv.reply_event(&ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
             }
@@ -67,8 +69,10 @@ fn main() {
     drv.pause().expect("Failed to pause VM");
 
     // disable CR3 interception
-    drv.toggle_intercept(0, inter_cr3, false)
-        .expect("Failed to enable CR3 interception");
+    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        drv.toggle_intercept(vcpu, inter_cr3, false)
+            .expect("Failed to enable CR3 interception");
+    }
 
     println!(
         "Catched {} events in {} seconds ({} events/sec)",

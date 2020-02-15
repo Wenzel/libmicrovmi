@@ -47,6 +47,11 @@ pub enum Registers {
 }
 
 pub trait Introspectable {
+    // get VCPU count
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        unimplemented!();
+    }
+
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();

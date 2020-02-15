@@ -33,19 +33,26 @@ impl Kvm {
         let kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-            map_events: HashMap::with_capacity(1),
+            map_events: HashMap::new(),
         };
+
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
         let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-        kvm.kvmi
-            .control_events(0, inter_cr3.to_kvmi(), true)
-            .unwrap();
+        for vcpu in 0..kvm.get_vcpu_count().unwrap() {
+            kvm.kvmi
+                .control_events(vcpu, inter_cr3.to_kvmi(), true)
+                .unwrap();
+        }
         kvm
     }
 }
 
 impl Introspectable for Kvm {
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        Ok(self.kvmi.get_vcpu_count().unwrap().try_into()?)
+    }
+
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
@@ -112,7 +119,7 @@ impl Introspectable for Kvm {
             let kvmi_event = self.kvmi.pop_event()?;
             match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
-                    debug!("Received Pause Event");
+                    debug!("VCPU {} - Received Pause Event", kvmi_event.vcpu);
                     self.expect_pause_ev -= 1;
                     self.kvmi.reply(&kvmi_event, KVMiEventReply::Continue)?;
                 }
@@ -197,8 +204,10 @@ impl Drop for Kvm {
     fn drop(&mut self) {
         debug!("KVM driver close");
         let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-        self.kvmi
-            .control_events(0, inter_cr3.to_kvmi(), false)
-            .unwrap();
+        for vcpu in 0..self.get_vcpu_count().unwrap() {
+            self.kvmi
+                .control_events(vcpu, inter_cr3.to_kvmi(), false)
+                .unwrap();
+        }
     }
 }
