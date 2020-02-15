@@ -53,7 +53,7 @@ fn main() {
                         old: _,
                     } => new,
                 };
-                println!("[{}] CR3: 0x{:x}", i, new);
+                println!("[{}] VCPU {} - CR3: 0x{:x}", ev.vcpu, i, new);
                 drv.reply_event(&ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
             }
