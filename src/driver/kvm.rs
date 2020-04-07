@@ -1,6 +1,7 @@
-use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error;
+use std::mem;
+use std::vec::Vec;
 
 use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
@@ -15,7 +16,7 @@ pub struct Kvm {
     kvmi: KVMi,
     expect_pause_ev: u32,
     // VCPU -> KVMiEvent
-    map_events: HashMap<u16, KVMiEvent>,
+    vec_events: Vec<Option<KVMiEvent>>,
 }
 
 impl InterceptType {
@@ -30,11 +31,15 @@ impl Kvm {
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        let kvm = Kvm {
+        let mut kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-            map_events: HashMap::new(),
+            vec_events: Vec::new(),
         };
+
+        // set vec_events size
+        let new_len: usize = kvm.get_vcpu_count().unwrap().try_into().unwrap();
+        kvm.vec_events.resize_with(new_len, || None);
 
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
@@ -44,6 +49,7 @@ impl Kvm {
                 .control_events(vcpu, inter_cr3.to_kvmi(), true)
                 .unwrap();
         }
+
         kvm
     }
 }
@@ -174,7 +180,8 @@ impl Introspectable for Kvm {
         };
 
         let vcpu = kvmi_event.vcpu;
-        self.map_events.insert(kvmi_event.vcpu, kvmi_event);
+        let vcpu_index: usize = vcpu.try_into().unwrap();
+        self.vec_events[vcpu_index] = Some(kvmi_event);
 
         Ok(Some(Event {
             vcpu,
@@ -191,7 +198,8 @@ impl Introspectable for Kvm {
             EventReplyType::Continue => KVMiEventReply::Continue,
         };
         // get KVMiEvent associated with this VCPU
-        let kvmi_event = self.map_events.remove(&event.vcpu).unwrap();
+        let vcpu_index: usize = event.vcpu.try_into().unwrap();
+        let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
         Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
     }
 
