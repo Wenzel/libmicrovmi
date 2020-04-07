@@ -191,7 +191,7 @@ impl Introspectable for Kvm {
 
     fn reply_event(
         &mut self,
-        event: &Event,
+        event: Event,
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
         let kvm_reply_type = match reply_type {

@@ -93,7 +93,7 @@ pub trait Introspectable {
 
     fn reply_event(
         &mut self,
-        _event: &Event,
+        _event: Event,
         _reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
