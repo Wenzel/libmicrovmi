@@ -76,7 +76,7 @@ fn main() {
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();
     println!(
-        "Catched {} events in {:.2} seconds ({:.2} events/sec)",
+        "Caught {} events in {:.2} seconds ({:.2} events/sec)",
         i,
         duration.as_secs_f64(),
         ev_per_sec

@@ -176,7 +176,7 @@ impl Introspectable for Kvm {
                 new,
                 old,
             },
-            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been poped by resume VM. (Did you forgot to resume your VM ?)"),
+            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
         };
 
         let vcpu = kvmi_event.vcpu;
