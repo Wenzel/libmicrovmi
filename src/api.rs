@@ -47,6 +47,11 @@ pub enum Registers {
 }
 
 pub trait Introspectable {
+    // get VCPU count
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        unimplemented!();
+    }
+
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
@@ -71,7 +76,63 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    // toggle an event interception
+    fn toggle_intercept(
+        &mut self,
+        _vcpu: u16,
+        _intercept_type: InterceptType,
+        _enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    // listen and return the next event, or return None
+    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    fn reply_event(
+        &mut self,
+        _event: Event,
+        _reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     // Introduced for the sole purpose of C interoperability.
     // Should be deprecated as soon as more suitable solutions become available.
     fn get_driver_type(&self) -> DriverType;
+}
+
+// Event handling
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub enum InterceptType {
+    Cr(CrType),
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum EventType {
+    Cr { cr_type: CrType, new: u64, old: u64 },
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub enum CrType {
+    Cr0,
+    Cr3,
+    Cr4,
+}
+
+#[repr(C)]
+pub struct Event {
+    pub vcpu: u16,
+    pub kind: EventType,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum EventReplyType {
+    Continue,
 }

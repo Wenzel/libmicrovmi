@@ -1,32 +1,64 @@
+use std::convert::TryInto;
 use std::error::Error;
+use std::mem;
+use std::vec::Vec;
 
-use kvmi::{KVMi, KVMiEventReply, KVMiEventType};
+use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
-use crate::api::{DriverType, Introspectable, Registers, X86Registers};
+use crate::api::{
+    CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
+    X86Registers,
+};
 
 // unit struct
 #[derive(Debug)]
 pub struct Kvm {
     kvmi: KVMi,
     expect_pause_ev: u32,
+    // VCPU -> KVMiEvent
+    vec_events: Vec<Option<KVMiEvent>>,
+}
+
+impl InterceptType {
+    fn to_kvmi(self) -> KVMiInterceptType {
+        match self {
+            InterceptType::Cr(_micro_cr_type) => KVMiInterceptType::Cr,
+        }
+    }
 }
 
 impl Kvm {
     pub fn new(domain_name: &str) -> Self {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        Kvm {
+        let mut kvm = Kvm {
             kvmi: KVMi::new(socket_path),
             expect_pause_ev: 0,
-        }
-    }
+            vec_events: Vec::new(),
+        };
 
-    fn close(&mut self) {
-        debug!("close");
+        // set vec_events size
+        let new_len: usize = kvm.get_vcpu_count().unwrap().try_into().unwrap();
+        kvm.vec_events.resize_with(new_len, || None);
+
+        // enable CR event intercept by default
+        // (interception will take place when CR register will be specified)
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        for vcpu in 0..kvm.get_vcpu_count().unwrap() {
+            kvm.kvmi
+                .control_events(vcpu, inter_cr3.to_kvmi(), true)
+                .unwrap();
+        }
+
+        kvm
     }
 }
 
 impl Introspectable for Kvm {
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        Ok(self.kvmi.get_vcpu_count().unwrap().try_into()?)
+    }
+
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
@@ -93,7 +125,7 @@ impl Introspectable for Kvm {
             let kvmi_event = self.kvmi.pop_event()?;
             match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
-                    debug!("Received Pause Event");
+                    debug!("VCPU {} - Received Pause Event", kvmi_event.vcpu);
                     self.expect_pause_ev -= 1;
                     self.kvmi.reply(&kvmi_event, KVMiEventReply::Continue)?;
                 }
@@ -106,6 +138,71 @@ impl Introspectable for Kvm {
         Ok(())
     }
 
+    fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        match intercept_type {
+            InterceptType::Cr(micro_cr_type) => {
+                let kvmi_cr = match micro_cr_type {
+                    CrType::Cr0 => KVMiCr::Cr0,
+                    CrType::Cr3 => KVMiCr::Cr3,
+                    CrType::Cr4 => KVMiCr::Cr4,
+                };
+                Ok(self.kvmi.control_cr(vcpu, kvmi_cr, enabled)?)
+            }
+        }
+    }
+
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        // wait for next event and pop it
+        debug!("wait for next event");
+        if self.kvmi.wait_event(timeout.try_into().unwrap())?.is_none() {
+            // no events
+            return Ok(None);
+        }
+        debug!("Pop next event");
+        let kvmi_event = self.kvmi.pop_event()?;
+
+        let microvmi_event_kind = match kvmi_event.ev_type {
+            KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
+                cr_type: match cr_type {
+                    KVMiCr::Cr0 => CrType::Cr0,
+                    KVMiCr::Cr3 => CrType::Cr3,
+                    KVMiCr::Cr4 => CrType::Cr4,
+                },
+                new,
+                old,
+            },
+            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
+        };
+
+        let vcpu = kvmi_event.vcpu;
+        let vcpu_index: usize = vcpu.try_into().unwrap();
+        self.vec_events[vcpu_index] = Some(kvmi_event);
+
+        Ok(Some(Event {
+            vcpu,
+            kind: microvmi_event_kind,
+        }))
+    }
+
+    fn reply_event(
+        &mut self,
+        event: Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        let kvm_reply_type = match reply_type {
+            EventReplyType::Continue => KVMiEventReply::Continue,
+        };
+        // get KVMiEvent associated with this VCPU
+        let vcpu_index: usize = event.vcpu.try_into().unwrap();
+        let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
+        Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
+    }
+
     fn get_driver_type(&self) -> DriverType {
         DriverType::KVM
     }
@@ -113,6 +210,12 @@ impl Introspectable for Kvm {
 
 impl Drop for Kvm {
     fn drop(&mut self) {
-        self.close();
+        debug!("KVM driver close");
+        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
+        for vcpu in 0..self.get_vcpu_count().unwrap() {
+            self.kvmi
+                .control_events(vcpu, inter_cr3.to_kvmi(), false)
+                .unwrap();
+        }
     }
 }
