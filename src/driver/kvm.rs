@@ -120,9 +120,7 @@ impl Introspectable for Kvm {
 
         while self.expect_pause_ev > 0 {
             // wait
-            self.kvmi.wait_event(1000)?;
-            // pop
-            let kvmi_event = self.kvmi.pop_event()?;
+            let kvmi_event = self.kvmi.wait_and_pop_event(1000)?.unwrap();
             match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
                     debug!("VCPU {} - Received Pause Event", kvmi_event.vcpu);
@@ -159,34 +157,33 @@ impl Introspectable for Kvm {
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         // wait for next event and pop it
         debug!("wait for next event");
-        if self.kvmi.wait_event(timeout.try_into().unwrap())?.is_none() {
-            // no events
-            return Ok(None);
+        let kvmi_event_opt = self.kvmi.wait_and_pop_event(timeout.try_into().unwrap())?;
+        match kvmi_event_opt {
+            None => Ok(None),
+            Some(kvmi_event) => {
+                let microvmi_event_kind = match kvmi_event.ev_type {
+                    KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
+                        cr_type: match cr_type {
+                            KVMiCr::Cr0 => CrType::Cr0,
+                            KVMiCr::Cr3 => CrType::Cr3,
+                            KVMiCr::Cr4 => CrType::Cr4,
+                        },
+                        new,
+                        old,
+                    },
+                    KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
+                };
+
+                let vcpu = kvmi_event.vcpu;
+                let vcpu_index: usize = vcpu.try_into().unwrap();
+                self.vec_events[vcpu_index] = Some(kvmi_event);
+
+                Ok(Some(Event {
+                    vcpu,
+                    kind: microvmi_event_kind,
+                }))
+            }
         }
-        debug!("Pop next event");
-        let kvmi_event = self.kvmi.pop_event()?;
-
-        let microvmi_event_kind = match kvmi_event.ev_type {
-            KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
-                cr_type: match cr_type {
-                    KVMiCr::Cr0 => CrType::Cr0,
-                    KVMiCr::Cr3 => CrType::Cr3,
-                    KVMiCr::Cr4 => CrType::Cr4,
-                },
-                new,
-                old,
-            },
-            KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
-        };
-
-        let vcpu = kvmi_event.vcpu;
-        let vcpu_index: usize = vcpu.try_into().unwrap();
-        self.vec_events[vcpu_index] = Some(kvmi_event);
-
-        Ok(Some(Event {
-            vcpu,
-            kind: microvmi_event_kind,
-        }))
     }
 
     fn reply_event(
