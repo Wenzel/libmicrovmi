@@ -52,6 +52,7 @@ fn main() {
     })
     .expect("Error setting Ctrl-C handler");
 
+    println!("Initialize Libmicrovmi");
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
     drv.pause().expect("Failed to pause VM");
