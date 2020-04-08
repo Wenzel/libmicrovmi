@@ -1,11 +1,11 @@
-use crate::api::Introspectable;
+use crate::api::{DriverInitParam, Introspectable};
 use std::error::Error;
 
 // unit struct
 pub struct Dummy;
 
 impl Dummy {
-    pub fn new(domain_name: &str) -> Self {
+    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
         debug!("init on {}", domain_name);
         Dummy
     }

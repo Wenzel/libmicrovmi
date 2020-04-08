@@ -6,7 +6,7 @@ use std::ptr::{null, null_mut};
 use std::slice;
 use std::vec::Vec;
 
-use crate::api::Introspectable;
+use crate::api::{DriverInitParam, Introspectable};
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
@@ -159,7 +159,7 @@ pub struct HyperV {
 }
 
 impl HyperV {
-    pub fn new(domain_name: &str) -> Self {
+    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
         debug!("HyperV driver init on {}", domain_name);
 
         Self::enable_se_debug_privilege();

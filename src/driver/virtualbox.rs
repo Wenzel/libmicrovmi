@@ -2,7 +2,7 @@ use std::error::Error;
 
 use fdp::FDP;
 
-use crate::api::Introspectable;
+use crate::api::{DriverInitParam, Introspectable};
 
 // unit struct
 #[derive(Debug)]
@@ -11,7 +11,7 @@ pub struct VBox {
 }
 
 impl VBox {
-    pub fn new(domain_name: &str) -> Self {
+    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
         // init FDP
         let fdp = FDP::new(domain_name);
         VBox { fdp }
