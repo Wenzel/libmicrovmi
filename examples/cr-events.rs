@@ -25,17 +25,23 @@ fn main() {
                 .takes_value(true)
                 .short("r")
                 .default_value("3")
+                .help("control register to intercept. Possible values: [0 3 4]")
         )
         .get_matches();
 
     let domain_name = matches.value_of("vm_name").unwrap();
     let registers: Vec<_> = matches.values_of("register").unwrap().collect();
 
-    let mut vec_reg_int: Vec<i32> = Vec::new();
-    for reg_str in &registers {
-        // convert to int
-        let int_value = reg_str.parse::<i32>().expect("Provided register value is not an integer");
-        vec_reg_int.push(int_value);
+    // check parameters
+    let mut vec_cr = Vec::new();
+    for reg_str in registers {
+        let cr = match reg_str {
+            "0" => CrType::Cr0,
+            "3" => CrType::Cr3,
+            "4" => CrType::Cr4,
+            x => panic!("Provided register value \"{}\" is not a valid/interceptable control register.", x)
+        };
+        vec_cr.push(cr);
     }
 
     // set CTRL-C handler
@@ -48,22 +54,15 @@ fn main() {
 
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    println!("Enable control register interception");
     drv.pause().expect("Failed to pause VM");
 
     // enable control register interception
-    let mut enabled_intercepts = Vec::new();
-    for reg_str in registers {
-        let intercept = InterceptType::Cr(match reg_str {
-            "0" => CrType::Cr0,
-            "3" => CrType::Cr3,
-            "4" => CrType::Cr4,
-            x => panic!("Provided register value \"{}\" is not a valid control register", x)
-        });
+    for cr in &vec_cr {
+        let intercept = InterceptType::Cr(*cr);
+        println!("Enabling intercept on {:?}", cr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, true)
-                .expect("Failed to enable CR3 interception");
-            enabled_intercepts.push(intercept);
+                .expect(&format!("Failed to enable {:?}", cr));
         }
     }
 
@@ -95,11 +94,12 @@ fn main() {
     }
     let duration = start.elapsed();
 
-    println!("Disable control register interception");
     drv.pause().expect("Failed to pause VM");
 
     // disable control register interception
-    for intercept in enabled_intercepts {
+    for cr in &vec_cr {
+        let intercept = InterceptType::Cr(*cr);
+        println!("Disbaling intercept of {:?}", cr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, false)
                 .expect("Failed to disable control register interception");
