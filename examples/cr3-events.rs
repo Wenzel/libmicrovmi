@@ -1,10 +1,9 @@
-use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
 use env_logger;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App};
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
@@ -20,9 +19,24 @@ fn main() {
                 .index(1)
                 .required(true)
         )
+        .arg(
+            Arg::with_name("register")
+                .multiple(true)
+                .takes_value(true)
+                .short("r")
+                .default_value("3")
+        )
         .get_matches();
 
     let domain_name = matches.value_of("vm_name").unwrap();
+    let registers: Vec<_> = matches.values_of("register").unwrap().collect();
+
+    let mut vec_reg_int: Vec<i32> = Vec::new();
+    for reg_str in &registers {
+        // convert to int
+        let int_value = reg_str.parse::<i32>().expect("Provided register value is not an integer");
+        vec_reg_int.push(int_value);
+    }
 
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
@@ -34,19 +48,28 @@ fn main() {
 
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    println!("Enable CR3 interception");
+    println!("Enable control register interception");
     drv.pause().expect("Failed to pause VM");
 
-    // enable CR3 interception
-    let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-    for vcpu in 0..drv.get_vcpu_count().unwrap() {
-        drv.toggle_intercept(vcpu, inter_cr3, true)
-            .expect("Failed to enable CR3 interception");
+    // enable control register interception
+    let mut enabled_intercepts = Vec::new();
+    for reg_str in registers {
+        let intercept = InterceptType::Cr(match reg_str {
+            "0" => CrType::Cr0,
+            "3" => CrType::Cr3,
+            "4" => CrType::Cr4,
+            x => panic!("Provided register value \"{}\" is not a valid control register", x)
+        });
+        for vcpu in 0..drv.get_vcpu_count().unwrap() {
+            drv.toggle_intercept(vcpu, intercept, true)
+                .expect("Failed to enable CR3 interception");
+            enabled_intercepts.push(intercept);
+        }
     }
 
     drv.resume().expect("Failed to resume VM");
 
-    println!("Listen for CR3 events...");
+    println!("Listen for control register events...");
     // record elapsed time
     let start = Instant::now();
     // listen
@@ -72,13 +95,15 @@ fn main() {
     }
     let duration = start.elapsed();
 
-    println!("Disable CR3 interception");
+    println!("Disable control register interception");
     drv.pause().expect("Failed to pause VM");
 
-    // disable CR3 interception
-    for vcpu in 0..drv.get_vcpu_count().unwrap() {
-        drv.toggle_intercept(vcpu, inter_cr3, false)
-            .expect("Failed to enable CR3 interception");
+    // disable control register interception
+    for intercept in enabled_intercepts {
+        for vcpu in 0..drv.get_vcpu_count().unwrap() {
+            drv.toggle_intercept(vcpu, intercept, false)
+                .expect("Failed to disable control register interception");
+        }
     }
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();
