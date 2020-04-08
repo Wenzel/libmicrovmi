@@ -98,7 +98,7 @@ fn main() {
     // disable control register interception
     for cr in &vec_cr {
         let intercept = InterceptType::Cr(*cr);
-        println!("Disbaling intercept of {:?}", cr);
+        println!("Disabling intercept of {:?}", cr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, false)
                 .expect("Failed to disable control register interception");
