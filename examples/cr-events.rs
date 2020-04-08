@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use clap::{App, Arg};
+use colored::*;
 use env_logger;
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
@@ -83,7 +84,19 @@ fn main() {
                         old: _,
                     } => (cr_type, new),
                 };
-                println!("[{}] VCPU {} - {:?}: 0x{:x}", i, ev.vcpu, cr_type, new);
+                let cr_color = match cr_type {
+                    CrType::Cr0 => "blue",
+                    CrType::Cr3 => "green",
+                    CrType::Cr4 => "red",
+                };
+                let ev_nb_output = format!("{}", i).cyan();
+                let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
+                let cr_output = format!("{:?}", cr_type).color(cr_color);
+                // let output = format!("[{}] VCPU {} - {:?}: 0x{:x}", i, ev.vcpu, cr_type, new);
+                println!(
+                    "[{}] {} - {}: 0x{:x}",
+                    ev_nb_output, vcpu_output, cr_output, new
+                );
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
                 i = i + 1;
