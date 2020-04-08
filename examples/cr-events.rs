@@ -10,7 +10,7 @@ use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspect
 fn main() {
     env_logger::init();
 
-    let matches = App::new("Control Register Events")
+    let matches = App::new(file!())
         .version("0.2")
         .author("Mathieu Tarral")
         .about("Watches control register VMI events")
