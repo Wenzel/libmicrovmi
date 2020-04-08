@@ -71,7 +71,7 @@ fn main() {
     // record elapsed time
     let start = Instant::now();
     // listen
-    let mut i: u64 = 1;
+    let mut i: u64 = 0;
     while running.load(Ordering::SeqCst) {
         let event = drv.listen(1000).expect("Failed to listen for events");
         match event {
@@ -86,10 +86,10 @@ fn main() {
                 println!("[{}] VCPU {} - {:?}: 0x{:x}", i, ev.vcpu, cr_type, new);
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
+                i = i + 1;
             }
             None => println!("No events yet..."),
         }
-        i = i + 1;
     }
     let duration = start.elapsed();
 
