@@ -35,6 +35,5 @@ cty = "0.2.1"
 [dev-dependencies]
 env_logger = "0.7.1"
 ctrlc = "3.1.3"
+clap = "2.33.0"
 
-# [patch.crates-io]
-# vid-sys = { path = "../vid-sys" }
