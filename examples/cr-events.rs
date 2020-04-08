@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
+use clap::{App, Arg};
 use env_logger;
-use clap::{Arg, App};
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
@@ -14,18 +14,14 @@ fn main() {
         .version("0.2")
         .author("Mathieu Tarral")
         .about("Watches control register VMI events")
-        .arg(
-            Arg::with_name("vm_name")
-                .index(1)
-                .required(true)
-        )
+        .arg(Arg::with_name("vm_name").index(1).required(true))
         .arg(
             Arg::with_name("register")
                 .multiple(true)
                 .takes_value(true)
                 .short("r")
                 .default_value("3")
-                .help("control register to intercept. Possible values: [0 3 4]")
+                .help("control register to intercept. Possible values: [0 3 4]"),
         )
         .get_matches();
 
@@ -39,7 +35,10 @@ fn main() {
             "0" => CrType::Cr0,
             "3" => CrType::Cr3,
             "4" => CrType::Cr4,
-            x => panic!("Provided register value \"{}\" is not a valid/interceptable control register.", x)
+            x => panic!(
+                "Provided register value \"{}\" is not a valid/interceptable control register.",
+                x
+            ),
         };
         vec_cr.push(cr);
     }
@@ -77,14 +76,14 @@ fn main() {
         let event = drv.listen(1000).expect("Failed to listen for events");
         match event {
             Some(ev) => {
-                let new = match ev.kind {
+                let (cr_type, new) = match ev.kind {
                     EventType::Cr {
-                        cr_type: _,
+                        cr_type,
                         new,
                         old: _,
-                    } => new,
+                    } => (cr_type, new),
                 };
-                println!("[{}] VCPU {} - CR3: 0x{:x}", i, ev.vcpu, new);
+                println!("[{}] VCPU {} - {:?}: 0x{:x}", i, ev.vcpu, cr_type, new);
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
             }
