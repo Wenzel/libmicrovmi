@@ -4,18 +4,25 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use env_logger;
+use clap::{Arg, App, SubCommand};
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
 fn main() {
     env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: {} <vm_name>", args[0]);
-        return;
-    }
-    let domain_name = &args[1];
+    let matches = App::new("Control Register Events")
+        .version("0.2")
+        .author("Mathieu Tarral")
+        .about("Watches control register VMI events")
+        .arg(
+            Arg::with_name("vm_name")
+                .index(1)
+                .required(true)
+        )
+        .get_matches();
+
+    let domain_name = matches.value_of("vm_name").unwrap();
 
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
