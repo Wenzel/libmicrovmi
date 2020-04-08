@@ -43,11 +43,13 @@ impl Kvm {
 
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
-        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-        for vcpu in 0..kvm.get_vcpu_count().unwrap() {
-            kvm.kvmi
-                .control_events(vcpu, inter_cr3.to_kvmi(), true)
-                .unwrap();
+        for cr_type in vec![CrType::Cr0, CrType::Cr3, CrType::Cr4].iter() {
+            let inter = InterceptType::Cr(*cr_type);
+            for vcpu in 0..kvm.get_vcpu_count().unwrap() {
+                kvm.kvmi
+                    .control_events(vcpu, inter.to_kvmi(), true)
+                    .unwrap();
+            }
         }
 
         kvm
@@ -208,11 +210,14 @@ impl Introspectable for Kvm {
 impl Drop for Kvm {
     fn drop(&mut self) {
         debug!("KVM driver close");
-        let inter_cr3 = InterceptType::Cr(CrType::Cr3);
-        for vcpu in 0..self.get_vcpu_count().unwrap() {
-            self.kvmi
-                .control_events(vcpu, inter_cr3.to_kvmi(), false)
-                .unwrap();
+        // disable all control register interception
+        for cr_type in vec![CrType::Cr0, CrType::Cr3, CrType::Cr4].iter() {
+            let inter = InterceptType::Cr(*cr_type);
+            for vcpu in 0..self.get_vcpu_count().unwrap() {
+                self.kvmi
+                    .control_events(vcpu, inter.to_kvmi(), false)
+                    .unwrap();
+            }
         }
     }
 }
