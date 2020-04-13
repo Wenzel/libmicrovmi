@@ -112,6 +112,7 @@ impl Introspectable for Xen {
             cr0: hvm_cpu.cr0,
             cr3: hvm_cpu.cr3,
             cr4: hvm_cpu.cr4,
+            fs_base: hvm_cpu.fs_base,
         }))
     }
 

@@ -97,6 +97,7 @@ impl Introspectable for Kvm {
             cr0: sregs.cr0,
             cr3: sregs.cr3,
             cr4: sregs.cr4,
+            fs_base: sregs.fs.base,
         }))
     }
 
