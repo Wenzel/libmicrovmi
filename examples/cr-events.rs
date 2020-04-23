@@ -2,17 +2,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 
 use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
-fn main() {
-    env_logger::init();
-
-    let matches = App::new(file!())
-        .version("0.2")
+fn parse_args() -> ArgMatches<'static> {
+    App::new(file!())
+        .version("0.3")
         .author("Mathieu Tarral")
         .about("Watches control register VMI events")
         .arg(Arg::with_name("vm_name").index(1).required(true))
@@ -24,7 +22,28 @@ fn main() {
                 .default_value("3")
                 .help("control register to intercept. Possible values: [0 3 4]"),
         )
-        .get_matches();
+        .get_matches()
+}
+
+fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &Vec<CrType>, enabled: bool) {
+    drv.pause().expect("Failed to pause VM");
+
+    for cr in vec_cr {
+        let intercept = InterceptType::Cr(*cr);
+        println!("Enabling intercept on {:?}", cr);
+        for vcpu in 0..drv.get_vcpu_count().unwrap() {
+            drv.toggle_intercept(vcpu, intercept, enabled)
+                .expect(&format!("Failed to enable {:?}", cr));
+        }
+    }
+
+    drv.resume().expect("Failed to resume VM");
+}
+
+fn main() {
+    env_logger::init();
+
+    let matches = parse_args();
 
     let domain_name = matches.value_of("vm_name").unwrap();
     let registers: Vec<_> = matches.values_of("register").unwrap().collect();
@@ -55,19 +74,8 @@ fn main() {
     println!("Initialize Libmicrovmi");
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    drv.pause().expect("Failed to pause VM");
-
     // enable control register interception
-    for cr in &vec_cr {
-        let intercept = InterceptType::Cr(*cr);
-        println!("Enabling intercept on {:?}", cr);
-        for vcpu in 0..drv.get_vcpu_count().unwrap() {
-            drv.toggle_intercept(vcpu, intercept, true)
-                .expect(&format!("Failed to enable {:?}", cr));
-        }
-    }
-
-    drv.resume().expect("Failed to resume VM");
+    toggle_cr_intercepts(&mut drv, &vec_cr, true);
 
     println!("Listen for control register events...");
     // record elapsed time
@@ -107,17 +115,8 @@ fn main() {
     }
     let duration = start.elapsed();
 
-    drv.pause().expect("Failed to pause VM");
-
     // disable control register interception
-    for cr in &vec_cr {
-        let intercept = InterceptType::Cr(*cr);
-        println!("Disabling intercept of {:?}", cr);
-        for vcpu in 0..drv.get_vcpu_count().unwrap() {
-            drv.toggle_intercept(vcpu, intercept, false)
-                .expect("Failed to disable control register interception");
-        }
-    }
+    toggle_cr_intercepts(&mut drv, &vec_cr, false);
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();
     println!(
