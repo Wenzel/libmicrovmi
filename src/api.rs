@@ -38,6 +38,7 @@ pub struct X86Registers {
     pub cr0: u64,
     pub cr3: u64,
     pub cr4: u64,
+    pub fs_base: u64,
 }
 
 #[repr(C)]
