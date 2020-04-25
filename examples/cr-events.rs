@@ -6,7 +6,9 @@ use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 
-use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::api::{
+    CrType, DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable,
+};
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -21,6 +23,14 @@ fn parse_args() -> ArgMatches<'static> {
                 .short("r")
                 .default_value("3")
                 .help("control register to intercept. Possible values: [0 3 4]"),
+        )
+        .arg(
+            Arg::with_name("kvmi_socket")
+                .short("k")
+                .takes_value(true)
+                .help(
+                "pass additional KVMi socket initialization parameter required for the KVM driver",
+            ),
         )
         .get_matches()
 }
@@ -77,7 +87,10 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
+    let init_option = matches
+        .value_of("kvmi_socket")
+        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
 
     // enable control register interception
     toggle_cr_intercepts(&mut drv, &vec_cr, true);
