@@ -30,7 +30,8 @@ fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &Vec<CrType>,
 
     for cr in vec_cr {
         let intercept = InterceptType::Cr(*cr);
-        println!("Enabling intercept on {:?}", cr);
+        let status_str = if enabled { "Enabling" } else { "Disabling" };
+        println!("{} intercept on {:?}", status_str, cr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, enabled)
                 .expect(&format!("Failed to enable {:?}", cr));
