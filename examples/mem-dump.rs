@@ -1,30 +1,45 @@
-use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-extern crate microvmi;
+use clap::{App, Arg, ArgMatches};
 use env_logger;
 
-// traits method can only be used if the trait is in the scope
-use microvmi::api::Introspectable;
+use microvmi::api::{DriverInitParam, Introspectable};
 
 const PAGE_SIZE: usize = 4096;
+
+fn parse_args() -> ArgMatches<'static> {
+    App::new(file!())
+        .version("0.1")
+        .author("Mathieu Tarral")
+        .about("Dumps VM physical memory")
+        .arg(Arg::with_name("vm_name").index(1).required(true))
+        .arg(
+            Arg::with_name("kvmi_socket")
+                .short("k")
+                .takes_value(true)
+                .help(
+                "pass additional KVMi socket initialization parameter required for the KVM driver",
+            ),
+        )
+        .get_matches()
+}
 
 fn main() {
     env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: {} <vm_name>", args[0]);
-        return;
-    }
-    let domain_name = &args[1];
+    let matches = parse_args();
+    let domain_name = matches.value_of("vm_name").unwrap();
+
     let dump_name = format!("{}.dump", domain_name);
     let dump_path = Path::new(&dump_name);
     let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
 
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
+    let init_option = matches
+        .value_of("kvmi_socket")
+        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
