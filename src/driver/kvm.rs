@@ -5,10 +5,7 @@ use std::vec::Vec;
 
 use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
-use crate::api::{
-    CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
-    X86Registers,
-};
+use crate::api::*;
 
 // unit struct
 #[derive(Debug)]
@@ -65,7 +62,8 @@ impl Introspectable for Kvm {
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
         let (regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         // TODO: hardcoded for x86 for now
-        Ok(Registers::X86(X86Registers {
+
+        Ok((Registers::X86(X86Registers {
             rax: regs.rax,
             rbx: regs.rbx,
             rcx: regs.rcx,
@@ -85,10 +83,90 @@ impl Introspectable for Kvm {
             rip: regs.rip,
             rflags: regs.rflags,
             cr0: sregs.cr0,
+            cr2: sregs.cr2,
             cr3: sregs.cr3,
             cr4: sregs.cr4,
-            fs_base: sregs.fs.base,
-        }))
+            sysenter_cs: _msrs.entries[0].data,
+            sysenter_esp: _msrs.entries[1].data,
+            sysenter_eip: _msrs.entries[2].data,
+            msr_efer: _msrs.entries[3].data,
+            msr_star: _msrs.entries[4].data,
+            msr_lstar: _msrs.entries[5].data,
+            efer: sregs.efer,
+            apic_base: sregs.apic_base,
+            cs: segment_reg {
+                base: sregs.cs.base,
+                limit: sregs.cs.limit,
+                selector: sregs.cs.selector,
+            },
+            ds: segment_reg {
+                base: sregs.ds.base,
+                limit: sregs.ds.limit,
+                selector: sregs.ds.selector,
+            },
+            es: segment_reg {
+                base: sregs.es.base,
+                limit: sregs.es.limit,
+                selector: sregs.es.selector,
+            },
+            fs: segment_reg {
+                base: sregs.fs.base,
+                limit: sregs.fs.limit,
+                selector: sregs.fs.selector,
+            },
+            gs: segment_reg {
+                base: sregs.gs.base,
+                limit: sregs.gs.limit,
+                selector: sregs.gs.selector,
+            },
+            ss: segment_reg {
+                base: sregs.ss.base,
+                limit: sregs.ss.limit,
+                selector: sregs.ss.selector,
+            },
+            tr: segment_reg {
+                base: sregs.tr.base,
+                limit: sregs.tr.limit,
+                selector: sregs.tr.selector,
+            },
+            ldt: segment_reg {
+                base: sregs.ldt.base,
+                limit: sregs.ldt.limit,
+                selector: sregs.ldt.selector,
+            },
+
+        })))
+
+            
+    }
+
+    fn write_registers(&self, vcpu: u16, value: u64, reg: u64) -> Result<(), Box<dyn Error>> {
+        let (mut regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        match reg {
+            RAX => regs.rax=value,
+            RBX => regs.rbx=value,
+            RCX => regs.rcx=value,
+            RDX => regs.rdx=value,
+            RSI => regs.rsi=value,
+            RDI => regs.rdi=value,
+            RSP => regs.rsp=value,
+            RBP => regs.rbp=value,
+            R8 => regs.r8=value,
+            R9 => regs.r9=value,
+            R10 => regs.r10=value,
+            R11 => regs.r11=value,
+            R12 => regs.r12=value,
+            R13 => regs.r13=value,
+            R14 => regs.r14=value,
+            R15 => regs.r15=value,
+            RIP => regs.rip=value,
+            RFLAGS => regs.rflags=value,
+            _ => println!("wrong choice"),
+            
+        }
+        self.kvmi.set_registers(vcpu,&mut regs)?;
+        Ok(())
+       
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
@@ -139,6 +217,7 @@ impl Introspectable for Kvm {
             InterceptType::Cr(micro_cr_type) => {
                 let kvmi_cr = match micro_cr_type {
                     CrType::Cr0 => KVMiCr::Cr0,
+                    CrType::Cr2 => KVMiCr::Cr2,
                     CrType::Cr3 => KVMiCr::Cr3,
                     CrType::Cr4 => KVMiCr::Cr4,
                 };
@@ -158,6 +237,7 @@ impl Introspectable for Kvm {
                     KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
                         cr_type: match cr_type {
                             KVMiCr::Cr0 => CrType::Cr0,
+                            KVMiCr::Cr2 => CrType::Cr2,
                             KVMiCr::Cr3 => CrType::Cr3,
                             KVMiCr::Cr4 => CrType::Cr4,
                         },

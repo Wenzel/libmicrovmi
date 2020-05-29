@@ -1,4 +1,3 @@
-
 use std::env;
 extern crate env_logger;
 extern crate microvmi;
@@ -21,14 +20,18 @@ fn main() {
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
     let total_vcpu_count: u16 = drv.get_vcpu_count().expect("Failed to get vcpu count");
-    let mut vcpu: u16;
+    let mut vcpu: u16=0;
+    drv.write_registers(vcpu,0,0).expect("Failed to write registers");
+    vcpu=1;
+    drv.write_registers(vcpu,0,0).expect("Failed to write registers");
     for vcpu in 0..total_vcpu_count
     {
     	println!("dumping registers on VCPU {}",vcpu);
-    	let regs = drv.read_registers(vcpu).expect("Failed to read registers");
-        println!("{:#x?}", regs);
-    
+    	let regs= drv.read_registers(vcpu).expect("Failed to read registers");
+    	println!("{:#x?}", regs);
     }
+
+    
 
     println!("resuming the VM");
     drv.resume().expect("Failed to resume VM");

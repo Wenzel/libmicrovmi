@@ -1,5 +1,32 @@
 use std::error::Error;
 
+
+const RAX: u64 = 0;
+const RBX: u64 = 1;
+const RCX: u64 = 2;
+const RDX: u64 = 3;
+const RBP: u64 = 4;
+const RSI: u64 = 5;
+const RDP: u64 = 6;
+const RSP: u64 = 7;
+const RIP: u64 = 8;
+const RFLAGS: u64 = 9;
+const R8: u64 = 10;
+const R9: u64 = 11;
+const R10: u64 = 12;
+const R11: u64 = 13;
+const R12: u64 = 14;
+const R13: u64 = 15;
+const R14: u64 = 16;
+const R15: u64 = 17;
+const CR0: u64 = 18;
+const CR1: u64 = 19;
+const CR2: u64 = 20;
+const CR3: u64 = 21;
+
+
+
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum DriverType {
@@ -12,6 +39,15 @@ pub enum DriverType {
     VirtualBox,
     #[cfg(feature = "xen")]
     Xen,
+}
+
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct segment_reg {
+    pub base: u64,
+    pub limit: u32,
+    pub selector: u16,
 }
 
 #[repr(C)]
@@ -36,9 +72,27 @@ pub struct X86Registers {
     pub rip: u64,
     pub rflags: u64,
     pub cr0: u64,
+    pub cr2: u64,
     pub cr3: u64,
     pub cr4: u64,
-    pub fs_base: u64,
+    pub sysenter_cs: u64,
+    pub sysenter_esp: u64,
+    pub sysenter_eip: u64,
+    pub msr_efer: u64,
+    pub msr_star: u64,
+    pub msr_lstar: u64,
+    pub efer: u64,
+    pub apic_base: u64,
+    pub cs: segment_reg,
+    pub ds: segment_reg,
+    pub es: segment_reg,
+    pub fs: segment_reg,
+    pub gs: segment_reg,
+    pub ss: segment_reg,
+    pub tr: segment_reg,
+    pub ldt: segment_reg,
+
+   
 }
 
 #[repr(C)]
@@ -46,6 +100,8 @@ pub struct X86Registers {
 pub enum Registers {
     X86(X86Registers),
 }
+
+
 
 pub trait Introspectable {
     // get VCPU count
@@ -65,6 +121,10 @@ pub trait Introspectable {
 
     fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
         unimplemented!();
+    }
+
+    fn write_registers(&self, _vcpu: u16, value: u64, reg: u64) -> Result<(), Box<dyn Error>> {
+	unimplemented!();
     }
 
     // pause the VM
@@ -122,6 +182,7 @@ pub enum EventType {
 #[derive(Debug, Copy, Clone)]
 pub enum CrType {
     Cr0,
+    Cr2,
     Cr3,
     Cr4,
 }
