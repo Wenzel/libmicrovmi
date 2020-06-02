@@ -1,28 +1,24 @@
 use std::error::Error;
 
 
-const RAX: u64 = 0;
-const RBX: u64 = 1;
-const RCX: u64 = 2;
-const RDX: u64 = 3;
-const RBP: u64 = 4;
-const RSI: u64 = 5;
-const RDP: u64 = 6;
-const RSP: u64 = 7;
-const RIP: u64 = 8;
-const RFLAGS: u64 = 9;
-const R8: u64 = 10;
-const R9: u64 = 11;
-const R10: u64 = 12;
-const R11: u64 = 13;
-const R12: u64 = 14;
-const R13: u64 = 15;
-const R14: u64 = 16;
-const R15: u64 = 17;
-const CR0: u64 = 18;
-const CR1: u64 = 19;
-const CR2: u64 = 20;
-const CR3: u64 = 21;
+pub const RAX: u64 = 0;
+pub const RBX: u64 = 1;
+pub const RCX: u64 = 2;
+pub const RDX: u64 = 3;
+pub const RSI: u64 = 4;
+pub const RDI: u64 = 5;
+pub const RSP: u64 = 6;
+pub const RBP: u64 = 7;
+pub const R8: u64 = 8;
+pub const R9: u64 = 9;
+pub const R10: u64 = 10;
+pub const R11: u64 = 11;
+pub const R12: u64 = 12;
+pub const R13: u64 = 13;
+pub const R14: u64 = 14;
+pub const R15: u64 = 15;
+pub const RIP: u64 = 16;
+pub const RFLAGS: u64 = 17;
 
 
 
@@ -114,6 +110,10 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    // write physical memory
+    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
     // get max physical address
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         unimplemented!();
@@ -170,12 +170,14 @@ pub trait Introspectable {
 #[derive(Debug, Copy, Clone)]
 pub enum InterceptType {
     Cr(CrType),
+    Msr(MsrType),
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
     Cr { cr_type: CrType, new: u64, old: u64 },
+    Msr {msr_type: MsrType, new: u64, old: u64 },
 }
 
 #[repr(C)]
@@ -185,6 +187,18 @@ pub enum CrType {
     Cr2,
     Cr3,
     Cr4,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub enum MsrType 
+{
+    Sysenter_cs,
+    Sysenter_esp,
+    Sysenter_eip,
+    Msr_star,
+    Msr_lstar,
+    Msr_efer,
 }
 
 #[repr(C)]

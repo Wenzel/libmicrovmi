@@ -3,9 +3,10 @@ use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
-use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
+use kvmi::{KVMi, KVMiCr, KVMiMsr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
 use crate::api::*;
+
 
 // unit struct
 #[derive(Debug)]
@@ -37,6 +38,9 @@ impl Kvm {
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, true)
                 .unwrap();
+            kvm.kvmi
+            .control_events(vcpu, KVMiInterceptType::Msr, true)
+            .unwrap();
         }
 
         kvm
@@ -52,11 +56,13 @@ impl Introspectable for Kvm {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
+    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        Ok(self.kvmi.write_physical(paddr, buf)?)
+    }
+
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        // No API in KVMi at the moment
-        // fake 512MB
-        let max_addr = 1024 * 1024 * 512;
-        Ok(max_addr)
+        let max_gfn = self.kvmi.get_maximum_gfn()?;
+        Ok(max_gfn<<12)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -143,28 +149,29 @@ impl Introspectable for Kvm {
     fn write_registers(&self, vcpu: u16, value: u64, reg: u64) -> Result<(), Box<dyn Error>> {
         let (mut regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         match reg {
-            RAX => regs.rax=value,
-            RBX => regs.rbx=value,
-            RCX => regs.rcx=value,
-            RDX => regs.rdx=value,
-            RSI => regs.rsi=value,
-            RDI => regs.rdi=value,
-            RSP => regs.rsp=value,
-            RBP => regs.rbp=value,
-            R8 => regs.r8=value,
-            R9 => regs.r9=value,
-            R10 => regs.r10=value,
-            R11 => regs.r11=value,
-            R12 => regs.r12=value,
-            R13 => regs.r13=value,
-            R14 => regs.r14=value,
-            R15 => regs.r15=value,
-            RIP => regs.rip=value,
-            RFLAGS => regs.rflags=value,
+            a if a == RAX => regs.rax=value,
+            a if a == RBX => regs.rbx=value,
+            a if a == RCX => regs.rcx=value,
+            a if a == RDX => regs.rdx=value,
+            a if a == RSI => regs.rsi=value,
+            a if a == RDI => regs.rdi=value,
+            a if a == RSP => regs.rsp=value,
+            a if a == RBP => regs.rbp=value,
+            a if a == R8 => regs.r8=value,
+            a if a == R9 => regs.r9=value,
+            a if a == R10 => regs.r10=value,
+            a if a == R11 => regs.r11=value,
+            a if a == R12 => regs.r12=value,
+            a if a == R13 => regs.r13=value,
+            a if a == R14 => regs.r14=value,
+            a if a == R15 => regs.r15=value,
+            a if a == RIP => regs.rip=value,
+            a if a == RFLAGS => regs.rflags=value,
             _ => println!("wrong choice"),
             
         }
         self.kvmi.set_registers(vcpu,&mut regs)?;
+
         Ok(())
        
     }
@@ -223,6 +230,19 @@ impl Introspectable for Kvm {
                 };
                 Ok(self.kvmi.control_cr(vcpu, kvmi_cr, enabled)?)
             }
+            InterceptType::Msr(micro_msr_type) => {
+                let kvmi_msr = match micro_msr_type {
+                    MsrType::Sysenter_cs => KVMiMsr::Sysenter_cs,
+                    MsrType::Sysenter_esp => KVMiMsr::Sysenter_esp,
+                    MsrType::Sysenter_eip => KVMiMsr::Sysenter_eip,
+                    MsrType::Msr_star => KVMiMsr::Msr_star,
+                    MsrType::Msr_lstar => KVMiMsr::Msr_lstar,
+                    MsrType::Msr_efer => KVMiMsr::Msr_efer,
+                };
+                Ok(self.kvmi.control_msr(vcpu, kvmi_msr, enabled)?)
+            }
+            
+
         }
     }
 
@@ -244,7 +264,20 @@ impl Introspectable for Kvm {
                         new,
                         old,
                     },
+                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
+                        msr_type: match msr_type {
+                            KVMiMsr::Sysenter_cs => MsrType::Sysenter_cs,
+                            KVMiMsr::Sysenter_esp => MsrType::Sysenter_esp,
+                            KVMiMsr::Sysenter_eip => MsrType::Sysenter_eip,
+                            KVMiMsr::Msr_star => MsrType::Msr_star,
+                            KVMiMsr::Msr_lstar => MsrType::Msr_lstar,
+                            KVMiMsr::Msr_efer => MsrType::Msr_efer,
+                        },
+                        new,
+                        old,
+                    },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
+                    
                 };
 
                 let vcpu = kvmi_event.vcpu;
@@ -285,6 +318,9 @@ impl Drop for Kvm {
         for vcpu in 0..self.get_vcpu_count().unwrap() {
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, false)
+                .unwrap();
+                self.kvmi
+                .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
         }
     }
