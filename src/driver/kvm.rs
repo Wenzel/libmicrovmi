@@ -3,10 +3,9 @@ use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
-use kvmi::{KVMi, KVMiCr, KVMiMsr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
+use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiMsr};
 
 use crate::api::*;
-
 
 // unit struct
 #[derive(Debug)]
@@ -39,8 +38,8 @@ impl Kvm {
                 .control_events(vcpu, KVMiInterceptType::Cr, true)
                 .unwrap();
             kvm.kvmi
-            .control_events(vcpu, KVMiInterceptType::Msr, true)
-            .unwrap();
+                .control_events(vcpu, KVMiInterceptType::Msr, true)
+                .unwrap();
         }
 
         kvm
@@ -56,20 +55,20 @@ impl Introspectable for Kvm {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
-    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.kvmi.write_physical(paddr, buf)?)
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gfn = self.kvmi.get_maximum_gfn()?;
-        Ok(max_gfn<<12)
+        Ok(max_gfn << 12)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let (regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        let (regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         // TODO: hardcoded for x86 for now
 
-        Ok((Registers::X86(X86Registers {
+        Ok(Registers::X86(X86Registers {
             rax: regs.rax,
             rbx: regs.rbx,
             rcx: regs.rcx,
@@ -88,92 +87,86 @@ impl Introspectable for Kvm {
             r15: regs.r15,
             rip: regs.rip,
             rflags: regs.rflags,
-            cr0: sregs.cr0,
-            cr2: sregs.cr2,
-            cr3: sregs.cr3,
-            cr4: sregs.cr4,
+            cr0: _sregs.cr0,
+            cr2: _sregs.cr2,
+            cr3: _sregs.cr3,
+            cr4: _sregs.cr4,
             sysenter_cs: _msrs.entries[0].data,
             sysenter_esp: _msrs.entries[1].data,
             sysenter_eip: _msrs.entries[2].data,
             msr_efer: _msrs.entries[3].data,
             msr_star: _msrs.entries[4].data,
             msr_lstar: _msrs.entries[5].data,
-            efer: sregs.efer,
-            apic_base: sregs.apic_base,
+            efer: _sregs.efer,
+            apic_base: _sregs.apic_base,
             cs: segment_reg {
-                base: sregs.cs.base,
-                limit: sregs.cs.limit,
-                selector: sregs.cs.selector,
+                base: _sregs.cs.base,
+                limit: _sregs.cs.limit,
+                selector: _sregs.cs.selector,
             },
             ds: segment_reg {
-                base: sregs.ds.base,
-                limit: sregs.ds.limit,
-                selector: sregs.ds.selector,
+                base: _sregs.ds.base,
+                limit: _sregs.ds.limit,
+                selector: _sregs.ds.selector,
             },
             es: segment_reg {
-                base: sregs.es.base,
-                limit: sregs.es.limit,
-                selector: sregs.es.selector,
+                base: _sregs.es.base,
+                limit: _sregs.es.limit,
+                selector: _sregs.es.selector,
             },
             fs: segment_reg {
-                base: sregs.fs.base,
-                limit: sregs.fs.limit,
-                selector: sregs.fs.selector,
+                base: _sregs.fs.base,
+                limit: _sregs.fs.limit,
+                selector: _sregs.fs.selector,
             },
             gs: segment_reg {
-                base: sregs.gs.base,
-                limit: sregs.gs.limit,
-                selector: sregs.gs.selector,
+                base: _sregs.gs.base,
+                limit: _sregs.gs.limit,
+                selector: _sregs.gs.selector,
             },
             ss: segment_reg {
-                base: sregs.ss.base,
-                limit: sregs.ss.limit,
-                selector: sregs.ss.selector,
+                base: _sregs.ss.base,
+                limit: _sregs.ss.limit,
+                selector: _sregs.ss.selector,
             },
             tr: segment_reg {
-                base: sregs.tr.base,
-                limit: sregs.tr.limit,
-                selector: sregs.tr.selector,
+                base: _sregs.tr.base,
+                limit: _sregs.tr.limit,
+                selector: _sregs.tr.selector,
             },
             ldt: segment_reg {
-                base: sregs.ldt.base,
-                limit: sregs.ldt.limit,
-                selector: sregs.ldt.selector,
+                base: _sregs.ldt.base,
+                limit: _sregs.ldt.limit,
+                selector: _sregs.ldt.selector,
             },
-
-        })))
-
-            
+        }))
     }
 
-    fn write_registers(&self, vcpu: u16, value: u64, reg: u64) -> Result<(), Box<dyn Error>> {
-        let (mut regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+    fn write_registers(&self, vcpu: u16, value: u64, reg: Register) -> Result<(), Box<dyn Error>> {
+        let (mut regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         match reg {
-            a if a == RAX => regs.rax=value,
-            a if a == RBX => regs.rbx=value,
-            a if a == RCX => regs.rcx=value,
-            a if a == RDX => regs.rdx=value,
-            a if a == RSI => regs.rsi=value,
-            a if a == RDI => regs.rdi=value,
-            a if a == RSP => regs.rsp=value,
-            a if a == RBP => regs.rbp=value,
-            a if a == R8 => regs.r8=value,
-            a if a == R9 => regs.r9=value,
-            a if a == R10 => regs.r10=value,
-            a if a == R11 => regs.r11=value,
-            a if a == R12 => regs.r12=value,
-            a if a == R13 => regs.r13=value,
-            a if a == R14 => regs.r14=value,
-            a if a == R15 => regs.r15=value,
-            a if a == RIP => regs.rip=value,
-            a if a == RFLAGS => regs.rflags=value,
+            a if a == Register::RAX => regs.rax = value,
+            a if a == Register::RBX => regs.rbx = value,
+            a if a == Register::RCX => regs.rcx = value,
+            a if a == Register::RDX => regs.rdx = value,
+            a if a == Register::RSI => regs.rsi = value,
+            a if a == Register::RDI => regs.rdi = value,
+            a if a == Register::RSP => regs.rsp = value,
+            a if a == Register::RBP => regs.rbp = value,
+            a if a == Register::R8 => regs.r8 = value,
+            a if a == Register::R9 => regs.r9 = value,
+            a if a == Register::R10 => regs.r10 = value,
+            a if a == Register::R11 => regs.r11 = value,
+            a if a == Register::R12 => regs.r12 = value,
+            a if a == Register::R13 => regs.r13 = value,
+            a if a == Register::R14 => regs.r14 = value,
+            a if a == Register::R15 => regs.r15 = value,
+            a if a == Register::RIP => regs.rip = value,
+            a if a == Register::RFLAGS => regs.rflags = value,
             _ => println!("wrong choice"),
-            
         }
-        self.kvmi.set_registers(vcpu,&mut regs)?;
-
+        self.kvmi.set_registers(vcpu, &regs)?;
         Ok(())
-       
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
@@ -232,17 +225,15 @@ impl Introspectable for Kvm {
             }
             InterceptType::Msr(micro_msr_type) => {
                 let kvmi_msr = match micro_msr_type {
-                    MsrType::Sysenter_cs => KVMiMsr::Sysenter_cs,
-                    MsrType::Sysenter_esp => KVMiMsr::Sysenter_esp,
-                    MsrType::Sysenter_eip => KVMiMsr::Sysenter_eip,
-                    MsrType::Msr_star => KVMiMsr::Msr_star,
-                    MsrType::Msr_lstar => KVMiMsr::Msr_lstar,
-                    MsrType::Msr_efer => KVMiMsr::Msr_efer,
+                    MsrType::SysenterCs => KVMiMsr::SysenterCs,
+                    MsrType::SysenterEsp => KVMiMsr::SysenterEsp,
+                    MsrType::SysenterEip => KVMiMsr::SysenterEip,
+                    MsrType::MsrStar => KVMiMsr::MsrStar,
+                    MsrType::MsrLstar => KVMiMsr::MsrLstar,
+                    MsrType::MsrEfer => KVMiMsr::MsrEfer,
                 };
                 Ok(self.kvmi.control_msr(vcpu, kvmi_msr, enabled)?)
             }
-            
-
         }
     }
 
@@ -266,18 +257,17 @@ impl Introspectable for Kvm {
                     },
                     KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
                         msr_type: match msr_type {
-                            KVMiMsr::Sysenter_cs => MsrType::Sysenter_cs,
-                            KVMiMsr::Sysenter_esp => MsrType::Sysenter_esp,
-                            KVMiMsr::Sysenter_eip => MsrType::Sysenter_eip,
-                            KVMiMsr::Msr_star => MsrType::Msr_star,
-                            KVMiMsr::Msr_lstar => MsrType::Msr_lstar,
-                            KVMiMsr::Msr_efer => MsrType::Msr_efer,
+                            KVMiMsr::SysenterCs => MsrType::SysenterCs,
+                            KVMiMsr::SysenterEsp => MsrType::SysenterEsp,
+                            KVMiMsr::SysenterEip => MsrType::SysenterEip,
+                            KVMiMsr::MsrStar => MsrType::MsrStar,
+                            KVMiMsr::MsrLstar => MsrType::MsrLstar,
+                            KVMiMsr::MsrEfer => MsrType::MsrEfer,
                         },
                         new,
                         old,
                     },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
-                    
                 };
 
                 let vcpu = kvmi_event.vcpu;
@@ -319,7 +309,7 @@ impl Drop for Kvm {
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, false)
                 .unwrap();
-                self.kvmi
+            self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
         }

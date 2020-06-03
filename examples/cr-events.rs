@@ -93,7 +93,7 @@ fn main() {
                         new,
                         old: _,
                     } => (cr_type, new),
-                    _ => (CrType::Cr3,0),
+                    _ => (CrType::Cr3, 0),
                 };
                 let cr_color = match cr_type {
                     CrType::Cr0 => "blue",

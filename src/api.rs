@@ -1,27 +1,27 @@
+use std::cmp::PartialEq;
 use std::error::Error;
 
-
-pub const RAX: u64 = 0;
-pub const RBX: u64 = 1;
-pub const RCX: u64 = 2;
-pub const RDX: u64 = 3;
-pub const RSI: u64 = 4;
-pub const RDI: u64 = 5;
-pub const RSP: u64 = 6;
-pub const RBP: u64 = 7;
-pub const R8: u64 = 8;
-pub const R9: u64 = 9;
-pub const R10: u64 = 10;
-pub const R11: u64 = 11;
-pub const R12: u64 = 12;
-pub const R13: u64 = 13;
-pub const R14: u64 = 14;
-pub const R15: u64 = 15;
-pub const RIP: u64 = 16;
-pub const RFLAGS: u64 = 17;
-
-
-
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Register {
+    RAX = 0,
+    RBX = 1,
+    RCX = 2,
+    RDX = 3,
+    RSI = 4,
+    RDI = 5,
+    RSP = 6,
+    RBP = 7,
+    R8 = 8,
+    R9 = 9,
+    R10 = 10,
+    R11 = 11,
+    R12 = 12,
+    R13 = 13,
+    R14 = 14,
+    R15 = 15,
+    RIP = 16,
+    RFLAGS = 17,
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -36,7 +36,6 @@ pub enum DriverType {
     #[cfg(feature = "xen")]
     Xen,
 }
-
 
 #[repr(C)]
 #[derive(Debug)]
@@ -87,8 +86,6 @@ pub struct X86Registers {
     pub ss: segment_reg,
     pub tr: segment_reg,
     pub ldt: segment_reg,
-
-   
 }
 
 #[repr(C)]
@@ -96,8 +93,6 @@ pub struct X86Registers {
 pub enum Registers {
     X86(X86Registers),
 }
-
-
 
 pub trait Introspectable {
     // get VCPU count
@@ -111,7 +106,7 @@ pub trait Introspectable {
     }
 
     // write physical memory
-    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
     // get max physical address
@@ -123,8 +118,13 @@ pub trait Introspectable {
         unimplemented!();
     }
 
-    fn write_registers(&self, _vcpu: u16, value: u64, reg: u64) -> Result<(), Box<dyn Error>> {
-	unimplemented!();
+    fn write_registers(
+        &self,
+        _vcpu: u16,
+        _value: u64,
+        _reg: Register,
+    ) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
     }
 
     // pause the VM
@@ -176,8 +176,17 @@ pub enum InterceptType {
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
-    Cr { cr_type: CrType, new: u64, old: u64 },
-    Msr {msr_type: MsrType, new: u64, old: u64 },
+    Cr {
+        cr_type: CrType,
+        new: u64,
+        old: u64,
+    },
+
+    Msr {
+        msr_type: MsrType,
+        new: u64,
+        old: u64,
+    },
 }
 
 #[repr(C)]
@@ -191,14 +200,13 @@ pub enum CrType {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub enum MsrType 
-{
-    Sysenter_cs,
-    Sysenter_esp,
-    Sysenter_eip,
-    Msr_star,
-    Msr_lstar,
-    Msr_efer,
+pub enum MsrType {
+    SysenterCs,
+    SysenterEsp,
+    SysenterEip,
+    MsrStar,
+    MsrLstar,
+    MsrEfer,
 }
 
 #[repr(C)]

@@ -6,13 +6,13 @@ use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 
-use microvmi::api::{MsrType, EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::api::*;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
         .version("0.3")
         .author("Mathieu Tarral")
-        .about("Watches control register VMI events")
+        .about("Watches msr register VMI events")
         .arg(Arg::with_name("vm_name").index(1).required(true))
         .arg(
             Arg::with_name("register")
@@ -53,12 +53,12 @@ fn main() {
     let mut vec_msr = Vec::new();
     for reg_str in registers {
         let msr = match reg_str {
-            "0" => MsrType::Sysenter_cs,
-            "1" => MsrType::Sysenter_esp,
-            "2" => MsrType::Sysenter_eip,
-            "3" => MsrType::Msr_star,
-            "4" => MsrType::Msr_lstar,
-            "5" => MsrType::Msr_efer,
+            "0" => MsrType::SysenterCs,
+            "1" => MsrType::SysenterEsp,
+            "2" => MsrType::SysenterEip,
+            "3" => MsrType::MsrStar,
+            "4" => MsrType::MsrLstar,
+            "5" => MsrType::MsrEfer,
             x => panic!(
                 "Provided register value \"{}\" is not a valid/interceptable msr register.",
                 x
@@ -96,15 +96,15 @@ fn main() {
                         new,
                         old: _,
                     } => (msr_type, new),
-                    _ => (MsrType::Sysenter_cs,0),
+                    _ => (MsrType::SysenterCs, 0),
                 };
                 let msr_color = match msr_type {
-                    MsrType::Sysenter_cs => "blue",
-                    MsrType::Sysenter_esp => "black",
-                    MsrType::Sysenter_eip => "green",
-                    MsrType::Msr_star => "red",
-                    MsrType::Msr_lstar => "yellow",
-                    MsrType::Msr_efer => "white",
+                    MsrType::SysenterCs => "blue",
+                    MsrType::SysenterEsp => "black",
+                    MsrType::SysenterEip => "green",
+                    MsrType::MsrStar => "red",
+                    MsrType::MsrLstar => "yellow",
+                    MsrType::MsrEfer => "white",
                 };
                 let ev_nb_output = format!("{}", i).cyan();
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();

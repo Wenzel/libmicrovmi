@@ -3,7 +3,7 @@ extern crate env_logger;
 extern crate microvmi;
 
 // traits method can only be used if the trait is in the scope
-use microvmi::api::{Introspectable, Registers};
+use microvmi::api::*;
 
 fn main() {
     env_logger::init();
@@ -20,18 +20,17 @@ fn main() {
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
     let total_vcpu_count: u16 = drv.get_vcpu_count().expect("Failed to get vcpu count");
-    let mut vcpu: u16=0;
-    drv.write_registers(vcpu,0x5,2).expect("Failed to write registers");
-    vcpu=1;
-    drv.write_registers(vcpu,0x5,2).expect("Failed to write registers");
-    for vcpu in 0..total_vcpu_count
-    {
-    	println!("dumping registers on VCPU {}",vcpu);
-    	let regs= drv.read_registers(vcpu).expect("Failed to read registers");
-    	println!("{:#x?}", regs);
+    let mut vcpu: u16 = 0;
+    drv.write_registers(vcpu, 0x5, Register::RCX)
+        .expect("Failed to write registers");
+    vcpu = 1;
+    drv.write_registers(vcpu, 0x5, Register::RCX)
+        .expect("Failed to write registers");
+    for vcpu in 0..total_vcpu_count {
+        println!("dumping registers on VCPU {}", vcpu);
+        let regs = drv.read_registers(vcpu).expect("Failed to read registers");
+        println!("{:#x?}", regs);
     }
-
-    
 
     println!("resuming the VM");
     drv.resume().expect("Failed to resume VM");
