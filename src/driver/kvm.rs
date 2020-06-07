@@ -1,9 +1,12 @@
+use mockall::*;
 use std::convert::TryInto;
 use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
 use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiMsr};
+use kvmi_sys;
+use kvmi_sys::*;
 
 use crate::api::*;
 
@@ -61,7 +64,7 @@ impl Introspectable for Kvm {
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gfn = self.kvmi.get_maximum_gfn()?;
-        Ok(max_gfn << 12)
+        Ok(max_gfn << PAGE_SHIFT)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -315,3 +318,89 @@ impl Drop for Kvm {
         }
     }
 }
+
+mock! {
+    KVMi
+    {
+        fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, kvm_msrs), std::io::Error>;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kvmi_sys::{
+        kvm_msrs, kvm_regs, kvm_sregs, kvmi_dom_event, kvmi_event_cr_reply, kvmi_event_reply,
+        kvmi_introspector2qemu, kvmi_qemu2introspector, kvmi_vcpu_hdr, KVMI_EVENT_CR,
+        KVMI_EVENT_PAUSE_VCPU,
+    };
+    #[test]
+    fn test_read_register() {
+        let domain = "dummy";
+        let mut mock = MockKVMi::new();
+        mock.expect_get_registers().withf(|x: &u16| *x == vcpu);
+        let mut k = Kvm::new(domain);
+        const vcpu: u16 = 0;
+        k.read_registers(vcpu).expect("failed to call function");
+    }
+}
+/*#[test]
+    fn test_write_register()
+    {
+        let domain="dummy";
+        let mut mock=MockKVMi::new(domain);
+        pub const vcpu: u16=0;
+        pub const value: u64=0;
+        pub const reg: Register=Register::RAX;
+        mock.expect_get_registers().withf(|x: &u16| x==vcpu);
+        mock.expect_set_registers().withf(|x: u16, y: &mut kvm_regs| *x==vcpu);
+        write_registers(&mock,vcpu,value,reg);
+    }
+    #[test]
+    fn test_read_physical()
+    {
+        let domain="dummy";
+        let mut mock=MockKVMi::new(domain);
+        pub const page_size: usize=4096;
+        let mut buffer: [u8; page_size] = [0; page_size];
+        let paddr: u64 = 0;
+        mock.expect_read_physical().withf(|x: &u64, y: &mut [u8]| *x==paddr);
+        read_physical(&mock,paddr,&mut buffer);
+
+    }
+    #[test]
+    fn test_write_physical()
+    {
+        let domain="dummy";
+        let mut mock=MockKVMi::new(domain);
+        pub const page_size: usize=4096;
+        let mut buffer: [u8; page_size] = [0; page_size];
+        let paddr: u64 = 0;
+        mock.expect_write_physical().withf(|x: &u64, y: &mut [u8]| *x==paddr);
+        write_physical(&mock,paddr,&mut buffer);
+
+    }
+    #[test]
+    fn test_cr_intercept()
+    {
+        let domain="dummy";
+        let mut mock=MockKVMi::new(domain);
+        let vcpu: u16 = 0;
+        let flag: bool = true;
+        let intercept_type=InterceptType::Cr(CrType::Cr3);
+        mock.expect_control_cr().withf(|x: &u16,y: KVMiCr,z: &bool| *x==vcpu && y==KVMiCr::Cr3 && *z==flag);
+        toggle_intercept(&mock,vcpu,intercept_type,flag);
+
+    }
+    #[test]
+    fn test_msr_intercept()
+    {
+        let domain="dummy";
+        let mut mock=MockKVMi::new(domain);
+        let vcpu: u16 = 0;
+        let flag: bool = true;
+        let intercept_type=InterceptType::Msr(MsrType::SysenterCs);
+        mock.expect_control_msr().withf(|x: &u16,y: KVMiMsr,z: &bool| *x==vcpu && y==KVMiMsr::SysenterCs && *z==flag);
+        toggle_intercept(&mock,vcpu,intercept_type,flag);
+    }
+}*/
