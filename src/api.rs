@@ -24,6 +24,10 @@ pub enum Register {
 }
 
 pub const PAGE_SHIFT: u32 = 12;
+pub const PAGE_SIZE: u32 = 4096;
+
+pub const ACCESS_STR: [&str; 8] = ["---", "r--", "-w-", "rw-", "--x", "r-x", "-wx", "rwx"];
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum DriverType {
@@ -110,8 +114,23 @@ pub trait Introspectable {
     fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
+
+    //get page access
+    fn get_page_access(&self, _paddr: u64) -> Result<u8, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    //set page access
+    fn set_page_access(&self, _paddr: u64, _access: u8) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     // get max physical address
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    fn handle_pf_event(&self, _paddr: u64, _pf_access: u8) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 
@@ -172,6 +191,8 @@ pub trait Introspectable {
 pub enum InterceptType {
     Cr(CrType),
     Msr(MsrType),
+    Breakpoint,
+    Pagefault,
 }
 
 #[repr(C)]
@@ -188,7 +209,16 @@ pub enum EventType {
         new: u64,
         old: u64,
     },
-    Singlestep,
+    Breakpoint {
+        gpa: u64,
+        insn_len: u8,
+    },
+    Pagefault {
+        gva: u64,
+        gpa: u64,
+        access: u8,
+        view: u16,
+    },
 }
 
 #[repr(C)]

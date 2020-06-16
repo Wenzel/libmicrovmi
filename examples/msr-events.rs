@@ -78,7 +78,6 @@ fn main() {
     println!("Initialize Libmicrovmi");
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    // enable control register interception
     toggle_msr_intercepts(&mut drv, &vec_msr, true);
 
     println!("Listen for MSR events...");
@@ -96,7 +95,7 @@ fn main() {
                         new,
                         old: _,
                     } => (msr_type, new),
-                    _ => (MsrType::SysenterCs, 0),
+                    _ => panic!("Not msr event"),
                 };
                 let msr_color = match msr_type {
                     MsrType::SysenterCs => "blue",

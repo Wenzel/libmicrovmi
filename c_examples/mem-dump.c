@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-
 #include "libmicrovmi.h"
 
-
-size_t PAGE_SIZE = 4096;
 
 void dump_memory(MicrovmiContext* driver, const char* vm_name) {
     if (microvmi_pause(driver) == MicrovmiSuccess) {

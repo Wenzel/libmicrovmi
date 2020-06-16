@@ -1,12 +1,14 @@
-use mockall::*;
 use std::convert::TryInto;
 use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
-use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiMsr};
-use kvmi_sys;
-use kvmi_sys::*;
+use kvmi::{
+    KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiMsr,
+    KVMiPageAccess,
+};
+
+//use kvmi_sys::*;
 
 use crate::api::*;
 
@@ -34,14 +36,18 @@ impl Kvm {
         kvm.vec_events
             .resize_with(vcpu_count.try_into().unwrap(), || None);
 
-        // enable CR event intercept by default
-        // (interception will take place when CR register will be specified)
         for vcpu in 0..vcpu_count {
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, true)
                 .unwrap();
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Msr, true)
+                .unwrap();
+            kvm.kvmi
+                .control_events(vcpu, KVMiInterceptType::Breakpoint, true)
+                .unwrap();
+            kvm.kvmi
+                .control_events(vcpu, KVMiInterceptType::Pagefault, true)
                 .unwrap();
         }
 
@@ -62,13 +68,48 @@ impl Introspectable for Kvm {
         Ok(self.kvmi.write_physical(paddr, buf)?)
     }
 
+    fn get_page_access(&self, paddr: u64) -> Result<u8, Box<dyn Error>> {
+        Ok(self.kvmi.get_page_access(paddr).unwrap().try_into()?)
+    }
+
+    fn set_page_access(&self, paddr: u64, access: u8) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .kvmi
+            .set_page_access(paddr, access)
+            .unwrap()
+            .try_into()?)
+    }
+
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gfn = self.kvmi.get_maximum_gfn()?;
         Ok(max_gfn << PAGE_SHIFT)
     }
 
+    fn handle_pf_event(&self, paddr: u64, pf_access: u8) -> Result<(), Box<dyn Error>> {
+        let read_permission = KVMiPageAccess::PageAccessR as u8;
+        let write_permission = KVMiPageAccess::PageAccessW as u8;
+        let execute_permission = KVMiPageAccess::PageAccessX as u8;
+        let mut access: u8;
+        if pf_access & read_permission != 0 {
+            access = self.kvmi.get_page_access(paddr)?;
+            access |= read_permission;
+            self.kvmi.set_page_access(paddr, access)?;
+        }
+        if pf_access & write_permission != 0 {
+            access = self.kvmi.get_page_access(paddr)?;
+            access |= write_permission;
+            self.kvmi.set_page_access(paddr, access)?;
+        }
+        if pf_access & execute_permission != 0 {
+            access = self.kvmi.get_page_access(paddr)?;
+            access |= execute_permission;
+            self.kvmi.set_page_access(paddr, access)?;
+        }
+        Ok(())
+    }
+
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let (regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        let (regs, sregs, msrs) = self.kvmi.get_registers(vcpu)?;
         // TODO: hardcoded for x86 for now
 
         Ok(Registers::X86(X86Registers {
@@ -90,57 +131,57 @@ impl Introspectable for Kvm {
             r15: regs.r15,
             rip: regs.rip,
             rflags: regs.rflags,
-            cr0: _sregs.cr0,
-            cr2: _sregs.cr2,
-            cr3: _sregs.cr3,
-            cr4: _sregs.cr4,
-            sysenter_cs: _msrs.entries[0].data,
-            sysenter_esp: _msrs.entries[1].data,
-            sysenter_eip: _msrs.entries[2].data,
-            msr_efer: _msrs.entries[3].data,
-            msr_star: _msrs.entries[4].data,
-            msr_lstar: _msrs.entries[5].data,
-            efer: _sregs.efer,
-            apic_base: _sregs.apic_base,
+            cr0: sregs.cr0,
+            cr2: sregs.cr2,
+            cr3: sregs.cr3,
+            cr4: sregs.cr4,
+            sysenter_cs: msrs.entries[0].data,
+            sysenter_esp: msrs.entries[1].data,
+            sysenter_eip: msrs.entries[2].data,
+            msr_efer: msrs.entries[3].data,
+            msr_star: msrs.entries[4].data,
+            msr_lstar: msrs.entries[5].data,
+            efer: sregs.efer,
+            apic_base: sregs.apic_base,
             cs: segment_reg {
-                base: _sregs.cs.base,
-                limit: _sregs.cs.limit,
-                selector: _sregs.cs.selector,
+                base: sregs.cs.base,
+                limit: sregs.cs.limit,
+                selector: sregs.cs.selector,
             },
             ds: segment_reg {
-                base: _sregs.ds.base,
-                limit: _sregs.ds.limit,
-                selector: _sregs.ds.selector,
+                base: sregs.ds.base,
+                limit: sregs.ds.limit,
+                selector: sregs.ds.selector,
             },
             es: segment_reg {
-                base: _sregs.es.base,
-                limit: _sregs.es.limit,
-                selector: _sregs.es.selector,
+                base: sregs.es.base,
+                limit: sregs.es.limit,
+                selector: sregs.es.selector,
             },
             fs: segment_reg {
-                base: _sregs.fs.base,
-                limit: _sregs.fs.limit,
-                selector: _sregs.fs.selector,
+                base: sregs.fs.base,
+                limit: sregs.fs.limit,
+                selector: sregs.fs.selector,
             },
             gs: segment_reg {
-                base: _sregs.gs.base,
-                limit: _sregs.gs.limit,
-                selector: _sregs.gs.selector,
+                base: sregs.gs.base,
+                limit: sregs.gs.limit,
+                selector: sregs.gs.selector,
             },
             ss: segment_reg {
-                base: _sregs.ss.base,
-                limit: _sregs.ss.limit,
-                selector: _sregs.ss.selector,
+                base: sregs.ss.base,
+                limit: sregs.ss.limit,
+                selector: sregs.ss.selector,
             },
             tr: segment_reg {
-                base: _sregs.tr.base,
-                limit: _sregs.tr.limit,
-                selector: _sregs.tr.selector,
+                base: sregs.tr.base,
+                limit: sregs.tr.limit,
+                selector: sregs.tr.selector,
             },
             ldt: segment_reg {
-                base: _sregs.ldt.base,
-                limit: _sregs.ldt.limit,
-                selector: _sregs.ldt.selector,
+                base: sregs.ldt.base,
+                limit: sregs.ldt.limit,
+                selector: sregs.ldt.selector,
             },
         }))
     }
@@ -148,25 +189,24 @@ impl Introspectable for Kvm {
     fn write_registers(&self, vcpu: u16, value: u64, reg: Register) -> Result<(), Box<dyn Error>> {
         let (mut regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         match reg {
-            a if a == Register::RAX => regs.rax = value,
-            a if a == Register::RBX => regs.rbx = value,
-            a if a == Register::RCX => regs.rcx = value,
-            a if a == Register::RDX => regs.rdx = value,
-            a if a == Register::RSI => regs.rsi = value,
-            a if a == Register::RDI => regs.rdi = value,
-            a if a == Register::RSP => regs.rsp = value,
-            a if a == Register::RBP => regs.rbp = value,
-            a if a == Register::R8 => regs.r8 = value,
-            a if a == Register::R9 => regs.r9 = value,
-            a if a == Register::R10 => regs.r10 = value,
-            a if a == Register::R11 => regs.r11 = value,
-            a if a == Register::R12 => regs.r12 = value,
-            a if a == Register::R13 => regs.r13 = value,
-            a if a == Register::R14 => regs.r14 = value,
-            a if a == Register::R15 => regs.r15 = value,
-            a if a == Register::RIP => regs.rip = value,
-            a if a == Register::RFLAGS => regs.rflags = value,
-            _ => println!("wrong choice"),
+            Register::RAX => regs.rax = value,
+            Register::RBX => regs.rbx = value,
+            Register::RCX => regs.rcx = value,
+            Register::RDX => regs.rdx = value,
+            Register::RSI => regs.rsi = value,
+            Register::RDI => regs.rdi = value,
+            Register::RSP => regs.rsp = value,
+            Register::RBP => regs.rbp = value,
+            Register::R8 => regs.r8 = value,
+            Register::R9 => regs.r9 = value,
+            Register::R10 => regs.r10 = value,
+            Register::R11 => regs.r11 = value,
+            Register::R12 => regs.r12 = value,
+            Register::R13 => regs.r13 = value,
+            Register::R14 => regs.r14 = value,
+            Register::R15 => regs.r15 = value,
+            Register::RIP => regs.rip = value,
+            Register::RFLAGS => regs.rflags = value,
         }
         self.kvmi.set_registers(vcpu, &regs)?;
         Ok(())
@@ -237,6 +277,16 @@ impl Introspectable for Kvm {
                 };
                 Ok(self.kvmi.control_msr(vcpu, kvmi_msr, enabled)?)
             }
+            InterceptType::Breakpoint => {
+                Ok(self
+                    .kvmi
+                    .control_events(vcpu, KVMiInterceptType::Breakpoint, enabled)?)
+            }
+            InterceptType::Pagefault => {
+                Ok(self
+                    .kvmi
+                    .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
+            }
         }
     }
 
@@ -269,6 +319,16 @@ impl Introspectable for Kvm {
                         },
                         new,
                         old,
+                    },
+                    KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::Breakpoint {
+                            gpa,
+                            insn_len,
+                    },
+                    KVMiEventType::Pagefault {gva, gpa, access, view} =>  EventType::Pagefault {
+                        gva,
+                        gpa,
+                        access,
+                        view,
                     },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
                 };
@@ -315,11 +375,17 @@ impl Drop for Kvm {
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
+            self.kvmi
+                .control_events(vcpu, KVMiInterceptType::Breakpoint, false)
+                .unwrap();
+            self.kvmi
+                .control_events(vcpu, KVMiInterceptType::Pagefault, false)
+                .unwrap();
         }
     }
 }
 
-mock! {
+/*mock! {
     KVMi
     {
         fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, kvm_msrs), std::io::Error>;
@@ -344,7 +410,7 @@ mod tests {
         k.read_registers(vcpu).expect("failed to call function");
     }
 }
-/*#[test]
+#[test]
     fn test_write_register()
     {
         let domain="dummy";
