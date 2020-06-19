@@ -7,94 +7,155 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: install clippy
-      run: rustup component add clippy
-    - uses: actions/checkout@v1
-    - name: build Dummy driver
-      run: cargo build
-    - name: clippy check
-      run: cargo clippy -- -D warnings
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build Dummy driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy dummy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- -D warnings
 
   xen:
     runs-on: ubuntu-latest
 
     steps:
-    - name: install Xen headers and libraries
-      run: sudo apt-get install -y libxen-dev
-    - name: install clippy
-      run: rustup component add clippy
-    - uses: actions/checkout@v1
-    - name: build Xen driver
-      run: cargo build --features xen
-    - name: clippy check
-      run: cargo clippy --features xen -- -D warnings
+      - name: install Xen headers and libraries
+        run: sudo apt-get install -y libxen-dev
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build Xen driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features xen
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy xen
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --features xen -- -D warnings
 
   kvm:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
+    runs-on: ubuntu-latest
 
     steps:
-    - name: install libkvmi
-      run: |
-        git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
-        cd kvm/tools/kvm/kvmi
-        make
-        sudo make install
-    - name: install clippy
-      run: rustup component add clippy
-    - uses: actions/checkout@v1
-    - name: build KVM driver
-      run: cargo build --features kvm
-    - name: clippy check
-      run: cargo clippy --features kvm -- -D warnings
+      - name: install libkvmi
+        run: |
+          git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
+          cd kvm/tools/kvm/kvmi
+          make
+          sudo make install
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build KVM driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features kvm
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy kvm
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --features kvm -- -D warnings
+
 
   virtualbox:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Clone Icebox repository
-      run: git clone https://github.com/thalium/icebox --depth 1
-    - name: Compile and install FDP library
-      run: |
-        cd icebox/src/FDP
-        g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
-        sudo cp include/* /usr/local/include
-        sudo cp libFDP.so /usr/local/lib
-    - name: install clippy
-      run: rustup component add clippy
-    - uses: actions/checkout@v1
-    - name: build VirtualBox driver
-      run: cargo build --features virtualbox
-    - name: clippy check
-      run: cargo clippy --features virtualbox -- -D warnings
+      - name: clone Icebox repository
+        run: git clone https://github.com/thalium/icebox --depth 1
+      - name: Compile and install FDP library
+        run: |
+          cd icebox/src/FDP
+          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
+          sudo cp include/* /usr/local/include
+          sudo cp libFDP.so /usr/local/lib
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build VirtualBox driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features virtualbox
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy virtualbox
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --features virtualbox -- -D warnings
 
   hyper-v:
     runs-on: windows-latest
 
     steps:
-    - name: install LLVM
-      run: choco install llvm
-    - uses: actions/checkout@v1
-    - name: build Hyper-V driver
-      run: cargo build --features hyper-v
+      - name: install LLVM
+        run: choco install llvm
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build Hyper-V driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features hyper-v
+      #- name: annotate commit with clippy warnings
+      #  uses: actions-rs/clippy-check@v1
+      #  with:
+      #    name: clippy hyper-v
+      #    token: ${{ secrets.GITHUB_TOKEN }}
+      #    args: --features hyper-v -- -D warnings
 
   c_api:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
+    runs-on: ubuntu-latest
 
     steps:
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
       - name: install cbindgen
-        run: cargo install --force cbindgen
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cbindgen
+          version: latest
+          use-tool-cache: true
       - uses: actions/checkout@v1
       - name: build libmicrovmi
-        run: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
       - name: build C API
         run: |
           cd c_examples
@@ -104,11 +165,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: install rustfmt
-      run: rustup component add rustfmt
-    - uses: actions/checkout@v1
-    - name: rustfmt check
-      run: cargo fmt -- --check
-
-
-
+      - name: install stable toolchain with rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+      - uses: actions/checkout@v1
+      - name: rustfmt check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
