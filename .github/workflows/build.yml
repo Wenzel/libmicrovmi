@@ -78,6 +78,11 @@ jobs:
           name: clippy kvm
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features kvm -- -D warnings
+      - name: test KVM driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features kvm
 
 
   virtualbox:

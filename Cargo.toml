@@ -37,3 +37,8 @@ env_logger = "0.7.1"
 ctrlc = "3.1.3"
 clap = "2.33.0"
 colored = "1.9.3"
+mockall = "0.7.1"
+test-case = "1.0.0"
+
+[patch."https://github.com/Wenzel/kvmi"]
+kvmi = { git = "https://github.com/rageagainsthepc/kvmi", branch = "testing-poc-wrapping" }

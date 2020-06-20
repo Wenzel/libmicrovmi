@@ -1,30 +1,37 @@
+#[cfg(test)]
+use mockall::automock;
 use std::convert::TryInto;
 use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
-use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
+use kvmi::{
+    kvmi_sys::kvm_msrs, kvmi_sys::kvm_regs, kvmi_sys::kvm_sregs, KVMi, KVMiCr, KVMiEvent,
+    KVMiEventReply, KVMiEventType, KVMiInterceptType,
+};
 
 use crate::api::{
     CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
     X86Registers,
 };
 
-// unit struct
-#[derive(Debug)]
 pub struct Kvm {
-    kvmi: KVMi,
+    kvmi: Box<dyn KVMIntrospectable>,
     expect_pause_ev: u32,
     // VCPU -> KVMiEvent
     vec_events: Vec<Option<KVMiEvent>>,
 }
 
 impl Kvm {
-    pub fn new(domain_name: &str) -> Self {
+    pub fn new(
+        domain_name: &str,
+        mut kvmi: Box<dyn KVMIntrospectable>,
+    ) -> Result<Self, Box<dyn Error>> {
         let socket_path = "/tmp/introspector";
         debug!("init on {} (socket: {})", domain_name, socket_path);
+        kvmi.init(socket_path)?;
         let mut kvm = Kvm {
-            kvmi: KVMi::new(socket_path),
+            kvmi,
             expect_pause_ev: 0,
             vec_events: Vec::new(),
         };
@@ -42,7 +49,7 @@ impl Kvm {
                 .unwrap();
         }
 
-        kvm
+        Ok(kvm)
     }
 }
 
@@ -207,5 +214,138 @@ impl Drop for Kvm {
                 .control_events(vcpu, KVMiInterceptType::Cr, false)
                 .unwrap();
         }
+    }
+}
+
+#[cfg_attr(test, automock)]
+pub trait KVMIntrospectable {
+    fn init(&mut self, socket_path: &str) -> Result<(), std::io::Error>;
+    fn control_events(
+        &self,
+        vcpu: u16,
+        intercept_type: KVMiInterceptType,
+        enabled: bool,
+    ) -> Result<(), std::io::Error>;
+    fn control_cr(&self, vcpu: u16, reg: KVMiCr, enabled: bool) -> Result<(), std::io::Error>;
+    fn read_physical(&self, gpa: u64, buffer: &mut [u8]) -> Result<(), std::io::Error>;
+    fn pause(&self) -> Result<(), std::io::Error>;
+    fn get_vcpu_count(&self) -> Result<u32, std::io::Error>;
+    fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, kvm_msrs), std::io::Error>;
+    fn wait_and_pop_event(&self, ms: i32) -> Result<Option<KVMiEvent>, std::io::Error>;
+    fn reply(&self, event: &KVMiEvent, reply_type: KVMiEventReply) -> Result<(), std::io::Error>;
+    fn get_maximum_gfn(&self) -> Result<u64, std::io::Error>;
+}
+
+pub struct KVMiWrapper {
+    kvmi: KVMi,
+}
+
+impl KVMiWrapper {
+    pub fn new(kvmi: KVMi) -> KVMiWrapper {
+        KVMiWrapper { kvmi }
+    }
+}
+
+impl KVMIntrospectable for KVMiWrapper {
+    fn init(&mut self, socket_path: &str) -> Result<(), std::io::Error> {
+        self.kvmi.init(socket_path)
+    }
+
+    fn control_events(
+        &self,
+        vcpu: u16,
+        intercept_type: KVMiInterceptType,
+        enabled: bool,
+    ) -> Result<(), std::io::Error> {
+        self.kvmi.control_events(vcpu, intercept_type, enabled)
+    }
+
+    fn control_cr(&self, vcpu: u16, reg: KVMiCr, enabled: bool) -> Result<(), std::io::Error> {
+        self.kvmi.control_cr(vcpu, reg, enabled)
+    }
+
+    fn read_physical(&self, gpa: u64, buffer: &mut [u8]) -> Result<(), std::io::Error> {
+        self.kvmi.read_physical(gpa, buffer)
+    }
+
+    fn pause(&self) -> Result<(), std::io::Error> {
+        self.kvmi.pause()
+    }
+
+    fn get_vcpu_count(&self) -> Result<u32, std::io::Error> {
+        self.kvmi.get_vcpu_count()
+    }
+
+    fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, kvm_msrs), std::io::Error> {
+        self.kvmi.get_registers(vcpu)
+    }
+
+    fn wait_and_pop_event(&self, ms: i32) -> Result<Option<KVMiEvent>, std::io::Error> {
+        self.kvmi.wait_and_pop_event(ms)
+    }
+
+    fn reply(&self, event: &KVMiEvent, reply_type: KVMiEventReply) -> Result<(), std::io::Error> {
+        self.kvmi.reply(event, reply_type)
+    }
+
+    fn get_maximum_gfn(&self) -> Result<u64, std::io::Error> {
+        self.kvmi.get_maximum_gfn()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::{eq, function};
+    use test_case::test_case;
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_kvmi_init_returns_error() {
+        let mut kvmi_mock = MockKVMIntrospectable::default();
+        kvmi_mock.expect_init().returning(|_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+
+        let result = Kvm::new("some_vm", Box::new(kvmi_mock));
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test_case(1; "single vcpu")]
+    #[test_case(2; "two vcpus")]
+    #[test_case(16; "sixteen vcpus")]
+    fn test_create_kvm_driver_if_guest_domain_is_valid(vcpu_count: u32) {
+        let mut kvmi_mock = MockKVMIntrospectable::default();
+        kvmi_mock.expect_init().returning(|_| Ok(()));
+        kvmi_mock
+            .expect_get_vcpu_count()
+            .returning(move || Ok(vcpu_count));
+        for vcpu in 0..vcpu_count {
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Cr)),
+                    eq(true),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Cr)),
+                    eq(false),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+        }
+
+        let result = Kvm::new("some_vm", Box::new(kvmi_mock));
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
     }
 }

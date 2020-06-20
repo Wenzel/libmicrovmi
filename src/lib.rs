@@ -11,11 +11,13 @@ use driver::dummy::Dummy;
 #[cfg(feature = "hyper-v")]
 use driver::hyperv::HyperV;
 #[cfg(feature = "kvm")]
-use driver::kvm::Kvm;
+use driver::kvm::{KVMiWrapper, Kvm};
 #[cfg(feature = "virtualbox")]
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
+#[cfg(feature = "kvm")]
+use kvmi::create_kvmi;
 
 #[allow(unreachable_code)]
 pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Introspectable> {
@@ -26,7 +28,10 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             #[cfg(feature = "hyper-v")]
             DriverType::HyperV => Box::new(HyperV::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "kvm")]
-            DriverType::KVM => Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>,
+            DriverType::KVM => {
+                Box::new(Kvm::new(domain_name, Box::new(KVMiWrapper::new(create_kvmi()))).unwrap())
+                    as Box<dyn Introspectable>
+            }
             #[cfg(feature = "virtualbox")]
             DriverType::VirtualBox => Box::new(VBox::new(domain_name)) as Box<dyn Introspectable>,
             #[cfg(feature = "xen")]
@@ -42,7 +47,9 @@ pub fn init(domain_name: &str, driver_type: Option<DriverType>) -> Box<dyn Intro
             // test KVM
             #[cfg(feature = "kvm")]
             {
-                return Box::new(Kvm::new(domain_name)) as Box<dyn Introspectable>;
+                return Box::new(
+                    Kvm::new(domain_name, Box::new(KVMiWrapper::new(create_kvmi()))).unwrap(),
+                ) as Box<dyn Introspectable>;
             }
 
             // test VirtualBox
