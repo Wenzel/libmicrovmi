@@ -23,6 +23,8 @@ pub enum Register {
     RFLAGS = 17,
 }
 
+pub const PAGE_SHIFT: u32 = 12;
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum DriverType {

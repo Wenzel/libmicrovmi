@@ -8,6 +8,7 @@ edition = "2018"
 crate-type = ["cdylib", "lib"]
 
 [features]
+default = []
 # Xen driver
 xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
 # KVM driver
@@ -32,6 +33,7 @@ ntapi = { version = "0.3.3", optional = true }
 vid-sys = { version = "0.3.0", features = ["deprecated-apis"], optional = true }
 cty = "0.2.1"
 enum-primitive-derive = "0.1.2"
+clippy = {version = "0.0.188", optional = true}
 
 [dev-dependencies]
 env_logger = "0.7.1"

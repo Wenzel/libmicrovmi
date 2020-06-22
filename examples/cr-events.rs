@@ -20,7 +20,7 @@ fn parse_args() -> ArgMatches<'static> {
                 .takes_value(true)
                 .short("r")
                 .default_value("3")
-                .help("control register to intercept. Possible values: [0 2 3 4]"),
+                .help("control register to intercept. Possible values: [0 3 4]"),
         )
         .get_matches()
 }
@@ -93,13 +93,13 @@ fn main() {
                         new,
                         old: _,
                     } => (cr_type, new),
-                    _ => (CrType::Cr3, 0),
+                    _ => panic!("not cr event"),
                 };
                 let cr_color = match cr_type {
                     CrType::Cr0 => "blue",
-                    CrType::Cr2 => "black",
                     CrType::Cr3 => "green",
                     CrType::Cr4 => "red",
+                    _ => panic!("cr2 cannot be intercepted"),
                 };
                 let ev_nb_output = format!("{}", i).cyan();
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();

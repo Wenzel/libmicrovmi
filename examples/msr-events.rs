@@ -96,7 +96,7 @@ fn main() {
                         new,
                         old: _,
                     } => (msr_type, new),
-                    _ => (MsrType::SysenterCs, 0),
+                    _ => panic!("not msr event"),
                 };
                 let msr_color = match msr_type {
                     MsrType::SysenterCs => "blue",

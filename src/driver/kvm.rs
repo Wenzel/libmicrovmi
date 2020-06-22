@@ -61,7 +61,7 @@ impl Introspectable for Kvm {
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gfn = self.kvmi.get_maximum_gfn()?;
-        Ok(max_gfn << 12)
+        Ok(max_gfn << PAGE_SHIFT)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -268,6 +268,7 @@ impl Introspectable for Kvm {
                         old,
                     },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
+                    _ => panic!("event not supported yet"),
                 };
 
                 let vcpu = kvmi_event.vcpu;
