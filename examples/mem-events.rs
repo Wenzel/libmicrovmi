@@ -1,13 +1,11 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
-
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 use kvmi::KVMiPageAccess;
-
 use microvmi::api::*;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Instant;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -60,7 +58,6 @@ fn main() {
     //Code snippet to get page fault
     let execute_permission: u8 = KVMiPageAccess::PageAccessX as u8;
     let max_addr = drv.get_max_physical_addr().unwrap();
-
     for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
         let mut access: u8 = drv.get_page_access(cur_addr).unwrap();
         access &= !execute_permission;

@@ -36,6 +36,7 @@ impl Kvm {
         kvm.vec_events
             .resize_with(vcpu_count.try_into().unwrap(), || None);
 
+        // Enable intercepts for all the vcpus
         for vcpu in 0..vcpu_count {
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, true)
@@ -110,8 +111,6 @@ impl Introspectable for Kvm {
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
         let (regs, sregs, msrs) = self.kvmi.get_registers(vcpu)?;
-        // TODO: hardcoded for x86 for now
-
         Ok(Registers::X86(X86Registers {
             rax: regs.rax,
             rbx: regs.rbx,
@@ -187,7 +186,9 @@ impl Introspectable for Kvm {
     }
 
     fn write_registers(&self, vcpu: u16, value: u64, reg: Register) -> Result<(), Box<dyn Error>> {
+        //Calls get_registers() function of kvmi crate
         let (mut regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        //Modify the value of the particular register which the user has requested.
         match reg {
             Register::RAX => regs.rax = value,
             Register::RBX => regs.rbx = value,
@@ -208,6 +209,7 @@ impl Introspectable for Kvm {
             Register::RIP => regs.rip = value,
             Register::RFLAGS => regs.rflags = value,
         }
+        //Set the value of the register by calling set_registers() function of the kvmi crate.
         self.kvmi.set_registers(vcpu, &regs)?;
         Ok(())
     }
@@ -233,7 +235,7 @@ impl Introspectable for Kvm {
         }
 
         while self.expect_pause_ev > 0 {
-            // wait
+            // pop vcpu pause events
             let kvmi_event = self.kvmi.wait_and_pop_event(1000)?.unwrap();
             match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
@@ -256,6 +258,7 @@ impl Introspectable for Kvm {
         intercept_type: InterceptType,
         enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
+        // Call appropriate functions to handle various types of events
         match intercept_type {
             InterceptType::Cr(micro_cr_type) => {
                 let kvmi_cr = match micro_cr_type {
@@ -367,7 +370,7 @@ impl Introspectable for Kvm {
 impl Drop for Kvm {
     fn drop(&mut self) {
         debug!("KVM driver close");
-        // disable all control register interception
+        // disable all event intercepts.
         for vcpu in 0..self.get_vcpu_count().unwrap() {
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, false)
