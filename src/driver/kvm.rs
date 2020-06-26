@@ -4,7 +4,7 @@ use std::mem;
 use std::vec::Vec;
 
 use kvmi::{
-    KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiMsr,
+    KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, 
     KVMiPageAccess,
 };
 
@@ -185,29 +185,32 @@ impl Introspectable for Kvm {
         }))
     }
 
-    fn write_registers(&self, vcpu: u16, value: u64, reg: Register) -> Result<(), Box<dyn Error>> {
+    fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
         //Calls get_registers() function of kvmi crate
         let (mut regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         //Modify the value of the particular register which the user has requested.
-        match reg {
-            Register::RAX => regs.rax = value,
-            Register::RBX => regs.rbx = value,
-            Register::RCX => regs.rcx = value,
-            Register::RDX => regs.rdx = value,
-            Register::RSI => regs.rsi = value,
-            Register::RDI => regs.rdi = value,
-            Register::RSP => regs.rsp = value,
-            Register::RBP => regs.rbp = value,
-            Register::R8 => regs.r8 = value,
-            Register::R9 => regs.r9 = value,
-            Register::R10 => regs.r10 = value,
-            Register::R11 => regs.r11 = value,
-            Register::R12 => regs.r12 = value,
-            Register::R13 => regs.r13 = value,
-            Register::R14 => regs.r14 = value,
-            Register::R15 => regs.r15 = value,
-            Register::RIP => regs.rip = value,
-            Register::RFLAGS => regs.rflags = value,
+        match reg{
+            Registers::X86(x86_registers) => {
+                let register=x86_registers;
+                regs.rax=register.rax;
+                regs.rbx=register.rbx;
+                regs.rcx=register.rcx;
+                regs.rdx=register.rdx;
+                regs.rsi=register.rsi;
+                regs.rdi=register.rdi;
+                regs.rsp=register.rsp;
+                regs.rbp=register.rbp;
+                regs.r8=register.r8;
+                regs.r9=register.r9;
+                regs.r10=register.r10;
+                regs.r11=register.r11;
+                regs.r12=register.r12;
+                regs.r13=register.r13;
+                regs.r14=register.r14;
+                regs.r15=register.r15;
+                regs.rip=register.rip;
+                regs.rflags=register.rflags;
+            }
         }
         //Set the value of the register by calling set_registers() function of the kvmi crate.
         self.kvmi.set_registers(vcpu, &regs)?;
@@ -263,22 +266,13 @@ impl Introspectable for Kvm {
             InterceptType::Cr(micro_cr_type) => {
                 let kvmi_cr = match micro_cr_type {
                     CrType::Cr0 => KVMiCr::Cr0,
-                    CrType::Cr2 => KVMiCr::Cr2,
                     CrType::Cr3 => KVMiCr::Cr3,
                     CrType::Cr4 => KVMiCr::Cr4,
                 };
                 Ok(self.kvmi.control_cr(vcpu, kvmi_cr, enabled)?)
             }
             InterceptType::Msr(micro_msr_type) => {
-                let kvmi_msr = match micro_msr_type {
-                    MsrType::SysenterCs => KVMiMsr::SysenterCs,
-                    MsrType::SysenterEsp => KVMiMsr::SysenterEsp,
-                    MsrType::SysenterEip => KVMiMsr::SysenterEip,
-                    MsrType::MsrStar => KVMiMsr::MsrStar,
-                    MsrType::MsrLstar => KVMiMsr::MsrLstar,
-                    MsrType::MsrEfer => KVMiMsr::MsrEfer,
-                };
-                Ok(self.kvmi.control_msr(vcpu, kvmi_msr, enabled)?)
+                Ok(self.kvmi.control_msr(vcpu, micro_msr_type, enabled)?)
             }
             InterceptType::Breakpoint => {
                 Ok(self
@@ -304,7 +298,6 @@ impl Introspectable for Kvm {
                     KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
                         cr_type: match cr_type {
                             KVMiCr::Cr0 => CrType::Cr0,
-                            KVMiCr::Cr2 => CrType::Cr2,
                             KVMiCr::Cr3 => CrType::Cr3,
                             KVMiCr::Cr4 => CrType::Cr4,
                         },
@@ -312,14 +305,7 @@ impl Introspectable for Kvm {
                         old,
                     },
                     KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
-                        msr_type: match msr_type {
-                            KVMiMsr::SysenterCs => MsrType::SysenterCs,
-                            KVMiMsr::SysenterEsp => MsrType::SysenterEsp,
-                            KVMiMsr::SysenterEip => MsrType::SysenterEip,
-                            KVMiMsr::MsrStar => MsrType::MsrStar,
-                            KVMiMsr::MsrLstar => MsrType::MsrLstar,
-                            KVMiMsr::MsrEfer => MsrType::MsrEfer,
-                        },
+                        msr_type,
                         new,
                         old,
                     },

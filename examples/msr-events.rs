@@ -14,29 +14,19 @@ fn parse_args() -> ArgMatches<'static> {
         .author("Mathieu Tarral")
         .about("Watches msr register VMI events")
         .arg(Arg::with_name("vm_name").index(1).required(true))
-        .arg(
-            Arg::with_name("register")
-                .multiple(true)
-                .takes_value(true)
-                .short("r")
-                .default_value("3")
-                .help("MSR to intercept. Possible values: [0 1 2 3 4 5]"),
-        )
         .get_matches()
 }
 
-fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, vec_msr: &Vec<MsrType>, enabled: bool) {
+fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, msr: u32, enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
-    for msr in vec_msr {
-        let intercept = InterceptType::Msr(*msr);
+        let intercept = InterceptType::Msr(msr);
         let status_str = if enabled { "Enabling" } else { "Disabling" };
-        println!("{} intercept on {:?}", status_str, msr);
+        println!("{} intercept on 0x{:x}", status_str, msr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, enabled)
-                .expect(&format!("Failed to enable {:?}", msr));
+                .expect(&format!("Failed to enable 0x{:x}", msr));
         }
-    }
 
     drv.resume().expect("Failed to resume VM");
 }
@@ -47,26 +37,7 @@ fn main() {
     let matches = parse_args();
 
     let domain_name = matches.value_of("vm_name").unwrap();
-    let registers: Vec<_> = matches.values_of("register").unwrap().collect();
-
-    // check parameters
-    let mut vec_msr = Vec::new();
-    for reg_str in registers {
-        let msr = match reg_str {
-            "0" => MsrType::SysenterCs,
-            "1" => MsrType::SysenterEsp,
-            "2" => MsrType::SysenterEip,
-            "3" => MsrType::MsrStar,
-            "4" => MsrType::MsrLstar,
-            "5" => MsrType::MsrEfer,
-            x => panic!(
-                "Provided register value \"{}\" is not a valid/interceptable msr register.",
-                x
-            ),
-        };
-        vec_msr.push(msr);
-    }
-
+    let msr: u32 = 0x174 as u32;
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -78,7 +49,7 @@ fn main() {
     println!("Initialize Libmicrovmi");
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    toggle_msr_intercepts(&mut drv, &vec_msr, true);
+    toggle_msr_intercepts(&mut drv, msr, true);
 
     println!("Listen for MSR events...");
     // record elapsed time
@@ -89,29 +60,22 @@ fn main() {
         let event = drv.listen(1000).expect("Failed to listen for events");
         match event {
             Some(ev) => {
-                let (msr_type, new) = match ev.kind {
+                let (msr_type, new, old) = match ev.kind {
                     EventType::Msr {
                         msr_type,
                         new,
-                        old: _,
-                    } => (msr_type, new),
+                        old,
+                    } => (msr_type, new, old),
                     _ => panic!("Not msr event"),
                 };
-                let msr_color = match msr_type {
-                    MsrType::SysenterCs => "blue",
-                    MsrType::SysenterEsp => "black",
-                    MsrType::SysenterEip => "green",
-                    MsrType::MsrStar => "red",
-                    MsrType::MsrLstar => "yellow",
-                    MsrType::MsrEfer => "white",
-                };
+                let msr_color = "blue";
                 let ev_nb_output = format!("{}", i).cyan();
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
-                let msr_output = format!("{:?}", msr_type).color(msr_color);
-                // let output = format!("[{}] VCPU {} - {:?}: 0x{:x}", i, ev.vcpu, cr_type, new);
+                let msr_output = format!("0x{:x}", msr_type).color(msr_color);
+                // let output = format!("[{}] VCPU {} - 0x{:x}: 0x{:x}", i, ev.vcpu, msr_type, new);
                 println!(
-                    "[{}] {} - {}: 0x{:x}",
-                    ev_nb_output, vcpu_output, msr_output, new
+                    "[{}] {} - {}: old value: 0x{:x} new value: 0x{:x}",
+                    ev_nb_output, vcpu_output, msr_output, old, new
                 );
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
@@ -123,7 +87,7 @@ fn main() {
     let duration = start.elapsed();
 
     // disable control register interception
-    toggle_msr_intercepts(&mut drv, &vec_msr, false);
+    toggle_msr_intercepts(&mut drv, msr, false);
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();
     println!(

@@ -279,13 +279,12 @@ pub trait Introspectable {
     ///  # Examples
     /// ```
     /// let vcpu = 0; // some vcpu number
-    /// drv.write_registers(vcpu, 0x5, Register::RCX).expect("Failed to write registers");
+    /// drv.write_registers(vcpu, 0x5, Registers::X86(Input)).expect("Failed to write registers");
     /// ```  
     fn write_registers(
         &self,
         _vcpu: u16,
-        _value: u64,
-        _reg: Register,
+        _reg: Registers,
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
@@ -367,7 +366,7 @@ pub enum InterceptType {
     /// Intercept when value of cr register is changed by the guest
     Cr(CrType),
     /// Intercept when value of msr register is changed by the guest
-    Msr(MsrType),
+    Msr(u32),
     /// Intercept when a int3 instruction is encountered
     Breakpoint,
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
@@ -389,7 +388,7 @@ pub enum EventType {
 
     Msr {
         ///Type of model specific register
-        msr_type: MsrType,
+        msr_type: u32,
         /// new value after cr register has been intercepted by the guest.
         new: u64,
         /// old value before cr register has been intercepted by the guest.
@@ -419,31 +418,12 @@ pub enum EventType {
 pub enum CrType {
     ///Has various control flags that modify the basic operation of the processor.
     Cr0,
-    ///Contains a value called Page Fault Linear Address (PFLA). When a page fault occurs, the address the program attempted to access is stored in the CR2 register. CR2 register cannot be intercepted by the guest operating system.
-    Cr2,
     ///CR3 enables the processor to translate linear addresses into physical addresses by locating the page directory and page tables for the current task. Typically, the upper 20 bits of CR3 become the page directory base register (PDBR), which stores the physical address of the first page directory entry.
     Cr3,
     ///Used in protected mode to control operations such as virtual-8086 support, enabling I/O breakpoints, page size extension and machine-check exceptions.
     Cr4,
 }
 
-///Types of x86 msr registers are listed here
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub enum MsrType {
-    ///Contains the 32-bit segment selector for the privilege level 0 code segment. Its index value is 0x174.
-    SysenterCs,
-    ///-Contains the 32-bit offset into the privilege level 0 code segment to the first instruction of the selected operating procedure or routine. Its index value is 0x175.
-    SysenterEsp,
-    ///-Contains the 32-bit stack pointer for the privilege level 0 stack. Its index value is 0x176.
-    SysenterEip,
-    ///Used to set the handler for SYSCALL and /or SYSRET instructions used for system calls. Its index value is 0xc0000081.
-    MsrStar,
-    ///Used to set the handler for SYSCALL and /or SYSRET instructions used for system calls. Its index value is 0xc0000082.
-    MsrLstar,
-    ///Extended Feature Enable Register (EFER) allows enabling the SYSCALL/SYSRET instruction, and later for entering and exiting long mode. Its index value is 0xc0000080.
-    MsrEfer,
-}
 ///This provides an abstraction of event which the hypervisor reports and using which we introspect the guest
 #[repr(C)]
 pub struct Event {
