@@ -281,11 +281,7 @@ pub trait Introspectable {
     /// let vcpu = 0; // some vcpu number
     /// drv.write_registers(vcpu, 0x5, Registers::X86(Input)).expect("Failed to write registers");
     /// ```  
-    fn write_registers(
-        &self,
-        _vcpu: u16,
-        _reg: Registers,
-    ) -> Result<(), Box<dyn Error>> {
+    fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 

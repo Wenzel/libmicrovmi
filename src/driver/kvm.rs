@@ -4,8 +4,7 @@ use std::mem;
 use std::vec::Vec;
 
 use kvmi::{
-    KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, 
-    KVMiPageAccess,
+    KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType, KVMiPageAccess,
 };
 
 //use kvmi_sys::*;
@@ -189,27 +188,27 @@ impl Introspectable for Kvm {
         //Calls get_registers() function of kvmi crate
         let (mut regs, _sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
         //Modify the value of the particular register which the user has requested.
-        match reg{
+        match reg {
             Registers::X86(x86_registers) => {
-                let register=x86_registers;
-                regs.rax=register.rax;
-                regs.rbx=register.rbx;
-                regs.rcx=register.rcx;
-                regs.rdx=register.rdx;
-                regs.rsi=register.rsi;
-                regs.rdi=register.rdi;
-                regs.rsp=register.rsp;
-                regs.rbp=register.rbp;
-                regs.r8=register.r8;
-                regs.r9=register.r9;
-                regs.r10=register.r10;
-                regs.r11=register.r11;
-                regs.r12=register.r12;
-                regs.r13=register.r13;
-                regs.r14=register.r14;
-                regs.r15=register.r15;
-                regs.rip=register.rip;
-                regs.rflags=register.rflags;
+                let register = x86_registers;
+                regs.rax = register.rax;
+                regs.rbx = register.rbx;
+                regs.rcx = register.rcx;
+                regs.rdx = register.rdx;
+                regs.rsi = register.rsi;
+                regs.rdi = register.rdi;
+                regs.rsp = register.rsp;
+                regs.rbp = register.rbp;
+                regs.r8 = register.r8;
+                regs.r9 = register.r9;
+                regs.r10 = register.r10;
+                regs.r11 = register.r11;
+                regs.r12 = register.r12;
+                regs.r13 = register.r13;
+                regs.r14 = register.r14;
+                regs.r15 = register.r15;
+                regs.rip = register.rip;
+                regs.rflags = register.rflags;
             }
         }
         //Set the value of the register by calling set_registers() function of the kvmi crate.

@@ -20,13 +20,13 @@ fn parse_args() -> ArgMatches<'static> {
 fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, msr: u32, enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
-        let intercept = InterceptType::Msr(msr);
-        let status_str = if enabled { "Enabling" } else { "Disabling" };
-        println!("{} intercept on 0x{:x}", status_str, msr);
-        for vcpu in 0..drv.get_vcpu_count().unwrap() {
-            drv.toggle_intercept(vcpu, intercept, enabled)
-                .expect(&format!("Failed to enable 0x{:x}", msr));
-        }
+    let intercept = InterceptType::Msr(msr);
+    let status_str = if enabled { "Enabling" } else { "Disabling" };
+    println!("{} intercept on 0x{:x}", status_str, msr);
+    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        drv.toggle_intercept(vcpu, intercept, enabled)
+            .expect(&format!("Failed to enable 0x{:x}", msr));
+    }
 
     drv.resume().expect("Failed to resume VM");
 }
@@ -61,11 +61,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let (msr_type, new, old) = match ev.kind {
-                    EventType::Msr {
-                        msr_type,
-                        new,
-                        old,
-                    } => (msr_type, new, old),
+                    EventType::Msr { msr_type, new, old } => (msr_type, new, old),
                     _ => panic!("Not msr event"),
                 };
                 let msr_color = "blue";
