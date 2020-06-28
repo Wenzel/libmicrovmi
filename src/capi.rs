@@ -1,23 +1,8 @@
 use crate::api::{DriverType, Introspectable, Registers};
-use crate::driver::dummy::Dummy;
-#[cfg(feature = "hyper-v")]
-use crate::driver::hyperv::HyperV;
-#[cfg(feature = "kvm")]
-use crate::driver::kvm::Kvm;
-#[cfg(feature = "virtualbox")]
-use crate::driver::virtualbox::VBox;
-#[cfg(feature = "xen")]
-use crate::driver::xen::Xen;
 use crate::init;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 use std::ffi::{c_void, CStr};
 use std::slice;
-
-#[repr(C)]
-pub struct MicrovmiContext {
-    driver: *mut c_void,
-    driver_type: DriverType,
-}
 
 #[repr(C)]
 pub enum MicrovmiStatus {
@@ -30,7 +15,7 @@ pub enum MicrovmiStatus {
 pub unsafe extern "C" fn microvmi_init(
     domain_name: *const c_char,
     driver_type: *const DriverType,
-) -> *mut MicrovmiContext {
+) -> *mut c_void {
     let safe_domain_name = CStr::from_ptr(domain_name).to_string_lossy().into_owned();
     let optional_driver_type: Option<DriverType> = if driver_type.is_null() {
         None
@@ -38,24 +23,19 @@ pub unsafe extern "C" fn microvmi_init(
         Some(driver_type.read())
     };
     let driver = init(&safe_domain_name, optional_driver_type);
-    let inferred_driver_type = driver.get_driver_type();
-    Box::into_raw(Box::new(MicrovmiContext {
-        driver: Box::into_raw(driver) as *mut c_void,
-        driver_type: inferred_driver_type,
-    }))
+    Box::into_raw(Box::new(driver)) as *mut c_void
 }
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_destroy(context: *mut MicrovmiContext) {
-    let boxed_context = Box::from_raw(context);
-    let _ = get_driver_box(&boxed_context);
+pub unsafe extern "C" fn microvmi_destroy(context: *mut c_void) {
+    let _ = get_driver_box(context);
 }
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_pause(context: *mut MicrovmiContext) -> MicrovmiStatus {
-    let driver = get_driver_mut_ptr(context.as_ref().unwrap());
+pub unsafe extern "C" fn microvmi_pause(context: *mut c_void) -> MicrovmiStatus {
+    let driver = get_driver_mut_ptr(context);
     match (*driver).pause() {
         Ok(_) => MicrovmiStatus::MicrovmiSuccess,
         Err(_) => MicrovmiStatus::MicrovmiFailure,
@@ -64,8 +44,8 @@ pub unsafe extern "C" fn microvmi_pause(context: *mut MicrovmiContext) -> Microv
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_resume(context: *mut MicrovmiContext) -> MicrovmiStatus {
-    let driver = get_driver_mut_ptr(context.as_ref().unwrap());
+pub unsafe extern "C" fn microvmi_resume(context: *mut c_void) -> MicrovmiStatus {
+    let driver = get_driver_mut_ptr(context);
     match (*driver).resume() {
         Ok(_) => MicrovmiStatus::MicrovmiSuccess,
         Err(_) => MicrovmiStatus::MicrovmiFailure,
@@ -75,12 +55,12 @@ pub unsafe extern "C" fn microvmi_resume(context: *mut MicrovmiContext) -> Micro
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_read_physical(
-    context: *mut MicrovmiContext,
+    context: *mut c_void,
     physical_address: uint64_t,
     buffer: *mut uint8_t,
     size: size_t,
 ) -> MicrovmiStatus {
-    let driver = get_driver_mut_ptr(context.as_ref().unwrap());
+    let driver = get_driver_mut_ptr(context);
     match (*driver).read_physical(physical_address, slice::from_raw_parts_mut(buffer, size)) {
         Ok(_) => MicrovmiStatus::MicrovmiSuccess,
         Err(_) => MicrovmiStatus::MicrovmiFailure,
@@ -90,10 +70,10 @@ pub unsafe extern "C" fn microvmi_read_physical(
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_get_max_physical_addr(
-    context: *mut MicrovmiContext,
+    context: *mut c_void,
     address_ptr: *mut uint64_t,
 ) -> MicrovmiStatus {
-    let driver = get_driver_mut_ptr(context.as_ref().unwrap());
+    let driver = get_driver_mut_ptr(context);
     match (*driver).get_max_physical_addr() {
         Ok(max_addr) => {
             address_ptr.write(max_addr);
@@ -106,11 +86,11 @@ pub unsafe extern "C" fn microvmi_get_max_physical_addr(
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_read_registers(
-    context: *mut MicrovmiContext,
+    context: *mut c_void,
     vcpu: uint16_t,
     registers: *mut Registers,
 ) -> MicrovmiStatus {
-    let driver = get_driver_mut_ptr(context.as_ref().unwrap());
+    let driver = get_driver_mut_ptr(context);
     match (*driver).read_registers(vcpu) {
         Ok(regs) => {
             registers.write(regs);
@@ -120,34 +100,11 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
-unsafe fn get_driver_mut_ptr(context: &MicrovmiContext) -> *mut dyn Introspectable {
-    match context.driver_type {
-        DriverType::Dummy => context.driver as *mut Dummy as *mut dyn Introspectable,
-        #[cfg(feature = "kvm")]
-        DriverType::KVM => context.driver as *mut Kvm as *mut dyn Introspectable,
-        #[cfg(feature = "virtualbox")]
-        DriverType::VirtualBox => context.driver as *mut VBox as *mut dyn Introspectable,
-        #[cfg(feature = "xen")]
-        DriverType::Xen => context.driver as *mut Xen as *mut dyn Introspectable,
-        #[cfg(feature = "hyper-v")]
-        DriverType::HyperV => context.driver as *mut HyperV as *mut dyn Introspectable,
-    }
+unsafe fn get_driver_mut_ptr(context: *mut c_void) -> *mut dyn Introspectable {
+    let driver: *mut *mut dyn Introspectable = context as *mut _;
+    driver.read()
 }
 
-unsafe fn get_driver_box(context: &MicrovmiContext) -> Box<dyn Introspectable> {
-    match context.driver_type {
-        DriverType::Dummy => Box::from_raw(context.driver as *mut Dummy) as Box<dyn Introspectable>,
-        #[cfg(feature = "kvm")]
-        DriverType::KVM => Box::from_raw(context.driver as *mut Kvm) as Box<dyn Introspectable>,
-        #[cfg(feature = "virtualbox")]
-        DriverType::VirtualBox => {
-            Box::from_raw(context.driver as *mut VBox) as Box<dyn Introspectable>
-        }
-        #[cfg(feature = "xen")]
-        DriverType::Xen => Box::from_raw(context.driver as *mut Xen) as Box<dyn Introspectable>,
-        #[cfg(feature = "hyper-v")]
-        DriverType::HyperV => {
-            Box::from_raw(context.driver as *mut HyperV) as Box<dyn Introspectable>
-        }
-    }
+unsafe fn get_driver_box(context: *mut c_void) -> Box<Box<dyn Introspectable>> {
+    Box::from_raw(context as *mut _)
 }

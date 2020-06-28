@@ -1,4 +1,4 @@
-use crate::api::{DriverType, Introspectable};
+use crate::api::Introspectable;
 use std::error::Error;
 
 // unit struct
@@ -30,9 +30,5 @@ impl Introspectable for Dummy {
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         Ok(())
-    }
-
-    fn get_driver_type(&self) -> DriverType {
-        DriverType::Dummy
     }
 }

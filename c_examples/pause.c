@@ -3,7 +3,7 @@
 #include "libmicrovmi.h"
 #include <unistd.h>
 
-void pause_vm(MicrovmiContext* driver, unsigned long sleep_duration) {
+void pause_vm(void* driver, unsigned long sleep_duration) {
     if (microvmi_pause(driver) == MicrovmiSuccess) {
         printf("Paused.\n");
     } else {
@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
         printf("Unable to parse sleep duration or zero provided.\n");
         return 1;
     }
-    MicrovmiContext* driver = microvmi_init(argv[1], NULL);
+    void* driver = microvmi_init(argv[1], NULL);
     pause_vm(driver, sleep_duration_sec * 1000000);
     microvmi_destroy(driver);
     return 0;

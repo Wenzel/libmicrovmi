@@ -1,4 +1,4 @@
-use crate::api::{DriverType, Introspectable, Registers, X86Registers};
+use crate::api::{Introspectable, Registers, X86Registers};
 use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
@@ -124,10 +124,6 @@ impl Introspectable for Xen {
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
         Ok(self.xc.domain_unpause(self.domid)?)
-    }
-
-    fn get_driver_type(&self) -> DriverType {
-        DriverType::Xen
     }
 }
 

@@ -6,7 +6,7 @@ use std::vec::Vec;
 use kvmi::{KVMi, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType};
 
 use crate::api::{
-    CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
+    CrType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
     X86Registers,
 };
 
@@ -191,10 +191,6 @@ impl Introspectable for Kvm {
         let vcpu_index: usize = event.vcpu.try_into().unwrap();
         let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
         Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
-    }
-
-    fn get_driver_type(&self) -> DriverType {
-        DriverType::KVM
     }
 }
 
