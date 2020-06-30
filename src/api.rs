@@ -1,47 +1,6 @@
 use std::cmp::PartialEq;
 use std::error::Error;
 
-/// Integer values corresponding to various registers
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Register {
-    /// 8 byte general purpose register.
-    RAX = 0,
-    /// 8 byte general purpose register.
-    RBX = 1,
-    /// 8 byte general purpose register.
-    RCX = 2,
-    /// 8 byte general purpose register.
-    RDX = 3,
-    /// 8 byte general purpose register.
-    RSI = 4,
-    /// 8 byte general purpose register.
-    RDI = 5,
-    /// 8 byte general purpose register.
-    RSP = 6,
-    /// 8 byte general purpose register.
-    RBP = 7,
-    /// 8 byte general purpose register.
-    R8 = 8,
-    /// 8 byte general purpose register.
-    R9 = 9,
-    /// 8 byte general purpose register.
-    R10 = 10,
-    /// 8 byte general purpose register.
-    R11 = 11,
-    /// 8 byte general purpose register.
-    R12 = 12,
-    /// 8 byte general purpose register.
-    R13 = 13,
-    /// 8 byte general purpose register.
-    R14 = 14,
-    /// 8 byte general purpose register.
-    R15 = 15,
-    /// 8 byte general purpose register.
-    RIP = 16,
-    /// 8 byte general purpose register.
-    RFLAGS = 17,
-}
-
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
