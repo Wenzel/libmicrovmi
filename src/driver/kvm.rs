@@ -516,12 +516,7 @@ mod tests {
     #[test_case(1; "single vcpu")]
     fn test_create_kvm_driver_if_guest_domain_is_valid(vcpu_count: u32) {
         let mut kvmi_mock = MockKVMIntrospectable::default();
-        kvmi_mock.expect_init().returning(|_| {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "something went wrong",
-            ))
-        });
+        kvmi_mock.expect_init().returning(|_| Ok(()));
         kvmi_mock
             .expect_get_vcpu_count()
             .returning(move || Ok(vcpu_count));
@@ -533,6 +528,7 @@ mod tests {
                     function(|x| matches!(x, KVMiInterceptType::Cr)),
                     eq(true),
                 )
+                .times(1)
                 .returning(|_, _, _| Ok(()));
             kvmi_mock
                 .expect_control_events()
@@ -541,11 +537,12 @@ mod tests {
                     function(|x| matches!(x, KVMiInterceptType::Cr)),
                     eq(false),
                 )
+                .times(1)
                 .returning(|_, _, _| Ok(()));
         }
 
         let result = Kvm::new("some_vm", Box::new(kvmi_mock));
 
-        //assert!(result.is_ok(), "Expected ok, got error instead!");
+        assert!(result.is_ok(), "Expected ok, got error instead!");
     }
 }
