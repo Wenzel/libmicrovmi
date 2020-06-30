@@ -99,10 +99,6 @@ pub trait Introspectable {
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
-
-    // Introduced for the sole purpose of C interoperability.
-    // Should be deprecated as soon as more suitable solutions become available.
-    fn get_driver_type(&self) -> DriverType;
 }
 
 // Event handling

@@ -7,7 +7,7 @@
 
 size_t PAGE_SIZE = 4096;
 
-void dump_memory(MicrovmiContext* driver, const char* vm_name) {
+void dump_memory(void* driver, const char* vm_name) {
     if (microvmi_pause(driver) == MicrovmiSuccess) {
         printf("Paused.\n");
     } else {
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
         printf("No domain name given.\n");
         return 1;
     }
-    MicrovmiContext* driver = microvmi_init(argv[1], NULL);
+    void* driver = microvmi_init(argv[1], NULL);
     dump_memory(driver, argv[1]);
     microvmi_destroy(driver);
     return 0;

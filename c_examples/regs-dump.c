@@ -4,7 +4,7 @@
 
 #include "libmicrovmi.h"
 
-void read_registers(MicrovmiContext* driver, const char* vm_name) {
+void read_registers(void* driver, const char* vm_name) {
     if (microvmi_pause(driver) == MicrovmiSuccess) {
         printf("Paused.\n");
     } else {
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
         printf("No domain name given.\n");
         return 1;
     }
-    MicrovmiContext* driver = microvmi_init(argv[1], NULL);
+    void* driver = microvmi_init(argv[1], NULL);
     read_registers(driver, argv[1]);
     microvmi_destroy(driver);
     return 0;
