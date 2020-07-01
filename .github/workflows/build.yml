@@ -78,7 +78,42 @@ jobs:
           name: clippy kvm
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features kvm -- -D warnings
-
+      - name: remove compilation artifacts from stable toolchain
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean
+      - name: install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: test KVM driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          # The target arg is a workaround in order to prevent build.rs files from being compiled with RUSTFLAGS
+          # -Cpanic=abort can lead to issues with bindgen during compile time
+          args: --features kvm --no-fail-fast --target x86_64-unknown-linux-gnu
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      - name: install grcov
+        uses: actions-rs/install@v0.1
+        with:
+          crate: grcov
+          version: latest
+          use-tool-cache: true
+      - name: generate coverage report
+        id: coverage
+        uses: actions-rs/grcov@v0.1
+      - name: upload coverage report to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+          file: ${{ steps.coverage.outputs.report }}
+          flags: unittests
+          fail_ci_if_error: true
 
   virtualbox:
     runs-on: ubuntu-latest
