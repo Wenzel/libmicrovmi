@@ -16,6 +16,14 @@ pub enum DriverType {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct SegmentReg {
+    pub base: u64,
+    pub limit: u32,
+    pub selector: u16,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct X86Registers {
     pub rax: u64,
     pub rbx: u64,
@@ -36,9 +44,25 @@ pub struct X86Registers {
     pub rip: u64,
     pub rflags: u64,
     pub cr0: u64,
+    pub cr2: u64,
     pub cr3: u64,
     pub cr4: u64,
-    pub fs_base: u64,
+    pub sysenter_cs: u64,
+    pub sysenter_esp: u64,
+    pub sysenter_eip: u64,
+    pub msr_efer: u64,
+    pub msr_star: u64,
+    pub msr_lstar: u64,
+    pub efer: u64,
+    pub apic_base: u64,
+    pub cs: SegmentReg,
+    pub ds: SegmentReg,
+    pub es: SegmentReg,
+    pub fs: SegmentReg,
+    pub gs: SegmentReg,
+    pub ss: SegmentReg,
+    pub tr: SegmentReg,
+    pub ldt: SegmentReg,
 }
 
 #[repr(C)]
@@ -46,6 +70,8 @@ pub struct X86Registers {
 pub enum Registers {
     X86(X86Registers),
 }
+
+pub const PAGE_SHIFT: u32 = 12;
 
 pub trait Introspectable {
     // get VCPU count
@@ -64,6 +90,10 @@ pub trait Introspectable {
     }
 
     fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 

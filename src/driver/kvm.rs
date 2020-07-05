@@ -1,16 +1,51 @@
+use kvmi::{
+    kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType,
+    KVMiInterceptType,
+};
 use std::convert::TryInto;
 use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
-use kvmi::{
-    KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType, KVMiInterceptType,
+use crate::api::{
+    CrType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers, SegmentReg,
+    X86Registers, PAGE_SHIFT,
 };
 
-use crate::api::{
-    CrType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers,
-    X86Registers,
-};
+impl From<kvm_segment> for SegmentReg {
+    fn from(segment: kvm_segment) -> Self {
+        SegmentReg {
+            base: segment.base,
+            limit: segment.limit,
+            selector: segment.selector,
+        }
+    }
+}
+
+impl From<X86Registers> for kvm_regs {
+    fn from(register: X86Registers) -> Self {
+        kvm_regs {
+            rax: register.rax,
+            rbx: register.rbx,
+            rcx: register.rcx,
+            rdx: register.rdx,
+            rsi: register.rsi,
+            rdi: register.rdi,
+            rsp: register.rsp,
+            rbp: register.rbp,
+            r8: register.r8,
+            r9: register.r9,
+            r10: register.r10,
+            r11: register.r11,
+            r12: register.r12,
+            r13: register.r13,
+            r14: register.r14,
+            r15: register.r15,
+            rip: register.rip,
+            rflags: register.rflags,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Kvm<T: KVMIntrospectable> {
@@ -58,14 +93,13 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        // No API in KVMi at the moment
-        // fake 512MB
-        let max_addr = 1024 * 1024 * 512;
-        Ok(max_addr)
+        let max_gfn = self.kvmi.get_maximum_gfn()?;
+        Ok(max_gfn << PAGE_SHIFT)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let (regs, sregs, _msrs) = self.kvmi.get_registers(vcpu)?;
+        let (regs, sregs, msrs) = self.kvmi.get_registers(vcpu)?;
+        let msrs_as_slice = msrs.as_slice();
         // TODO: hardcoded for x86 for now
         Ok(Registers::X86(X86Registers {
             rax: regs.rax,
@@ -87,10 +121,35 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             rip: regs.rip,
             rflags: regs.rflags,
             cr0: sregs.cr0,
+            cr2: sregs.cr2,
             cr3: sregs.cr3,
             cr4: sregs.cr4,
-            fs_base: sregs.fs.base,
+            sysenter_cs: msrs_as_slice[0].data,
+            sysenter_esp: msrs_as_slice[1].data,
+            sysenter_eip: msrs_as_slice[2].data,
+            msr_efer: msrs_as_slice[3].data,
+            msr_star: msrs_as_slice[4].data,
+            msr_lstar: msrs_as_slice[5].data,
+            efer: sregs.efer,
+            apic_base: sregs.apic_base,
+            cs: sregs.cs.into(),
+            ds: sregs.ds.into(),
+            es: sregs.es.into(),
+            fs: sregs.fs.into(),
+            gs: sregs.gs.into(),
+            ss: sregs.ss.into(),
+            tr: sregs.tr.into(),
+            ldt: sregs.ldt.into(),
         }))
+    }
+
+    fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
+        match reg {
+            Registers::X86(x86_registers) => {
+                self.kvmi.set_registers(vcpu, &x86_registers.into())?;
+            }
+        }
+        Ok(())
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
@@ -212,7 +271,7 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kvmi::{kvm_msrs, kvm_regs, kvm_sregs};
+    use kvmi::{kvm_regs, kvm_sregs, KvmMsrs};
     use mockall::mock;
     use mockall::predicate::{eq, function};
     use std::fmt::{Debug, Formatter};
@@ -289,7 +348,7 @@ mod tests {
             fn set_page_access(&self, gpa: u64, access: u8) -> Result<(), std::io::Error>;
             fn pause(&self) -> Result<(), std::io::Error>;
             fn get_vcpu_count(&self) -> Result<u32, std::io::Error>;
-            fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, kvm_msrs), std::io::Error>;
+            fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, KvmMsrs), std::io::Error>;
             fn set_registers(&self, vcpu: u16, regs: &kvm_regs) -> Result<(), std::io::Error>;
             fn wait_and_pop_event(&self, ms: i32) -> Result<Option<KVMiEvent>, std::io::Error>;
             fn reply(&self, event: &KVMiEvent, reply_type: KVMiEventReply) -> Result<(), std::io::Error>;
