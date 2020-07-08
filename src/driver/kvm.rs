@@ -77,6 +77,9 @@ impl<T: KVMIntrospectable> Kvm<T> {
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, true)
                 .unwrap();
+            kvm.kvmi
+                .control_events(vcpu, KVMiInterceptType::Msr, true)
+                .unwrap();
         }
 
         Ok(kvm)
@@ -209,6 +212,9 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                 };
                 Ok(self.kvmi.control_cr(vcpu, kvmi_cr, enabled)?)
             }
+            InterceptType::Msr(micro_msr_type) => {
+                Ok(self.kvmi.control_msr(vcpu, micro_msr_type, enabled)?)
+            }
         }
     }
 
@@ -229,8 +235,13 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         new,
                         old,
                     },
+                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
+                        msr_type,
+                        new,
+                        old,
+                    },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
-                    _ => unimplemented!()
+                    _ => unimplemented!(),
                 };
 
                 let vcpu = kvmi_event.vcpu;
@@ -267,6 +278,9 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
         for vcpu in 0..self.get_vcpu_count().unwrap() {
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Cr, false)
+                .unwrap();
+            self.kvmi
+                .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
         }
     }
@@ -320,6 +334,24 @@ mod tests {
                 .with(
                     eq(vcpu as u16),
                     function(|x| matches!(x, KVMiInterceptType::Cr)),
+                    eq(false),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Msr)),
+                    eq(true),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Msr)),
                     eq(false),
                 )
                 .times(1)
