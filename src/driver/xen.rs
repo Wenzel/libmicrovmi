@@ -1,4 +1,4 @@
-use crate::api::{Introspectable, Registers, X86Registers};
+use crate::api::{Introspectable, Registers, SegmentReg, X86Registers};
 use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
@@ -112,7 +112,55 @@ impl Introspectable for Xen {
             cr0: hvm_cpu.cr0,
             cr3: hvm_cpu.cr3,
             cr4: hvm_cpu.cr4,
-            fs_base: hvm_cpu.fs_base,
+            cr2: 0,
+            sysenter_cs: 0,
+            sysenter_esp: 0,
+            sysenter_eip: 0,
+            msr_efer: 0,
+            msr_star: 0,
+            msr_lstar: 0,
+            efer: 0,
+            apic_base: 0,
+            cs: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            ds: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            es: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            fs: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            gs: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            ss: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            tr: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
+            ldt: SegmentReg {
+                base: 0,
+                limit: 0,
+                selector: 0,
+            },
         }))
     }
 
