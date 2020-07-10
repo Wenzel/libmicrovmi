@@ -72,6 +72,7 @@ pub enum Registers {
 }
 
 pub const PAGE_SHIFT: u32 = 12;
+pub const PAGE_SIZE: u32 = 4096;
 
 pub trait Introspectable {
     // get VCPU count
@@ -81,6 +82,11 @@ pub trait Introspectable {
 
     // read physical memory
     fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    // write physical memory
+    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 

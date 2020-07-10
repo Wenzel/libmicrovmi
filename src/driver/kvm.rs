@@ -92,6 +92,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
+    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        Ok(self.kvmi.write_physical(paddr, buf)?)
+    }
+
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         let max_gfn = self.kvmi.get_maximum_gfn()?;
         Ok(max_gfn << PAGE_SHIFT)
