@@ -142,12 +142,14 @@ pub trait Introspectable {
 #[derive(Debug, Copy, Clone)]
 pub enum InterceptType {
     Cr(CrType),
+    Msr(u32),
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
     Cr { cr_type: CrType, new: u64, old: u64 },
+    Msr { msr_type: u32, new: u64, old: u64 },
 }
 
 #[repr(C)]
