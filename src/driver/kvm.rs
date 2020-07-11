@@ -80,6 +80,9 @@ impl<T: KVMIntrospectable> Kvm<T> {
             kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Msr, true)
                 .unwrap();
+            kvm.kvmi
+                .control_events(vcpu, KVMiInterceptType::Breakpoint, true)
+                .unwrap();
         }
 
         Ok(kvm)
@@ -215,6 +218,11 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             InterceptType::Msr(micro_msr_type) => {
                 Ok(self.kvmi.control_msr(vcpu, micro_msr_type, enabled)?)
             }
+            InterceptType::Breakpoint => {
+                Ok(self
+                    .kvmi
+                    .control_events(vcpu, KVMiInterceptType::Breakpoint, enabled)?)
+            }
         }
     }
 
@@ -239,6 +247,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         msr_type,
                         new,
                         old,
+                    },
+                    KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::Breakpoint {
+                        gpa,
+                        insn_len,
                     },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
                     _ => unimplemented!(),
@@ -281,6 +293,9 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
                 .unwrap();
             self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Msr, false)
+                .unwrap();
+            self.kvmi
+                .control_events(vcpu, KVMiInterceptType::Breakpoint, false)
                 .unwrap();
         }
     }
@@ -352,6 +367,24 @@ mod tests {
                 .with(
                     eq(vcpu as u16),
                     function(|x| matches!(x, KVMiInterceptType::Msr)),
+                    eq(false),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
+                    eq(true),
+                )
+                .times(1)
+                .returning(|_, _, _| Ok(()));
+            kvmi_mock
+                .expect_control_events()
+                .with(
+                    eq(vcpu as u16),
+                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
                     eq(false),
                 )
                 .times(1)
