@@ -4,6 +4,19 @@ use std::ffi::{CStr, IntoStringError};
 
 use crate::capi::DriverInitParamFFI;
 
+bitflags! {
+    pub struct Access: u32 {
+        const R=0b00000001;
+        const W=0b00000010;
+        const X=0b00000100;
+        const NIL=0b00000000;
+        const RW=Self::R.bits | Self::W.bits;
+        const WX=Self::W.bits | Self::X.bits;
+        const RX=Self::R.bits | Self::X.bits;
+        const RWX=Self::R.bits | Self::W.bits | Self::X.bits;
+    }
+}
+
 ///Represents the available hypervisor VMI drivers supported by libmicrovmi
 #[repr(C)]
 #[derive(Debug)]
@@ -196,6 +209,25 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    ///get page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to know.
+    ///
+    fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    ///set page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to set
+    /// * 'access' - access flags to be set on the given page
+    ///
+    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     /// Write register values
     ///
     /// # Arguments
@@ -268,6 +300,7 @@ pub enum InterceptType {
     Msr(u32),
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
+    Pagefault,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -298,6 +331,14 @@ pub enum EventType {
         gpa: u64,
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
+    },
+    Pagefault {
+        /// Virtual memory address of the guest
+        gva: u64,
+        /// Physical memory address of the guest
+        gpa: u64,
+        /// Acsess responsible for thr pagefault
+        access: Access,
     },
 }
 
