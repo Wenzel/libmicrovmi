@@ -143,6 +143,7 @@ pub trait Introspectable {
 pub enum InterceptType {
     Cr(CrType),
     Msr(u32),
+    Breakpoint,
 }
 
 #[repr(C)]
@@ -150,6 +151,7 @@ pub enum InterceptType {
 pub enum EventType {
     Cr { cr_type: CrType, new: u64, old: u64 },
     Msr { msr_type: u32, new: u64, old: u64 },
+    Breakpoint { gpa: u64, insn_len: u8 },
 }
 
 #[repr(C)]
