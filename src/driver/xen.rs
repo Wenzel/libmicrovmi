@@ -1,7 +1,7 @@
 use crate::api::{
     DriverInitParam, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
-use libc::PROT_READ;
+use libc::{PROT_READ, PROT_WRITE};
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
@@ -78,6 +78,37 @@ impl Introspectable for Xen {
             // update loop variables
             count_mut -= read_len;
             buf_offset += read_len;
+            // unmap page
+            self.xen_fgn.unmap(page).unwrap();
+        }
+        Ok(())
+    }
+
+    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+        let mut phys_address: u64;
+        let mut offset: u64;
+        let mut count_mut: u64 = buf.len() as u64;
+        let mut buf_offset: u64 = 0;
+        while count_mut > 0 {
+            // compute new paddr
+            phys_address = paddr + buf_offset;
+            // get the current pfn
+            let pfn = phys_address >> PAGE_SHIFT;
+            offset = u64::from(PAGE_SIZE - 1) & phys_address;
+            // map pfn
+            let page = self.xen_fgn.map(self.domid, PROT_WRITE, pfn)?;
+            // determine how much we can write
+            let write_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+                u64::from(PAGE_SIZE) - offset
+            } else {
+                count_mut as u64
+            };
+
+            // do the write
+            page[offset as usize..write_len as usize].copy_from_slice(&buf[buf_offset as usize..]);
+            // update loop variables
+            count_mut -= write_len;
+            buf_offset += write_len;
             // unmap page
             self.xen_fgn.unmap(page).unwrap();
         }
