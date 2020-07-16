@@ -28,7 +28,7 @@ hyper-v = ["winapi", "widestring", "ntapi", "vid-sys"]
 log = "0.4.8"
 env_logger = "0.7.1"
 libc = { version = "0.2.58", optional = true }
-xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
+xenctrl = { git = "https://github.com/arnabcs17b006/xenctrl", branch = "write_register",  optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
 kvmi = { version = "0.2.1", optional = true }
