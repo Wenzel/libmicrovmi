@@ -1,21 +1,30 @@
 use crate::api::{
-    DriverInitParam, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+    CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use std::convert::TryInto;
 use std::error::Error;
 use std::io::ErrorKind;
-use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenctrl::XenControl;
+use std::mem;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 
-// unit struct
+use nix::poll::poll;
+use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
+use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
+use xenctrl::{XenControl, XenCr};
+use xenevtchn::XenEventChannel;
+use xenforeignmemory::XenForeignMem;
+use xenvmevent_sys::vm_event_back_ring;
+
 #[derive(Debug)]
 pub struct Xen {
     xc: XenControl,
-    xen_fgn: xenforeignmemory::XenForeignMem,
+    xev: XenEventChannel,
+    xen_fgn: XenForeignMem,
     dom_name: String,
     domid: u32,
+    back_ring: vm_event_back_ring,
 }
 
 impl Xen {
@@ -55,20 +64,24 @@ impl Xen {
         if !found {
             panic!("Cannot find domain {}", domain_name);
         }
-        let xc = XenControl::new(None, None, 0).unwrap();
-        let xen_fgn = xenforeignmemory::XenForeignMem::new().unwrap();
+
+        let mut xc = XenControl::new(None, None, 0).unwrap();
+        let (_ring_page, back_ring, remote_port) = xc
+            .monitor_enable(cand_domid)
+            .expect("Failed to map event ring page");
+        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
+
+        let xen_fgn = XenForeignMem::new().unwrap();
         let xen = Xen {
             xc,
+            xev,
             xen_fgn,
             dom_name: domain_name.to_string(),
             domid: cand_domid,
+            back_ring: back_ring,
         };
         debug!("Initialized {:#?}", xen);
         xen
-    }
-
-    fn close(&mut self) {
-        debug!("close");
     }
 }
 
@@ -284,6 +297,87 @@ impl Introspectable for Xen {
         Ok(())
     }
 
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        let mut fds = [self.xev.fd_struct];
+        let mut vcpu: u16 = 0;
+        let mut event_type = unsafe { mem::MaybeUninit::<EventType>::zeroed().assume_init() };
+        self.xc
+            .monitor_write_ctrlreg(self.domid, XenCr::Cr3, true, false, false)?;
+        println!(
+            "Poll value: {}",
+            poll(&mut fds, timeout.try_into().unwrap()).unwrap()
+        );
+        println!("local port: {}", self.xev.bind_port);
+        println!(
+            "pending event port: {}",
+            self.xev
+                .xenevtchn_pending(&mut unsafe { *self.xev.handle })?
+        );
+        let back_ring_ptr = &mut self.back_ring;
+        println!("{}", RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr));
+        self.xc.get_request(back_ring_ptr)?;
+        /*if poll(&mut fds, timeout.try_into().unwrap()).unwrap() > 0 && self.xev.bind_port == self.xev.xenevtchn_pending(&mut unsafe {*self.xev.handle})? {
+            let back_ring_ptr = &mut self.back_ring;
+            if RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) != 0 {
+                let req = self.xc.get_request(back_ring_ptr)?;
+                if req.version != VM_EVENT_INTERFACE_VERSION {
+                    panic!("version mismatch");
+                }
+                let xen_event_type = (self.xc.get_event_type(req)).unwrap();
+                event_type = match xen_event_type {
+                    XenEventType::Cr { cr_type, new, old } => EventType::Cr {
+                        cr_type: match cr_type {
+                            XenCr::Cr0 => CrType::Cr0,
+                            XenCr::Cr3 => CrType::Cr3,
+                            XenCr::Cr4 => CrType::Cr4,
+                        },
+                        new,
+                        old,
+                    },
+                    _ => unimplemented!(),
+                };
+                vcpu = req.vcpu_id.try_into().unwrap();
+                let mut rsp =
+                    unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
+                rsp.reason = req.reason;
+                rsp.version = VM_EVENT_INTERFACE_VERSION;
+                rsp.vcpu_id = req.vcpu_id;
+                rsp.flags = req.flags & VM_EVENT_FLAG_VCPU_PAUSED;
+                self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+                self.xev
+            .xenevtchn_notify(handle, self.xev.bind_port.try_into().unwrap())?;
+            }
+        }
+        let handle = unsafe {&mut *self.xev.handle};
+        self.xev
+            .xenevtchn_unmask(handle, self.xev.bind_port.try_into().unwrap())?;*/
+        Ok(Some(Event {
+            vcpu,
+            kind: event_type,
+        }))
+    }
+
+    fn toggle_intercept(
+        &mut self,
+        _vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        match intercept_type {
+            InterceptType::Cr(micro_cr_type) => {
+                let xen_cr = match micro_cr_type {
+                    CrType::Cr0 => XenCr::Cr0,
+                    CrType::Cr3 => XenCr::Cr3,
+                    CrType::Cr4 => XenCr::Cr4,
+                };
+                Ok(self
+                    .xc
+                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, false, false)?)
+            }
+            _ => unimplemented!(),
+        }
+    }
+
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
         Ok(self.xc.domain_pause(self.domid)?)
@@ -297,6 +391,9 @@ impl Introspectable for Xen {
 
 impl Drop for Xen {
     fn drop(&mut self) {
-        self.close();
+        debug!("Closing Xen driver");
+        self.xc
+            .monitor_disable(self.domid)
+            .expect("Failed to unmap event ring page");
     }
 }

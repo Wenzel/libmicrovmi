@@ -42,10 +42,11 @@ fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &Vec<CrType>,
         let intercept = InterceptType::Cr(*cr);
         let status_str = if enabled { "Enabling" } else { "Disabling" };
         println!("{} intercept on {:?}", status_str, cr);
-        for vcpu in 0..drv.get_vcpu_count().unwrap() {
-            drv.toggle_intercept(vcpu, intercept, enabled)
-                .expect(&format!("Failed to enable {:?}", cr));
-        }
+        //for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        let vcpu = 0;
+        drv.toggle_intercept(vcpu, intercept, enabled)
+            .expect(&format!("Failed to enable {:?}", cr));
+        //}
     }
 
     drv.resume().expect("Failed to resume VM");
@@ -120,8 +121,8 @@ fn main() {
                     "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
                     ev_nb_output, vcpu_output, cr_output, old, new
                 );
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
+                // drv.reply_event(ev, EventReplyType::Continue)
+                //   .expect("Failed to send event reply");
                 i = i + 1;
             }
             None => println!("No events yet..."),
