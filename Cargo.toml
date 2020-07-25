@@ -28,16 +28,20 @@ hyper-v = ["winapi", "widestring", "ntapi", "vid-sys"]
 log = "0.4.8"
 env_logger = "0.7.1"
 libc = { version = "0.2.58", optional = true }
-xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
+xenctrl = { git = "https://github.com/arnabcs17b006/xenctrl", branch = "write_register", optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
 xenforeignmemory = { git = "https://github.com/Wenzel/xenforeignmemory", optional = true }
-kvmi = { git = "https://github.com/Wenzel/kvmi", rev = "dd10135a27bb3658d399dfb5477299ca0f4baeac", optional = true }
+xenevtchn = { git = "https://github.com/arnabcs17b006/xenevtchn", branch = "event-notification"}
+xenvmevent-sys = { git = "https://github.com/Wenzel/xenvmevent-sys"}
+kvmi = { git = "https://github.com/Wenzel/kvmi", optional = true }
+>>>>>>> event support for xen
 fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
 winapi = { version = "0.3.8", features = ["tlhelp32", "winnt", "handleapi", "securitybaseapi"], optional = true }
 widestring = { version = "0.4.0", optional = true }
 ntapi = { version = "0.3.3", optional = true }
 vid-sys = { version = "0.3.0", features = ["deprecated-apis"], optional = true }
 cty = "0.2.1"
+nix = "0.18.0"
 
 [dev-dependencies]
 ctrlc = "3.1.3"
