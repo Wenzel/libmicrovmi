@@ -8,17 +8,34 @@ use std::u32;
 
 use microvmi::api::{EventReplyType, EventType, InterceptType, Introspectable};
 
+// default set of MSRs to be intercepted
+const DEFAULT_MSR: [u32; 6] = [0x174, 0x175, 0x176, 0xc0000080, 0xc0000081, 0xc0000082];
+
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
-        .version("0.1")
-        .about("Watches msr register VMI events")
-        .arg(Arg::with_name("vm_name").index(1).required(true))
+        .version("0.2")
+        .about(
+            "Watches MSR register VMI events\n\
+                - MSR_IA32_SYSENTER_CS:   0x174\n\
+                - MSR_IA32_SYSENTER_ESP:  0x175\n\
+                - MSR_IA32_SYSENTER_EIP:  0x176\n\
+                - MSR_EFER:               0xc0000080\n\
+                - MSR_STAR:               0xc0000081\n\
+                - MSR_LSTAR:              0xc0000082\
+                ",
+        )
         .arg(
-            Arg::with_name("register")
+            Arg::with_name("vm_name")
+                .help("VM name")
+                .index(1)
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("MSR index")
+                .help("Specific set of MSRs to be intercepted")
                 .multiple(true)
                 .takes_value(true)
-                .short("r")
-                .default_value("0x174"),
+                .short("r"),
         )
         .get_matches()
 }
@@ -39,35 +56,24 @@ fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, vec_msr: &Vec<u32>, 
     drv.resume().expect("Failed to resume VM");
 }
 
-fn get_msr(registers: Vec<&str>) -> Vec<u32> {
-    let mut vec_msr = Vec::new();
-    for reg_str in registers {
-        let msr = match reg_str {
-            "sysentercs" => 0x174 as u32,
-            "sysenteresp" => 0x175 as u32,
-            "sysentereip" => 0x176 as u32,
-            "star" => 0xc0000080 as u32,
-            "lstar" => 0xc0000081 as u32,
-            "efer" => 0xc0000082 as u32,
-            x => panic!(
-                "Provided register value \"{}\" is not a valid/interceptable msr register.",
-                x
-            ),
-        };
-        vec_msr.push(msr);
-    }
-    vec_msr
-}
-
 fn main() {
     env_logger::init();
 
     let matches = parse_args();
 
     let domain_name = matches.value_of("vm_name").unwrap();
-    let registers: Vec<_> = matches.values_of("register").unwrap().collect();
-
-    let vec_msr = get_msr(registers);
+    let mut registers: Vec<u32> = matches
+        .values_of("register")
+        .unwrap()
+        .map(|s| {
+            s.parse::<u32>()
+                .expect("Unable to convert MSR index to u32")
+        })
+        .collect();
+    if registers.is_empty() {
+        // use default set
+        registers = DEFAULT_MSR.to_vec();
+    }
 
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
@@ -80,7 +86,7 @@ fn main() {
     println!("Initialize Libmicrovmi");
     let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
 
-    toggle_msr_intercepts(&mut drv, &vec_msr, true);
+    toggle_msr_intercepts(&mut drv, &registers, true);
 
     println!("Listen for MSR events...");
     // record elapsed time
@@ -113,7 +119,7 @@ fn main() {
     let duration = start.elapsed();
 
     // disable control register interception
-    toggle_msr_intercepts(&mut drv, &vec_msr, false);
+    toggle_msr_intercepts(&mut drv, &registers, false);
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();
     println!(
