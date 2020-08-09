@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     microvmi_envlogger_init();
-    void* driver = microvmi_init(argv[1], NULL);
+    void* driver = microvmi_init(argv[1], NULL, NULL);
     pause_vm(driver, sleep_duration_sec * 1000000);
     microvmi_destroy(driver);
     return 0;
