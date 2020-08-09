@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::u32;
 
-use microvmi::api::{EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
 
 // default set of MSRs to be intercepted
 const DEFAULT_MSR: [u32; 6] = [0x174, 0x175, 0x176, 0xc0000080, 0xc0000081, 0xc0000082];
@@ -36,6 +36,14 @@ fn parse_args() -> ArgMatches<'static> {
                 .multiple(true)
                 .takes_value(true)
                 .short("r"),
+        )
+        .arg(
+            Arg::with_name("kvmi_socket")
+                .short("k")
+                .takes_value(true)
+                .help(
+                "pass additional KVMi socket initialization parameter required for the KVM driver",
+            ),
         )
         .get_matches()
 }
@@ -75,6 +83,10 @@ fn main() {
         registers = DEFAULT_MSR.to_vec();
     }
 
+    let init_option = matches
+        .value_of("kvmi_socket")
+        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -84,7 +96,7 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
+    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
 
     toggle_msr_intercepts(&mut drv, &registers, true);
 
