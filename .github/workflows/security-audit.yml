@@ -21,7 +21,6 @@ jobs:
         with:
           crate: cargo-audit
           version: latest
-          use-tool-cache: true
       - uses: actions/checkout@v1
       - name: perform audit check
         uses: actions-rs/audit-check@v1
