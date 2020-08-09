@@ -1,6 +1,7 @@
-use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
+use crate::api::{DriverInitParam, DriverInitParamFFI, DriverType, Introspectable, Registers};
 use crate::init;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+use std::convert::TryFrom;
 use std::ffi::{c_void, CStr};
 use std::slice;
 
@@ -25,7 +26,7 @@ pub unsafe extern "C" fn microvmi_envlogger_init() {
 pub unsafe extern "C" fn microvmi_init(
     domain_name: *const c_char,
     driver_type: *const DriverType,
-    driver_init_option: *const DriverInitParam,
+    driver_init_option: *const DriverInitParamFFI,
 ) -> *mut c_void {
     let safe_domain_name = CStr::from_ptr(domain_name).to_string_lossy().into_owned();
     let optional_driver_type: Option<DriverType> = if driver_type.is_null() {
@@ -36,7 +37,10 @@ pub unsafe extern "C" fn microvmi_init(
     let init_option: Option<DriverInitParam> = if driver_init_option.is_null() {
         None
     } else {
-        Some(driver_init_option.read())
+        Some(
+            DriverInitParam::try_from(driver_init_option.read())
+                .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
+        )
     };
     let driver = init(&safe_domain_name, optional_driver_type, init_option);
     Box::into_raw(Box::new(driver)) as *mut c_void
