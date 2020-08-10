@@ -10,6 +10,16 @@ pub enum MicrovmiStatus {
     MicrovmiFailure,
 }
 
+/// This API allows a C program to initialize the logging system in libmicrovmi.
+/// This simply calls env_logger::init()
+/// Usually, it's the library consumer who should add this Rust crate dependency,
+/// however, with a C program, we provide this workaround where we provide an API to do just that.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_envlogger_init() {
+    env_logger::init();
+}
+
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_init(
