@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
         printf("Unable to parse sleep duration or zero provided.\n");
         return 1;
     }
-    microvmi_init_envlogger();
+    microvmi_envlogger_init();
     void* driver = microvmi_init(argv[1], NULL);
     pause_vm(driver, sleep_duration_sec * 1000000);
     microvmi_destroy(driver);
