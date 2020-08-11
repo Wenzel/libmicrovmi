@@ -20,6 +20,7 @@ hyper-v = ["winapi", "widestring", "ntapi", "vid-sys"]
 
 [dependencies]
 log = "0.4.8"
+env_logger = "0.7.1"
 libc = { version = "0.2.58", optional = true }
 xenctrl = { git = "https://github.com/Wenzel/xenctrl", optional = true }
 xenstore = { git = "https://github.com/Wenzel/xenstore", optional = true }
@@ -33,7 +34,6 @@ vid-sys = { version = "0.3.0", features = ["deprecated-apis"], optional = true }
 cty = "0.2.1"
 
 [dev-dependencies]
-env_logger = "0.7.1"
 ctrlc = "3.1.3"
 clap = "2.33.0"
 colored = "1.9.3"

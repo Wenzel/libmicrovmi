@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
         printf("No domain name given.\n");
         return 1;
     }
+    microvmi_init_envlogger();
     void* driver = microvmi_init(argv[1], NULL);
     dump_memory(driver, argv[1]);
     microvmi_destroy(driver);
