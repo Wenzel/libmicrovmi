@@ -220,6 +220,7 @@ impl Introspectable for Xen {
                     new,
                     old,
                 },
+                XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
                 _ => unimplemented!(),
             };
             vcpu = req.vcpu_id.try_into().unwrap();
@@ -258,6 +259,11 @@ impl Introspectable for Xen {
                 Ok(self
                     .xc
                     .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)?)
+            }
+            InterceptType::Msr(micro_msr_type) => {
+                Ok(self
+                    .xc
+                    .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
             }
             _ => unimplemented!(),
         }

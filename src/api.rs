@@ -274,6 +274,7 @@ pub enum InterceptType {
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
+<<<<<<< HEAD
     ///Cr register interception
     Cr {
         ///Type of control register
@@ -288,9 +289,7 @@ pub enum EventType {
         ///Type of model specific register
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
-        new: u64,
-        /// old value before cr register has been intercepted by the guest.
-        old: u64,
+        value: u64,
     },
     ///int3 interception
     Breakpoint {
