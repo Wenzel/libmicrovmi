@@ -109,8 +109,8 @@ fn main() {
         let event = drv.listen(1000).expect("Failed to listen for events");
         match event {
             Some(ev) => {
-                let (msr_type, new, old) = match ev.kind {
-                    EventType::Msr { msr_type, new, old } => (msr_type, new, old),
+                let (msr_type, value) = match ev.kind {
+                    EventType::Msr { msr_type, value } => (msr_type, value),
                     _ => panic!("not msr event"),
                 };
                 let msr_color = "blue";
@@ -118,8 +118,8 @@ fn main() {
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
                 let msr_output = format!("0x{:x}", msr_type).color(msr_color);
                 println!(
-                    "[{}] {} - {}: old value: 0x{:x} new value: 0x{:x}",
-                    ev_nb_output, vcpu_output, msr_output, old, new
+                    "[{}] {} - {}: new value: 0x{:x}",
+                    ev_nb_output, vcpu_output, msr_output, value,
                 );
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
