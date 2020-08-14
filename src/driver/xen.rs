@@ -1,14 +1,14 @@
-use libc::{PROT_READ, PROT_WRITE};
-use std::error::Error;
-use std::io::ErrorKind;
-use std::mem;
 use crate::api::{
     CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
     SegmentReg, SystemTableReg, X86Registers,
 };
+use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
+use std::error::Error;
+use std::io::ErrorKind;
+use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
 use xenctrl::{XenControl, XenCr, XenEventType};
