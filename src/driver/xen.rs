@@ -337,6 +337,9 @@ impl Introspectable for Xen {
                     old,
                 },
                 XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                XenEventType::Breakpoint { insn_len, .. } => {
+                    EventType::Breakpoint { gpa: 0, insn_len }
+                }
                 _ => unimplemented!(),
             };
             vcpu = req.vcpu_id.try_into().unwrap();
@@ -380,6 +383,9 @@ impl Introspectable for Xen {
                 Ok(self
                     .xc
                     .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
+            }
+            InterceptType::Breakpoint => {
+                Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             _ => unimplemented!(),
         }
