@@ -274,7 +274,6 @@ pub enum InterceptType {
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
-<<<<<<< HEAD
     ///Cr register interception
     Cr {
         ///Type of control register
