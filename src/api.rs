@@ -1,7 +1,8 @@
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
-use std::os::raw::c_char;
+
+use crate::capi::DriverInitParamFFI;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -43,14 +44,6 @@ impl TryInto<DriverInitParam> for DriverInitParamFFI {
             ),
         })
     }
-}
-
-/// Support passing initialization options
-/// similar to DriverInitParam, however this enum offers C API compatibility
-#[repr(C)]
-#[derive(Debug)]
-pub enum DriverInitParamFFI {
-    KVMiSocket(*const c_char),
 }
 
 #[repr(C)]

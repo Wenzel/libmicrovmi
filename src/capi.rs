@@ -1,4 +1,4 @@
-use crate::api::{DriverInitParam, DriverInitParamFFI, DriverType, Introspectable, Registers};
+use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
 use crate::init;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 use std::convert::TryInto;
@@ -9,6 +9,14 @@ use std::slice;
 pub enum MicrovmiStatus {
     MicrovmiSuccess,
     MicrovmiFailure,
+}
+
+/// Support passing initialization options
+/// similar to DriverInitParam, however this enum offers C API compatibility
+#[repr(C)]
+#[derive(Debug)]
+pub enum DriverInitParamFFI {
+    KVMiSocket(*const c_char),
 }
 
 /// This API allows a C program to initialize the logging system in libmicrovmi.
