@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
 use std::os::raw::c_char;
@@ -31,11 +31,11 @@ pub enum DriverInitParam {
     KVMiSocket(String),
 }
 
-impl TryFrom<DriverInitParamFFI> for DriverInitParam {
+impl TryInto<DriverInitParam> for DriverInitParamFFI {
     type Error = IntoStringError;
 
-    fn try_from(param: DriverInitParamFFI) -> Result<Self, Self::Error> {
-        Ok(match param {
+    fn try_into(self) -> Result<DriverInitParam, Self::Error> {
+        Ok(match self {
             DriverInitParamFFI::KVMiSocket(cstr_socket) => DriverInitParam::KVMiSocket(
                 unsafe { CStr::from_ptr(cstr_socket) }
                     .to_owned()

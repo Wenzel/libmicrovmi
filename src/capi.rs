@@ -1,7 +1,7 @@
 use crate::api::{DriverInitParam, DriverInitParamFFI, DriverType, Introspectable, Registers};
 use crate::init;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::ffi::{c_void, CStr};
 use std::slice;
 
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn microvmi_init(
         None
     } else {
         Some(
-            DriverInitParam::try_from(driver_init_option.read())
+            DriverInitParamFFI::try_into(driver_init_option.read())
                 .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
         )
     };
