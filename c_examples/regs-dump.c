@@ -5,7 +5,7 @@
 #include "libmicrovmi.h"
 
 void read_registers(void* driver, const char* vm_name) {
-    if (microvmi_pause(driver) == MicrovmiSuccess) {
+    if (microvmi_pause(driver)) {
         printf("Paused.\n");
     } else {
         printf("Unable to pause VM.\n");
@@ -13,7 +13,7 @@ void read_registers(void* driver, const char* vm_name) {
     }
     Registers regs;
     memset(&regs, 0, sizeof(regs));
-    if (microvmi_read_registers(driver, 0, &regs) == MicrovmiSuccess) {
+    if (microvmi_read_registers(driver, 0, &regs)) {
         printf("rax: 0x%" PRIx64 "\n", regs.x86._0.rax);
         printf("rbx: 0x%" PRIx64 "\n", regs.x86._0.rbx);
         printf("rcx: 0x%" PRIx64 "\n", regs.x86._0.rcx);
@@ -28,7 +28,7 @@ void read_registers(void* driver, const char* vm_name) {
     } else {
         printf("Unable to read registers.\n");
     }
-    if (microvmi_resume(driver) == MicrovmiSuccess) {
+    if (microvmi_resume(driver)) {
             printf("Resumed.\n");
     } else {
         printf("Unable to resume VM.\n");

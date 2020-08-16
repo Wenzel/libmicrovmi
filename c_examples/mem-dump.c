@@ -7,14 +7,14 @@
 
 
 void dump_memory(void* driver, const char* vm_name) {
-    if (microvmi_pause(driver) == MicrovmiSuccess) {
+    if (microvmi_pause(driver)) {
         printf("Paused.\n");
     } else {
         printf("Unable to pause VM.\n");
         return;
     }
     uint64_t max_address;
-    if (microvmi_get_max_physical_addr(driver, &max_address) == MicrovmiSuccess) {
+    if (microvmi_get_max_physical_addr(driver, &max_address)) {
         printf("Max physical address: 0x%" PRIx64 "\n", max_address);
     } else {
         printf("Unable to retrieve the max physical address.\n");
@@ -24,12 +24,12 @@ void dump_memory(void* driver, const char* vm_name) {
     uint8_t buffer[PAGE_SIZE];
     for (int i = 0; i <= max_address / PAGE_SIZE; i++) {
         memset(buffer, 0, PAGE_SIZE);
-        if (microvmi_read_physical(driver, i * PAGE_SIZE, buffer, PAGE_SIZE) == MicrovmiSuccess) {
+        if (microvmi_read_physical(driver, i * PAGE_SIZE, buffer, PAGE_SIZE)) {
             fwrite(buffer, sizeof(uint8_t), PAGE_SIZE, dump_file);
         }
     }
     fclose(dump_file);
-    if (microvmi_resume(driver) == MicrovmiSuccess) {
+    if (microvmi_resume(driver)) {
             printf("Resumed.\n");
     } else {
         printf("Unable to resume VM.\n");

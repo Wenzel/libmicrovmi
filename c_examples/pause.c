@@ -4,14 +4,14 @@
 #include <unistd.h>
 
 void pause_vm(void* driver, unsigned long sleep_duration) {
-    if (microvmi_pause(driver) == MicrovmiSuccess) {
+    if (microvmi_pause(driver)) {
         printf("Paused.\n");
     } else {
         printf("Unable to pause VM.\n");
         return;
     }
     usleep(sleep_duration);
-    if (microvmi_resume(driver) == MicrovmiSuccess) {
+    if (microvmi_resume(driver)) {
             printf("Resumed.\n");
     } else {
         printf("Unable to resume VM.\n");
