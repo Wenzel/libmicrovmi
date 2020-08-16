@@ -3,6 +3,12 @@ name = "microvmi"
 version = "0.1.0"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
+description = "A cross-platform, unified, low-level VMI API on top of hypervisors"
+readme = "README.md"
+homepage = "https://github.com/Wenzel/libmicrovmi"
+repository = "https://github.com/Wenzel/libmicrovmi"
+license = "GPL-3.0-only"
+keywords = ["introspection", "VMI"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
