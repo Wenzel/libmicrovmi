@@ -105,15 +105,6 @@ jobs:
           crate: grcov
           version: latest
           use-tool-cache: true
-      - name: generate coverage report
-        id: coverage
-        uses: actions-rs/grcov@v0.1
-      - name: upload coverage report to codecov.io
-        uses: codecov/codecov-action@v1
-        with:
-          file: ${{ steps.coverage.outputs.report }}
-          flags: unittests
-          fail_ci_if_error: false
 
   virtualbox:
     runs-on: ubuntu-latest

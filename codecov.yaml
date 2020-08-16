@@ -1,7 +1,0 @@
-coverage:
-  status:
-    patch:
-      default:
-        target: auto
-        # allow coverage to drop by this amount and still post success
-        threshold: 10%
