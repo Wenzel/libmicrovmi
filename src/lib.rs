@@ -5,6 +5,8 @@ mod driver;
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate bitflags;
 
 use api::Introspectable;
 use api::{DriverInitParam, DriverType};

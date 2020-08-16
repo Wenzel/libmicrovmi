@@ -1,9 +1,14 @@
+use crate::api::{
+<<<<<<< HEAD
+    CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg, X86Registers, DriverInitParam,
+=======
+    Access, CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
+    X86Registers,
+>>>>>>> pagefault event support added
+};
+use std::convert::{From, TryFrom};
 use std::error::Error;
 use std::mem;
-
-use crate::api::{
-    CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg, X86Registers, DriverInitParam,
-};
 
 use libc::PROT_READ;
 use nix::poll::PollFlags;
@@ -11,13 +16,45 @@ use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
-use xenctrl::{XenControl, XenCr, XenEventType};
+use xenctrl::{XenControl, XenCr, XenEventType, XenPageAccess};
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
 use xenstore::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
+
+impl TryFrom<Access> for XenPageAccess {
+    type Error = &'static str;
+    fn try_from(access: Access) -> Result<Self, Self::Error> {
+        match access {
+            Access::NIL => Ok(XenPageAccess::NIL),
+            Access::R => Ok(XenPageAccess::R),
+            Access::W => Ok(XenPageAccess::W),
+            Access::RW => Ok(XenPageAccess::RW),
+            Access::X => Ok(XenPageAccess::X),
+            Access::RX => Ok(XenPageAccess::RX),
+            Access::WX => Ok(XenPageAccess::WX),
+            Access::RWX => Ok(XenPageAccess::RWX),
+            _ => Err("invalid access value"),
+        }
+    }
+}
+
+impl From<XenPageAccess> for Access {
+    fn from(access: XenPageAccess) -> Self {
+        match access {
+            XenPageAccess::NIL => Access::NIL,
+            XenPageAccess::R => Access::R,
+            XenPageAccess::W => Access::W,
+            XenPageAccess::RW => Access::RW,
+            XenPageAccess::X => Access::X,
+            XenPageAccess::RX => Access::RX,
+            XenPageAccess::WX => Access::WX,
+            XenPageAccess::RWX => Access::RWX,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Xen {
@@ -224,7 +261,11 @@ impl Introspectable for Xen {
                 XenEventType::Breakpoint { gpa, insn_len } => {
                     EventType::Breakpoint { gpa, insn_len }
                 }
-                _ => unimplemented!(),
+                XenEventType::Pagefault { gva, gpa, access } => EventType::Pagefault {
+                    gva,
+                    gpa,
+                    access: access.into(),
+                },
             };
             vcpu = req.vcpu_id.try_into().unwrap();
             let mut rsp =
@@ -244,6 +285,17 @@ impl Introspectable for Xen {
         } else {
             Ok(None)
         }
+    }
+
+    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        let access = self.xc.get_mem_access(self.domid, paddr >> PAGE_SHIFT)?;
+        Ok(access.into())
+    }
+
+    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .xc
+            .set_mem_access(self.domid, access.try_into().unwrap(), paddr >> PAGE_SHIFT)?)
     }
 
     fn toggle_intercept(
@@ -271,7 +323,7 @@ impl Introspectable for Xen {
             InterceptType::Breakpoint => {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
-            _ => unimplemented!(),
+            InterceptType::Pagefault => Ok(()),
         }
     }
 
