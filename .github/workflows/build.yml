@@ -113,7 +113,7 @@ jobs:
         with:
           file: ${{ steps.coverage.outputs.report }}
           flags: unittests
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   virtualbox:
     runs-on: ubuntu-latest
