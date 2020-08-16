@@ -3,7 +3,6 @@ use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
 
 use crate::capi::DriverInitParamFFI;
-
 bitflags! {
     pub struct Access: u32 {
         const R=0b00000001;
