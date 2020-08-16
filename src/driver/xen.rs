@@ -1,4 +1,4 @@
-use crate::api::{Introspectable, Registers, SegmentReg, X86Registers};
+use crate::api::{DriverInitParam, Introspectable, Registers, SegmentReg, X86Registers};
 use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
@@ -15,7 +15,7 @@ pub struct Xen {
 }
 
 impl Xen {
-    pub fn new(domain_name: &str) -> Self {
+    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
         debug!("init on {}", domain_name);
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();

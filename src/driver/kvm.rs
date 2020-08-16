@@ -8,8 +8,8 @@ use std::mem;
 use std::vec::Vec;
 
 use crate::api::{
-    CrType, Event, EventReplyType, EventType, InterceptType, Introspectable, Registers, SegmentReg,
-    X86Registers, PAGE_SHIFT,
+    CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType, Introspectable,
+    Registers, SegmentReg, X86Registers, PAGE_SHIFT,
 };
 
 impl From<kvm_segment> for SegmentReg {
@@ -56,10 +56,15 @@ pub struct Kvm<T: KVMIntrospectable> {
 }
 
 impl<T: KVMIntrospectable> Kvm<T> {
-    pub fn new(domain_name: &str, mut kvmi: T) -> Result<Self, Box<dyn Error>> {
-        let socket_path = "/tmp/introspector";
+    pub fn new(
+        domain_name: &str,
+        mut kvmi: T,
+        init_option: Option<DriverInitParam>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let DriverInitParam::KVMiSocket(socket_path) = init_option
+            .expect("KVM driver initialization requires an additional socket parameter.");
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        kvmi.init(socket_path)?;
+        kvmi.init(&socket_path)?;
         let mut kvm = Kvm {
             kvmi,
             expect_pause_ev: 0,
@@ -320,7 +325,11 @@ mod tests {
             ))
         });
 
-        let result = Kvm::new("some_vm", kvmi_mock);
+        let result = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        );
 
         assert!(result.is_err(), "Expected error, got ok instead!");
     }
@@ -391,7 +400,11 @@ mod tests {
                 .returning(|_, _, _| Ok(()));
         }
 
-        let result = Kvm::new("some_vm", kvmi_mock);
+        let result = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        );
 
         assert!(result.is_ok(), "Expected ok, got error instead!");
     }

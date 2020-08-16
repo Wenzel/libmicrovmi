@@ -6,13 +6,21 @@ use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 
-use microvmi::api::*;
+use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
         .version("0.1")
         .about("Watches interrupt VMI events")
         .arg(Arg::with_name("vm_name").index(1).required(true))
+        .arg(
+            Arg::with_name("kvmi_socket")
+                .short("k")
+                .takes_value(true)
+                .help(
+                "pass additional KVMi socket initialization parameter required for the KVM driver",
+            ),
+        )
         .get_matches()
 }
 
@@ -37,6 +45,9 @@ fn main() {
 
     let domain_name = matches.value_of("vm_name").unwrap();
 
+    let init_option = matches
+        .value_of("kvmi_socket")
+        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -46,7 +57,7 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None);
+    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
 
     //Enable int3 interception
     toggle_int3_interception(&mut drv, true);

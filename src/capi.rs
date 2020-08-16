@@ -1,6 +1,7 @@
-use crate::api::{DriverType, Introspectable, Registers};
+use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
 use crate::init;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+use std::convert::TryInto;
 use std::ffi::{c_void, CStr};
 use std::slice;
 
@@ -8,6 +9,14 @@ use std::slice;
 pub enum MicrovmiStatus {
     MicrovmiSuccess,
     MicrovmiFailure,
+}
+
+/// Support passing initialization options
+/// similar to DriverInitParam, however this enum offers C API compatibility
+#[repr(C)]
+#[derive(Debug)]
+pub enum DriverInitParamFFI {
+    KVMiSocket(*const c_char),
 }
 
 /// This API allows a C program to initialize the logging system in libmicrovmi.
@@ -25,6 +34,7 @@ pub unsafe extern "C" fn microvmi_envlogger_init() {
 pub unsafe extern "C" fn microvmi_init(
     domain_name: *const c_char,
     driver_type: *const DriverType,
+    driver_init_option: *const DriverInitParamFFI,
 ) -> *mut c_void {
     let safe_domain_name = CStr::from_ptr(domain_name).to_string_lossy().into_owned();
     let optional_driver_type: Option<DriverType> = if driver_type.is_null() {
@@ -32,7 +42,15 @@ pub unsafe extern "C" fn microvmi_init(
     } else {
         Some(driver_type.read())
     };
-    let driver = init(&safe_domain_name, optional_driver_type);
+    let init_option: Option<DriverInitParam> = if driver_init_option.is_null() {
+        None
+    } else {
+        Some(
+            DriverInitParamFFI::try_into(driver_init_option.read())
+                .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
+        )
+    };
+    let driver = init(&safe_domain_name, optional_driver_type, init_option);
     Box::into_raw(Box::new(driver)) as *mut c_void
 }
 

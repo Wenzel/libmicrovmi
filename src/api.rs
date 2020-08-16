@@ -1,4 +1,8 @@
+use std::convert::TryInto;
 use std::error::Error;
+use std::ffi::{CStr, IntoStringError};
+
+use crate::capi::DriverInitParamFFI;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -12,6 +16,34 @@ pub enum DriverType {
     VirtualBox,
     #[cfg(feature = "xen")]
     Xen,
+}
+
+/// Supports passing initialization parameters to the driver
+///
+/// Some drivers can support optional extra initialization parameters.
+///
+/// This is required to initialize the KVM driver, which needs a `domain_name` and
+/// a `kvm_socket` parameters.
+///
+/// This is equivalent to LibVMI's `vmi_init_data_type_t`
+#[repr(C)]
+#[derive(Debug)]
+pub enum DriverInitParam {
+    KVMiSocket(String),
+}
+
+impl TryInto<DriverInitParam> for DriverInitParamFFI {
+    type Error = IntoStringError;
+
+    fn try_into(self) -> Result<DriverInitParam, Self::Error> {
+        Ok(match self {
+            DriverInitParamFFI::KVMiSocket(cstr_socket) => DriverInitParam::KVMiSocket(
+                unsafe { CStr::from_ptr(cstr_socket) }
+                    .to_owned()
+                    .into_string()?,
+            ),
+        })
+    }
 }
 
 #[repr(C)]
