@@ -5,12 +5,6 @@ use std::convert::TryInto;
 use std::ffi::{c_void, CStr};
 use std::slice;
 
-#[repr(C)]
-pub enum MicrovmiStatus {
-    MicrovmiSuccess,
-    MicrovmiFailure,
-}
-
 /// Support passing initialization options
 /// similar to DriverInitParam, however this enum offers C API compatibility
 #[repr(C)]
@@ -62,22 +56,16 @@ pub unsafe extern "C" fn microvmi_destroy(context: *mut c_void) {
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_pause(context: *mut c_void) -> MicrovmiStatus {
+pub unsafe extern "C" fn microvmi_pause(context: *mut c_void) -> bool {
     let driver = get_driver_mut_ptr(context);
-    match (*driver).pause() {
-        Ok(_) => MicrovmiStatus::MicrovmiSuccess,
-        Err(_) => MicrovmiStatus::MicrovmiFailure,
-    }
+    (*driver).pause().is_ok()
 }
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_resume(context: *mut c_void) -> MicrovmiStatus {
+pub unsafe extern "C" fn microvmi_resume(context: *mut c_void) -> bool {
     let driver = get_driver_mut_ptr(context);
-    match (*driver).resume() {
-        Ok(_) => MicrovmiStatus::MicrovmiSuccess,
-        Err(_) => MicrovmiStatus::MicrovmiFailure,
-    }
+    (*driver).resume().is_ok()
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -87,12 +75,11 @@ pub unsafe extern "C" fn microvmi_read_physical(
     physical_address: uint64_t,
     buffer: *mut uint8_t,
     size: size_t,
-) -> MicrovmiStatus {
+) -> bool {
     let driver = get_driver_mut_ptr(context);
-    match (*driver).read_physical(physical_address, slice::from_raw_parts_mut(buffer, size)) {
-        Ok(_) => MicrovmiStatus::MicrovmiSuccess,
-        Err(_) => MicrovmiStatus::MicrovmiFailure,
-    }
+    (*driver)
+        .read_physical(physical_address, slice::from_raw_parts_mut(buffer, size))
+        .is_ok()
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -100,14 +87,14 @@ pub unsafe extern "C" fn microvmi_read_physical(
 pub unsafe extern "C" fn microvmi_get_max_physical_addr(
     context: *mut c_void,
     address_ptr: *mut uint64_t,
-) -> MicrovmiStatus {
+) -> bool {
     let driver = get_driver_mut_ptr(context);
     match (*driver).get_max_physical_addr() {
         Ok(max_addr) => {
             address_ptr.write(max_addr);
-            MicrovmiStatus::MicrovmiSuccess
+            true
         }
-        Err(_) => MicrovmiStatus::MicrovmiFailure,
+        Err(_) => false,
     }
 }
 
@@ -117,14 +104,14 @@ pub unsafe extern "C" fn microvmi_read_registers(
     context: *mut c_void,
     vcpu: uint16_t,
     registers: *mut Registers,
-) -> MicrovmiStatus {
+) -> bool {
     let driver = get_driver_mut_ptr(context);
     match (*driver).read_registers(vcpu) {
         Ok(regs) => {
             registers.write(regs);
-            MicrovmiStatus::MicrovmiSuccess
+            true
         }
-        Err(_) => MicrovmiStatus::MicrovmiFailure,
+        Err(_) => false,
     }
 }
 
