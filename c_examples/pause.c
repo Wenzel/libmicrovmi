@@ -1,7 +1,9 @@
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include "libmicrovmi.h"
 #include <unistd.h>
+
+#include "libmicrovmi.h"
 
 void pause_vm(void* driver, unsigned long sleep_duration) {
     if (microvmi_pause(driver)) {
