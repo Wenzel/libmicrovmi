@@ -335,7 +335,6 @@ pub enum EventType {
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
         value: u64,
-
     },
     ///int3 interception
     Breakpoint {
@@ -344,6 +343,7 @@ pub enum EventType {
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
     },
+    ///Pagefault interception
     Pagefault {
         /// Virtual memory address of the guest
         gva: u64,
