@@ -1,4 +1,6 @@
-use crate::api::{DriverInitParam, Introspectable, Registers, SegmentReg, X86Registers};
+use crate::api::{
+    DriverInitParam, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+};
 use libc::PROT_READ;
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
@@ -160,6 +162,14 @@ impl Introspectable for Xen {
                 base: 0,
                 limit: 0,
                 selector: 0,
+            },
+            idt: SystemTableReg {
+                base: hvm_cpu.idtr_base,
+                limit: hvm_cpu.idtr_limit as u16,
+            },
+            gdt: SystemTableReg {
+                base: hvm_cpu.gdtr_base,
+                limit: hvm_cpu.gdtr_limit as u16,
             },
         }))
     }
