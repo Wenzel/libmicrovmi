@@ -11,7 +11,7 @@ use std::vec::Vec;
 
 use crate::api::{
     Access, CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType,
-    Introspectable, Registers, SegmentReg, X86Registers, PAGE_SHIFT,
+    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers, PAGE_SHIFT,
 };
 
 impl TryFrom<Access> for KVMiPageAccess {
@@ -192,6 +192,14 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             ss: sregs.ss.into(),
             tr: sregs.tr.into(),
             ldt: sregs.ldt.into(),
+            idt: SystemTableReg {
+                base: sregs.idt.base,
+                limit: sregs.idt.limit,
+            },
+            gdt: SystemTableReg {
+                base: sregs.gdt.base,
+                limit: sregs.idt.limit,
+            },
         }))
     }
 
