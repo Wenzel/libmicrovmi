@@ -72,6 +72,17 @@ pub struct SegmentReg {
     pub selector: u16,
 }
 
+/// x86 System Table Registers
+/// (GDTR, IDTR)
+#[repr(C)]
+#[derive(Debug)]
+pub struct SystemTableReg {
+    /// 32/64 bits linear base address
+    pub base: u64,
+    /// 16 bits table limit
+    pub limit: u16,
+}
+
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
 #[derive(Debug)]
@@ -152,6 +163,8 @@ pub struct X86Registers {
     pub tr: SegmentReg,
     /// Local descriptor table register
     pub ldt: SegmentReg,
+    pub idt: SystemTableReg,
+    pub gdt: SystemTableReg,
 }
 
 #[repr(C)]
