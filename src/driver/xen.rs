@@ -1,10 +1,6 @@
 use crate::api::{
-<<<<<<< HEAD
-    CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg, X86Registers, DriverInitParam,
-=======
-    Access, CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
-    X86Registers,
->>>>>>> pagefault event support added
+    Access, CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    SegmentReg, X86Registers,
 };
 use std::convert::{From, TryFrom};
 use std::error::Error;
@@ -266,6 +262,7 @@ impl Introspectable for Xen {
                     gpa,
                     access: access.into(),
                 },
+                XenEventType::Singlestep { gpa } => EventType::Singlestep { gpa },
             };
             vcpu = req.vcpu_id.try_into().unwrap();
             let mut rsp =
@@ -324,6 +321,7 @@ impl Introspectable for Xen {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             InterceptType::Pagefault => Ok(()),
+            InterceptType::Singlestep => Ok(self.xc.monitor_singlestep(self.domid, enabled)?),
         }
     }
 

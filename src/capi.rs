@@ -1,6 +1,9 @@
-use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
+use crate::api::{
+    Access, DriverInitParam, DriverType, Event, EventReplyType, InterceptType, Introspectable,
+    Registers,
+};
 use crate::init;
-use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+use cty::{c_char, size_t, uint16_t, uint32_t, uint64_t, uint8_t};
 use std::convert::TryInto;
 use std::ffi::{c_void, CStr};
 use std::slice;
@@ -84,6 +87,20 @@ pub unsafe extern "C" fn microvmi_read_physical(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
+pub unsafe extern "C" fn microvmi_write_physical(
+    context: *mut c_void,
+    physical_address: uint64_t,
+    buffer: *mut uint8_t,
+    size: size_t,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    (*driver)
+        .write_physical(physical_address, slice::from_raw_parts_mut(buffer, size))
+        .is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
 pub unsafe extern "C" fn microvmi_get_max_physical_addr(
     context: *mut c_void,
     address_ptr: *mut uint64_t,
@@ -109,6 +126,104 @@ pub unsafe extern "C" fn microvmi_read_registers(
     match (*driver).read_registers(vcpu) {
         Ok(regs) => {
             registers.write(regs);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_write_registers(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    registers: Registers,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    (*driver).write_registers(vcpu, registers).is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_page_access(
+    context: *mut c_void,
+    paddr: uint64_t,
+    access: *mut Access,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_page_access(paddr) {
+        Ok(flags) => {
+            access.write(flags);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_set_page_access(
+    context: *mut c_void,
+    paddr: uint64_t,
+    access: Access,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    (*driver).set_page_access(paddr, access).is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_toggle_intercept(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    intercept_type: InterceptType,
+    enabled: bool,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    (*driver)
+        .toggle_intercept(vcpu, intercept_type, enabled)
+        .is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_listen(
+    context: *mut c_void,
+    timeout: uint32_t,
+    event_ptr: *mut Event,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).listen(timeout) {
+        Ok(Some(event)) => {
+            event_ptr.write(event);
+            true
+        }
+        Ok(None) => true,
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_reply_event(
+    context: *mut c_void,
+    event: Event,
+    reply_type: EventReplyType,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    (*driver).reply_event(event, reply_type).is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_vcpu_count(
+    context: *mut c_void,
+    vcpu_ptr: *mut uint16_t,
+) -> bool {
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_vcpu_count() {
+        Ok(vcpu_count) => {
+            vcpu_ptr.write(vcpu_count);
             true
         }
         Err(_) => false,
