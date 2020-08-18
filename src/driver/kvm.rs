@@ -1,6 +1,6 @@
 use kvmi::{
-    kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType,
-    KVMiInterceptType, KVMiPageAccess,
+    kvm_dtable, kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply,
+    KVMiEventType, KVMiInterceptType, KVMiPageAccess,
 };
 use std::convert::From;
 use std::convert::TryFrom;
@@ -52,6 +52,15 @@ impl From<kvm_segment> for SegmentReg {
             base: segment.base,
             limit: segment.limit,
             selector: segment.selector,
+        }
+    }
+}
+
+impl From<kvm_dtable> for SystemTableReg {
+    fn from(dtable: kvm_dtable) -> Self {
+        SystemTableReg {
+            base: dtable.base,
+            limit: dtable.limit,
         }
     }
 }
@@ -192,14 +201,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             ss: sregs.ss.into(),
             tr: sregs.tr.into(),
             ldt: sregs.ldt.into(),
-            idt: SystemTableReg {
-                base: sregs.idt.base,
-                limit: sregs.idt.limit,
-            },
-            gdt: SystemTableReg {
-                base: sregs.gdt.base,
-                limit: sregs.idt.limit,
-            },
+            idt: sregs.idt.into(),
+            gdt: sregs.gdt.into(),
         }))
     }
 
