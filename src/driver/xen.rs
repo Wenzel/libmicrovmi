@@ -1,17 +1,14 @@
-use libc::{PROT_READ, PROT_WRITE};
-use std::error::Error;
-use std::mem;
 use crate::api::{
-    CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg, X86Registers, DriverInitParam, SystemTableReg,
-    Access, CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
-    X86Registers,
+    Access, CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    SegmentReg, SystemTableReg, X86Registers,
 };
-use std::convert::{From, TryFrom};
-use std::error::Error;
-use std::mem;
+use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
+use std::convert::{From, TryFrom};
+use std::error::Error;
+use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
 use xenctrl::{XenControl, XenCr, XenEventType, XenPageAccess};
@@ -303,6 +300,7 @@ impl Introspectable for Xen {
                     gpa,
                     access: access.into(),
                 },
+                XenEventType::Singlestep { gpa } => EventType::Singlestep { gpa },
             };
             vcpu = req.vcpu_id.try_into().unwrap();
             let mut rsp =
@@ -361,6 +359,7 @@ impl Introspectable for Xen {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             InterceptType::Pagefault => Ok(()),
+            InterceptType::Singlestep => Ok(self.xc.monitor_singlestep(self.domid, enabled)?),
         }
     }
 
