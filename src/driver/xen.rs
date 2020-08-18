@@ -1,10 +1,6 @@
 use crate::api::{
-<<<<<<< HEAD
-    CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg, X86Registers, DriverInitParam,
-=======
-    Access, CrType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
-    X86Registers,
->>>>>>> pagefault event support added
+    Access, CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    SegmentReg, X86Registers,
 };
 use std::convert::{From, TryFrom};
 use std::error::Error;
@@ -16,10 +12,10 @@ use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
-use xenctrl::{XenControl, XenCr, XenEventType, XenPageAccess};
-use xenevtchn::XenEventChannel;
-use xenforeignmemory::XenForeignMem;
-use xenstore::{XBTransaction, Xs, XsOpenFlags};
+use xenctrl::{XenCr, XenEventType, XenIntrospectable, XenPageAccess};
+use xenevtchn::EventChannelSetup;
+use xenforeignmemory::XenForeignMemoryIntrospectable;
+use xenstore::{XBTransaction, XsIntrospectable, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
@@ -57,20 +53,39 @@ impl From<XenPageAccess> for Access {
 }
 
 #[derive(Debug)]
-pub struct Xen {
-    xc: XenControl,
-    xev: XenEventChannel,
-    xen_fgn: XenForeignMem,
+pub struct Xen<
+    T: XenIntrospectable,
+    U: EventChannelSetup,
+    V: XenForeignMemoryIntrospectable,
+    W: XsIntrospectable,
+> {
+    xc: T,
+    xev: U,
+    xen_fgn: V,
+    xs: W,
     dom_name: String,
     domid: u32,
     back_ring: vm_event_back_ring,
 }
 
-impl Xen {
-    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
+impl<
+        T: XenIntrospectable,
+        U: EventChannelSetup,
+        V: XenForeignMemoryIntrospectable,
+        W: XsIntrospectable,
+    > Xen<T, U, V, W>
+{
+    pub fn new(
+        domain_name: &str,
+        mut xc: T,
+        mut xev: U,
+        mut xen_fgn: V,
+        mut xs: W,
+        _init_option: Option<DriverInitParam>,
+    ) -> Result<Self, Box<dyn Error>> {
         debug!("init on {}", domain_name);
+        xs.init(XsOpenFlags::ReadOnly)?;
         // find domain name in xenstore
-        let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
         let mut found: bool = false;
         let mut cand_domid = 0;
         for domid_str in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
@@ -86,27 +101,33 @@ impl Xen {
             panic!("Cannot find domain {}", domain_name);
         }
 
-        let mut xc = XenControl::new(None, None, 0).unwrap();
+        xc.init(None, None, 0)?;
         let (_ring_page, back_ring, remote_port) = xc
             .monitor_enable(cand_domid)
             .expect("Failed to map event ring page");
-        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
-
-        let xen_fgn = XenForeignMem::new().unwrap();
+        xev.init(cand_domid, remote_port)?;
+        xen_fgn.init()?;
         let xen = Xen {
             xc,
             xev,
             xen_fgn,
+            xs,
             dom_name: domain_name.to_string(),
             domid: cand_domid,
             back_ring,
         };
         debug!("Initialized {:#?}", xen);
-        xen
+        Ok(xen)
     }
 }
 
-impl Introspectable for Xen {
+impl<
+        T: XenIntrospectable,
+        U: EventChannelSetup,
+        V: XenForeignMemoryIntrospectable,
+        W: XsIntrospectable,
+    > Introspectable for Xen<T, U, V, W>
+{
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
@@ -266,6 +287,7 @@ impl Introspectable for Xen {
                     gpa,
                     access: access.into(),
                 },
+                XenEventType::Singlestep { gpa } => EventType::Singlestep { gpa },
             };
             vcpu = req.vcpu_id.try_into().unwrap();
             let mut rsp =
@@ -324,6 +346,7 @@ impl Introspectable for Xen {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             InterceptType::Pagefault => Ok(()),
+            InterceptType::Singlestep => Ok(self.xc.monitor_singlestep(self.domid, enabled)?),
         }
     }
 
@@ -338,11 +361,233 @@ impl Introspectable for Xen {
     }
 }
 
-impl Drop for Xen {
+impl<
+        T: XenIntrospectable,
+        U: EventChannelSetup,
+        V: XenForeignMemoryIntrospectable,
+        W: XsIntrospectable,
+    > Drop for Xen<T, U, V, W>
+{
     fn drop(&mut self) {
         debug!("Closing Xen driver");
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::mock;
+    use mockall::predicate::{eq, function};
+    use std::fmt::{Debug, Formatter};
+    use test_case::test_case;
+    use xenctrl::{
+        hvm_hw_cpu, vm_event_back_ring, vm_event_request_t, vm_event_response_t, vm_event_sring,
+        xentoollog_logger, XenEventType, XenPageAccess,
+    };
+    use xenevtchn::{evtchn_port_t, xenevtchn_port_or_error_t};
+    use xenforeignmemory::XenForeignMem;
+    use xenstore::{XBTransaction, XsOpenFlags};
+    use std::os::raw::{c_uint, c_int};
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_xencontrol_init_returns_error() {
+        let mut xencontrol_mock = MockXenControl::default();
+        let mut xenevtchn_mock = MockXenEventChannel::default();
+        let mut xenforeignmemory_mock = MockXenForeignMem::default();
+        let mut xenstore_mock = MockXs::default();
+        xencontrol_mock.expect_init().returning(|_, _, _| {
+            Err(xenctrl::error::XcError::new())
+        });
+        xenevtchn_mock.expect_init().returning(|_, _| Ok(()));
+        xenforeignmemory_mock.expect_init().returning(|| Ok(()));
+        xenstore_mock.expect_init().returning(|_| Ok(()));
+
+        let result = Xen::new(
+            "some_vm",
+            xencontrol_mock,
+            xenevtchn_mock,
+            xenforeignmemory_mock,
+            xenstore_mock,
+            None,
+        );
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_xenevtchn_init_returns_error() {
+        let mut xencontrol_mock = MockXenControl::default();
+        let mut xenevtchn_mock = MockXenEventChannel::default();
+        let mut xenforeignmemory_mock = MockXenForeignMem::default();
+        let mut xenstore_mock = MockXs::default();
+        xencontrol_mock.expect_init().returning(|_, _, _| Ok(()));
+        xenevtchn_mock.expect_init().returning(|_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        xenforeignmemory_mock.expect_init().returning(|| Ok(()));
+        xenstore_mock.expect_init().returning(|_| Ok(()));
+
+        let result = Xen::new(
+            "some_vm",
+            xencontrol_mock,
+            xenevtchn_mock,
+            xenforeignmemory_mock,
+            xenstore_mock,
+            None,
+        );
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_xenforeignmemory_init_returns_error() {
+        let mut xencontrol_mock = MockXenControl::default();
+        let mut xenevtchn_mock = MockXenEventChannel::default();
+        let mut xenforeignmemory_mock = MockXenForeignMem::default();
+        let mut xenstore_mock = MockXs::default();
+        xencontrol_mock.expect_init().returning(|_, _, _| Ok(()));
+        xenevtchn_mock.expect_init().returning(|_, _| Ok(()));
+        xenforeignmemory_mock.expect_init().returning(|| {
+            Err(failure::Error::new())
+        });
+        xenstore_mock.expect_init().returning(|_| Ok(()));
+
+        let result = Xen::new(
+            "some_vm",
+            xencontrol_mock,
+            xenevtchn_mock,
+            xenforeignmemory_mock,
+            xenstore_mock,
+            None,
+        );
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_xenstore_init_returns_error() {
+        let mut xencontrol_mock = MockXenControl::default();
+        let mut xenevtchn_mock = MockXenEventChannel::default();
+        let mut xenforeignmemory_mock = MockXenForeignMem::default();
+        let mut xenstore_mock = MockXs::default();
+        xencontrol_mock.expect_init().returning(|_, _, _| Ok(()));
+        xenevtchn_mock.expect_init().returning(|_, _| Ok(()));
+        xenforeignmemory_mock.expect_init().returning(|| Ok(()));
+        xenstore_mock.expect_init().returning(|_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let result = Xen::new(
+            "some_vm",
+            xencontrol_mock,
+            xenevtchn_mock,
+            xenforeignmemory_mock,
+            xenstore_mock,
+            None,
+        );
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    mock! {
+        XenControl{}
+        trait Debug {
+            fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
+        }
+        trait XenIntrospectable: Debug {
+            fn init(
+                &mut self,
+                logger: Option<&mut xentoollog_logger>,
+                dombuild_logger: Option<&mut xentoollog_logger>,
+                open_flags: u32,
+            ) -> Result<(), xenctrl::error::XcError>;
+            fn domain_hvm_getcontext_partial(&self, domid: u32, vcpu: u16) -> Result<hvm_hw_cpu, xenctrl::error::XcError>;
+            fn domain_hvm_setcontext(&self, domid: u32, buffer: *mut c_uint, size: usize) -> Result<(), xenctrl::error::XcError>;
+            fn domain_hvm_getcontext(
+                &self,
+                domid: u32,
+                vcpu: u16,
+            ) -> Result<(*mut c_uint, hvm_hw_cpu, u32), xenctrl::error::XcError>;
+            fn monitor_enable(&mut self, domid: u32) -> Result<(vm_event_sring, vm_event_back_ring, u32), xenctrl::error::XcError>;
+            fn get_request(&self, back_ring: &mut vm_event_back_ring) -> Result<vm_event_request_t, xenctrl::error::XcError>;
+            fn put_response(
+                &self,
+                rsp: &mut vm_event_response_t,
+                back_ring: &mut vm_event_back_ring,
+            ) -> Result<(), xenctrl::error::XcError>;
+            fn get_event_type(&self, req: vm_event_request_t) -> Result<XenEventType, xenctrl::error::XcError>;
+            fn monitor_disable(&self, domid: u32) -> Result<(),  xenctrl::error::XcError>;
+            fn domain_pause(&self, domid: u32) -> Result<(),  xenctrl::error::XcError>;
+            fn domain_unpause(&self, domid: u32) -> Result<(),  xenctrl::error::XcError>;
+            fn monitor_software_breakpoint(&self, domid: u32, enable: bool) -> Result<(), xenctrl::error::XcError>;
+            fn monitor_singlestep(&self, domid: u32, enable: bool) -> Result<(), xenctrl::error::XcError>;
+            fn monitor_mov_to_msr(&self, domid: u32, msr: u32, enable: bool) -> Result<(), xenctrl::error::XcError>;
+            fn monitor_write_ctrlreg(
+                &self,
+                domid: u32,
+                index: XenCr,
+                enable: bool,
+                sync: bool,
+                onchangeonly: bool,
+            ) -> Result<(), xenctrl::error::XcError>;
+            fn set_mem_access(
+                &self,
+                domid: u32,
+                access: XenPageAccess,
+                first_pfn: u64,
+            ) -> Result<(), xenctrl::error::XcError>;
+            fn get_mem_access(&self, domid: u32, pfn: u64) -> Result<XenPageAccess, xenctrl::error::XcError>;
+            fn domain_maximum_gpfn(&self, domid: u32) -> Result<u64, xenctrl::error::XcError>;
+            fn close(&mut self) -> Result<(), xenctrl::error::XcError>;
+        }
+    }
+
+        mock! {
+            XenEventChannel{}
+            trait Debug {
+                fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
+            }
+            trait  EventChannelSetup: Debug {
+                fn init(&mut self, domid: u32, evtchn_port: u32) -> Result<(), std::io::Error>;
+                fn get_bind_port(&self) -> i32;
+                fn xenevtchn_pending(&self) -> Result<xenevtchn_port_or_error_t, std::io::Error>;
+                fn xenevtchn_fd(&self) -> Result<i32, std::io::Error>;
+                fn xenevtchn_unmask(&self, port: evtchn_port_t) -> Result<(), std::io::Error>;
+                fn xenevtchn_notify(&self) -> Result<(), std::io::Error>;
+        }
+    }
+
+    mock! {
+        Xs{}
+        trait Debug {
+            fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
+        }
+        trait  XsIntrospectable: Debug {
+            fn init(&mut self, open_type: XsOpenFlags) -> Result<(), std::io::Error>;
+            fn directory(&self, transaction: XBTransaction, path: String) -> Vec<String>;
+            fn read(&self, transaction: XBTransaction, path: String) -> String;
+            fn close(&mut self);
+        }
+    }
+
+    mock! {
+        XenForeignMem{}
+        trait Debug {
+            fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
+        }
+        trait  XenForeignMemoryIntrospectable: Debug {
+            fn init(&mut self) -> Result<(), failure::Error>;
+            fn map(&self, domid: u32, prot: c_int, gfn: u64) -> Result<&mut [u8], failure::Error>;
+            fn unmap(&self, page: &mut [u8]) -> Result<(), Box<std::io::Error>>;
+            fn close(&mut self) -> Result<(), failure::Error>;
+        }
     }
 }

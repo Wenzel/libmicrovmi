@@ -7,6 +7,9 @@ mod driver;
 extern crate log;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate failure;
+
 
 use api::Introspectable;
 use api::{DriverInitParam, DriverType};
@@ -21,6 +24,14 @@ use driver::virtualbox::VBox;
 use driver::xen::Xen;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
+#[cfg(feature = "xen")]
+use xenctrl::create_xen_control;
+#[cfg(feature = "xen")]
+use xenevtchn::create_xen_event_channel;
+#[cfg(feature = "xen")]
+use xenforeignmemory::create_xen_foreignmemory;
+#[cfg(feature = "xen")]
+use xenstore::create_xen_store;
 
 #[allow(unreachable_code)]
 pub fn init(
@@ -45,9 +56,7 @@ pub fn init(
                 Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>
             }
             #[cfg(feature = "xen")]
-            DriverType::Xen => {
-                Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>
-            }
+            DriverType::Xen => create_xen(domain_name, init_option),
         },
         None => {
             // test Hyper-V
@@ -71,7 +80,7 @@ pub fn init(
             // test Xen
             #[cfg(feature = "xen")]
             {
-                return Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>;
+                return create_xen(domain_name, init_option);
             }
             // return Dummy if no other driver has been compiled
             Box::new(Dummy::new(domain_name, init_option)) as Box<dyn Introspectable>
@@ -82,4 +91,19 @@ pub fn init(
 #[cfg(feature = "kvm")]
 fn create_kvm(domain_name: &str, init_option: Option<DriverInitParam>) -> Box<dyn Introspectable> {
     Box::new(Kvm::new(domain_name, create_kvmi(), init_option).unwrap()) as Box<dyn Introspectable>
+}
+
+#[cfg(feature = "xen")]
+fn create_xen(domain_name: &str, init_option: Option<DriverInitParam>) -> Box<dyn Introspectable> {
+    Box::new(
+        Xen::new(
+            domain_name,
+            create_xen_control(),
+            create_xen_event_channel(),
+            create_xen_foreignmemory(),
+            create_xen_store(),
+            init_option,
+        )
+        .unwrap(),
+    ) as Box<dyn Introspectable>
 }
