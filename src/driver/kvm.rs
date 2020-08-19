@@ -129,9 +129,6 @@ impl<T: KVMIntrospectable> Kvm<T> {
                 .control_events(vcpu, KVMiInterceptType::Msr, true)
                 .unwrap();
             kvm.kvmi
-                .control_events(vcpu, KVMiInterceptType::Breakpoint, true)
-                .unwrap();
-            kvm.kvmi
                 .control_events(vcpu, KVMiInterceptType::Pagefault, true)
                 .unwrap();
         }
@@ -368,9 +365,6 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
                 .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
             self.kvmi
-                .control_events(vcpu, KVMiInterceptType::Breakpoint, false)
-                .unwrap();
-            self.kvmi
                 .control_events(vcpu, KVMiInterceptType::Pagefault, false)
                 .unwrap();
         }
@@ -447,24 +441,6 @@ mod tests {
                 .with(
                     eq(vcpu as u16),
                     function(|x| matches!(x, KVMiInterceptType::Msr)),
-                    eq(false),
-                )
-                .times(1)
-                .returning(|_, _, _| Ok(()));
-            kvmi_mock
-                .expect_control_events()
-                .with(
-                    eq(vcpu as u16),
-                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
-                    eq(true),
-                )
-                .times(1)
-                .returning(|_, _, _| Ok(()));
-            kvmi_mock
-                .expect_control_events()
-                .with(
-                    eq(vcpu as u16),
-                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
                     eq(false),
                 )
                 .times(1)
