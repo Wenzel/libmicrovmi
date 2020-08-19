@@ -277,9 +277,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .control_events(vcpu, KVMiInterceptType::Breakpoint, enabled)?)
             }
             InterceptType::Pagefault => {
-                Ok(self
-                    .kvmi
-                    .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
+                // PF interception already enabled at driver init
+                Ok(())
             }
         }
     }
