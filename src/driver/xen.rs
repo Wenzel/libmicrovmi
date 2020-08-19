@@ -244,7 +244,7 @@ impl Introspectable for Xen {
             }
             let xen_event_type = (self.xc.get_event_type(req)).unwrap();
             event_type = match xen_event_type {
-                XenEventType::Cr { cr_type, new, old } => EventType::Cr {
+                XenEventType::Cr { cr_type, new, old } => EventType::CrEvents {
                     cr_type: match cr_type {
                         XenCr::Cr0 => CrType::Cr0,
                         XenCr::Cr3 => CrType::Cr3,
@@ -253,16 +253,16 @@ impl Introspectable for Xen {
                     new,
                     old,
                 },
-                XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                XenEventType::Msr { msr_type, value } => EventType::MsrEvents { msr_type, value },
                 XenEventType::Breakpoint { gpa, insn_len } => {
-                    EventType::Breakpoint { gpa, insn_len }
+                    EventType::BreakpointEvents { gpa, insn_len }
                 }
-                XenEventType::Pagefault { gva, gpa, access } => EventType::Pagefault {
+                XenEventType::Pagefault { gva, gpa, access } => EventType::PagefaultEvents {
                     gva,
                     gpa,
                     access: access.into(),
                 },
-                XenEventType::Singlestep { gpa } => EventType::Singlestep { gpa },
+                XenEventType::Singlestep { gpa } => EventType::SinglestepEvents { gpa },
             };
             vcpu = req.vcpu_id.try_into().unwrap();
             let mut rsp =

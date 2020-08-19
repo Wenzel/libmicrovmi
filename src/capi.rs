@@ -143,7 +143,7 @@ pub unsafe extern "C" fn microvmi_write_registers(
     (*driver).write_registers(vcpu, registers).is_ok()
 }
 
-#[allow(clippy::missing_safety_doc)]
+/*#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_get_page_access(
     context: *mut c_void,
@@ -169,7 +169,7 @@ pub unsafe extern "C" fn microvmi_set_page_access(
 ) -> bool {
     let driver = get_driver_mut_ptr(context);
     (*driver).set_page_access(paddr, access).is_ok()
-}
+}*/
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]

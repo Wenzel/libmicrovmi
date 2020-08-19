@@ -72,7 +72,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let (gpa, insn_len) = match ev.kind {
-                    EventType::Breakpoint { gpa, insn_len } => (gpa, insn_len),
+                    EventType::BreakpointEvents { gpa, insn_len } => (gpa, insn_len),
                     _ => panic!("Not interrupt event"),
                 };
                 let ev_nb_output = format!("{}", i).cyan();

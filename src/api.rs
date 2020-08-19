@@ -5,6 +5,7 @@ use std::ffi::{CStr, IntoStringError};
 use crate::capi::DriverInitParamFFI;
 
 bitflags! {
+    #[repr(C)]
     pub struct Access: u32 {
         const R=0b00000001;
         const W=0b00000010;
@@ -300,7 +301,7 @@ pub enum InterceptType {
 #[derive(Debug)]
 pub enum EventType {
     ///Cr register interception
-    Cr {
+    CrEvents {
         ///Type of control register
         cr_type: CrType,
         /// new value after cr register has been intercepted by the guest.
@@ -309,30 +310,30 @@ pub enum EventType {
         old: u64,
     },
     ///Msr register interception
-    Msr {
+    MsrEvents {
         ///Type of model specific register
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
         value: u64,
     },
     ///int3 interception
-    Breakpoint {
+    BreakpointEvents {
         /// Physical memory address of the guest
         gpa: u64,
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
     },
     ///Pagefault interception
-    Pagefault {
+    PagefaultEvents {
         /// Virtual memory address of the guest
         gva: u64,
         /// Physical memory address of the guest
         gpa: u64,
-        /// Acsess responsible for thr pagefault
-        access: Access,
+        //Acsess responsible for thr pagefault
+        //access: Access,
     },
     ///Singlestep event
-    Singlestep {
+    SinglestepEvents {
         ///Physical memory address of the guest
         gpa: u64,
     },

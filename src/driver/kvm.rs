@@ -239,7 +239,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             None => Ok(None),
             Some(kvmi_event) => {
                 let microvmi_event_kind = match kvmi_event.ev_type {
-                    KVMiEventType::Cr { cr_type, new, old } => EventType::Cr {
+                    KVMiEventType::Cr { cr_type, new, old } => EventType::CrEvents {
                         cr_type: match cr_type {
                             KVMiCr::Cr0 => CrType::Cr0,
                             KVMiCr::Cr3 => CrType::Cr3,
@@ -248,11 +248,11 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         new,
                         old,
                     },
-                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
+                    KVMiEventType::Msr { msr_type, new, old } => EventType::MsrEvents {
                         msr_type,
                         value: new,
                     },
-                    KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::Breakpoint {
+                    KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::BreakpointEvents {
                         gpa,
                         insn_len,
                     },

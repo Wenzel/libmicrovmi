@@ -64,7 +64,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let gpa = match ev.kind {
-                    EventType::Singlestep { gpa } => (gpa),
+                    EventType::SinglestepEvents { gpa } => (gpa),
                     _ => panic!("Not singlestep event"),
                 };
                 let ev_nb_output = format!("{}", i).cyan();

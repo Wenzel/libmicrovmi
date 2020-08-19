@@ -73,7 +73,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let (gva, gpa, pf_access) = match ev.kind {
-                    EventType::Pagefault { gva, gpa, access } => (gva, gpa, access),
+                    EventType::PagefaultEvents { gva, gpa, access } => (gva, gpa, access),
                     _ => panic!("Not pf event"),
                 };
                 let ev_nb_output = format!("{}", i).cyan();

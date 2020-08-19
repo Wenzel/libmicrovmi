@@ -106,7 +106,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let (cr_type, new, old) = match ev.kind {
-                    EventType::Cr { cr_type, new, old } => (cr_type, new, old),
+                    EventType::CrEvents { cr_type, new, old } => (cr_type, new, old),
                     _ => panic!("not cr event"),
                 };
                 let cr_color = match cr_type {

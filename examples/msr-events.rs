@@ -110,7 +110,7 @@ fn main() {
         match event {
             Some(ev) => {
                 let (msr_type, value) = match ev.kind {
-                    EventType::Msr { msr_type, value } => (msr_type, value),
+                    EventType::MsrEvents { msr_type, value } => (msr_type, value),
                     _ => panic!("not msr event"),
                 };
                 let msr_color = "blue";
