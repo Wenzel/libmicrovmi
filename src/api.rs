@@ -4,6 +4,20 @@ use std::ffi::{CStr, IntoStringError};
 
 use crate::capi::DriverInitParamFFI;
 
+bitflags! {
+    #[repr(C)]
+    pub struct Access: u32 {
+        const R=0b00000001;
+        const W=0b00000010;
+        const X=0b00000100;
+        const NIL=0b00000000;
+        const RW=Self::R.bits | Self::W.bits;
+        const WX=Self::W.bits | Self::X.bits;
+        const RX=Self::R.bits | Self::X.bits;
+        const RWX=Self::R.bits | Self::W.bits | Self::X.bits;
+    }
+}
+
 ///Represents the available hypervisor VMI drivers supported by libmicrovmi
 #[repr(C)]
 #[derive(Debug)]
@@ -206,6 +220,16 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    //get page access
+    fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    //set page access
+    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     /// Used to pause the VM
     ///
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
@@ -268,6 +292,8 @@ pub enum InterceptType {
     Msr(u32),
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
+    Pagefault,
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -275,7 +301,7 @@ pub enum InterceptType {
 #[derive(Debug)]
 pub enum EventType {
     ///Cr register interception
-    Cr {
+    CrEvents {
         ///Type of control register
         cr_type: CrType,
         /// new value after cr register has been intercepted by the guest.
@@ -284,20 +310,32 @@ pub enum EventType {
         old: u64,
     },
     ///Msr register interception
-    Msr {
+    MsrEvents {
         ///Type of model specific register
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
-        new: u64,
-        /// old value before cr register has been intercepted by the guest.
-        old: u64,
+        value: u64,
     },
     ///int3 interception
-    Breakpoint {
+    BreakpointEvents {
         /// Physical memory address of the guest
         gpa: u64,
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
+    },
+    ///Pagefault interception
+    PagefaultEvents {
+        /// Virtual memory address of the guest
+        gva: u64,
+        /// Physical memory address of the guest
+        gpa: u64,
+        //Acsess responsible for thr pagefault
+        //access: Access,
+    },
+    ///Singlestep event
+    SinglestepEvents {
+        ///Physical memory address of the guest
+        gpa: u64,
     },
 }
 
