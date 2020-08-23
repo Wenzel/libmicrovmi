@@ -1,8 +1,8 @@
 use std::error::Error;
 
-use fdp::FDP;
+use fdp::{RegisterType, FDP};
 
-use crate::api::{DriverInitParam, Introspectable};
+use crate::api::{DriverInitParam, Introspectable, Registers, X86Registers};
 
 // unit struct
 #[derive(Debug)]
@@ -30,6 +30,31 @@ impl Introspectable for VBox {
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         self.fdp.get_physical_memory_size()
+    }
+
+    fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
+        let fdp_vcpu = vcpu as u32;
+        let regs = X86Registers {
+            rax: self.fdp.read_register(fdp_vcpu, RegisterType::RAX)?,
+            rbx: self.fdp.read_register(fdp_vcpu, RegisterType::RBX)?,
+            rcx: self.fdp.read_register(fdp_vcpu, RegisterType::RCX)?,
+            rdx: self.fdp.read_register(fdp_vcpu, RegisterType::RDX)?,
+            rsi: self.fdp.read_register(fdp_vcpu, RegisterType::RSI)?,
+            rdi: self.fdp.read_register(fdp_vcpu, RegisterType::RDI)?,
+            rbp: self.fdp.read_register(fdp_vcpu, RegisterType::RBP)?,
+            rsp: self.fdp.read_register(fdp_vcpu, RegisterType::RSP)?,
+            r8: self.fdp.read_register(fdp_vcpu, RegisterType::R8)?,
+            r9: self.fdp.read_register(fdp_vcpu, RegisterType::R9)?,
+            r10: self.fdp.read_register(fdp_vcpu, RegisterType::R10)?,
+            r11: self.fdp.read_register(fdp_vcpu, RegisterType::R11)?,
+            r12: self.fdp.read_register(fdp_vcpu, RegisterType::R12)?,
+            r13: self.fdp.read_register(fdp_vcpu, RegisterType::R13)?,
+            r14: self.fdp.read_register(fdp_vcpu, RegisterType::R14)?,
+            r15: self.fdp.read_register(fdp_vcpu, RegisterType::R15)?,
+            rip: self.fdp.read_register(fdp_vcpu, RegisterType::RIP)?,
+            ..Default::default()
+        };
+        Ok(Registers::X86(regs))
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
