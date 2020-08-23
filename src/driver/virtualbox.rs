@@ -19,6 +19,11 @@ impl VBox {
 }
 
 impl Introspectable for VBox {
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        // no API to fetch VCPU count, hardcode to 1 for now
+        Ok(1)
+    }
+
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         self.fdp.read_physical_memory(paddr, buf)
     }
