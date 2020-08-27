@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
@@ -62,7 +63,7 @@ impl TryInto<DriverInitParam> for DriverInitParamFFI {
 
 ///an x86 segment register
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SegmentReg {
     ///Stores the base address of a code segment
     pub base: u64,
@@ -75,7 +76,7 @@ pub struct SegmentReg {
 /// x86 System Table Registers
 /// (GDTR, IDTR)
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SystemTableReg {
     /// 32/64 bits linear base address
     pub base: u64,
@@ -85,7 +86,7 @@ pub struct SystemTableReg {
 
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct X86Registers {
     /// 8 byte general purpose register.
     pub rax: u64,
@@ -318,7 +319,7 @@ pub enum InterceptType {
 
 /// Various types of events along with their relevant attributes being handled by this driver
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EventType {
     ///Cr register interception
     Cr {
@@ -357,7 +358,7 @@ pub enum EventType {
 
 ///Types of x86 control registers are listed here
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CrType {
     ///Has various control flags that modify the basic operation of the processor.
     Cr0,

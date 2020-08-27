@@ -213,7 +213,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     }
 
     fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
-        let access = self.kvmi.get_page_access(paddr).unwrap();
+        let access = self.kvmi.get_page_access(paddr)?;
         Ok(access.try_into().unwrap())
     }
 
@@ -374,30 +374,11 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kvmi::{kvm_regs, kvm_sregs, KvmMsrs};
+    use kvmi::{kvm_regs, kvm_sregs, KVMiCr, KvmMsrs};
     use mockall::mock;
     use mockall::predicate::{eq, function};
     use std::fmt::{Debug, Formatter};
     use test_case::test_case;
-
-    #[test]
-    fn test_fail_to_create_kvm_driver_if_kvmi_init_returns_error() {
-        let mut kvmi_mock = MockKVMi::default();
-        kvmi_mock.expect_init().returning(|_| {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "something went wrong",
-            ))
-        });
-
-        let result = Kvm::new(
-            "some_vm",
-            kvmi_mock,
-            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
-        );
-
-        assert!(result.is_err(), "Expected error, got ok instead!");
-    }
 
     #[test_case(1; "single vcpu")]
     #[test_case(2; "two vcpus")]
@@ -472,6 +453,884 @@ mod tests {
         );
 
         assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_fail_to_create_kvm_driver_if_kvmi_init_returns_error() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock.expect_init().returning(|_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+
+        let result = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        );
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_pause_vcpu_when_vm_not_paused() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_pause().times(1).returning(|| Ok(()));
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let result = kvm.pause();
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_pause_vcpu_when_vm_is_paused() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_pause().times(1).returning(|| Ok(()));
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let _result_pause_happens = kvm.pause();
+        let result_pause_does_not_happen = kvm.pause();
+
+        assert!(
+            result_pause_does_not_happen.is_ok(),
+            "Expected ok, got error instead!"
+        );
+    }
+
+    #[test]
+    fn test_pause_vcpu_fails_when_kvmi_pause_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock.expect_pause().times(1).returning(|| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let result = kvm.pause();
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_listen_events_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        let cr_type = KVMiCr::Cr3;
+        let new = 0;
+        let old = 0;
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(1)
+            .returning(move |_| {
+                Ok(Some(KVMiEvent {
+                    vcpu: 0,
+                    ev_type: KVMiEventType::Cr { cr_type, new, old },
+                    ffi_event: std::ptr::null_mut(),
+                }))
+            });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let timeout = 0;
+        let cr_type_microvmi = CrType::Cr3;
+        let result = kvm.listen(timeout).expect("Failed to listen for events");
+        let event = result.unwrap();
+
+        assert_eq!(
+            EventType::Cr {
+                cr_type: cr_type_microvmi,
+                new,
+                old
+            },
+            event.kind
+        );
+    }
+
+    #[test]
+    fn test_listen_events_fails_if_kvmi_wait_and_pop_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(1)
+            .returning(|_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let timeout = 0;
+        let result = kvm.listen(timeout);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_set_page_access_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_set_page_access()
+            .times(1)
+            .with(eq(0), eq(KVMiPageAccess::R))
+            .returning(|_, _| Ok(()));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let paddr: u64 = 0;
+        let access = Access::R;
+        let result = kvm.set_page_access(paddr, access);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_set_page_access_fails_if_kvmi_set_page_access_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_set_page_access()
+            .times(1)
+            .returning(|_, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let paddr: u64 = 0;
+        let access = Access::R;
+        let result = kvm.set_page_access(paddr, access);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_get_page_access_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let access = KVMiPageAccess::R;
+        kvmi_mock
+            .expect_get_page_access()
+            .times(1)
+            .returning(move |_| Ok(access));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let paddr: u64 = 0;
+        let permission = kvm.get_page_access(paddr).unwrap();
+
+        assert_eq!(Access::R, permission);
+    }
+
+    #[test]
+    fn test_get_page_access_fails_if_kvmi_get_page_access_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_get_page_access().times(1).returning(|_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let paddr: u64 = 0;
+        let result = kvm.get_page_access(paddr);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_get_max_physical_addr_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_get_maximum_gfn()
+            .times(1)
+            .returning(move || Ok(0));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let addr = kvm.get_max_physical_addr().unwrap();
+
+        assert_eq!(0, addr);
+    }
+
+    #[test]
+    fn test_get_max_physical_addr_fails_if_kvmi_get_maximum_gfn_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_get_maximum_gfn().times(1).returning(|| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let result = kvm.get_max_physical_addr();
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_resume_vcpu_with_multiple_pause_events() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_pause().times(1).returning(|| Ok(()));
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(KVMiEvent {
+                    vcpu: 0,
+                    ev_type: KVMiEventType::PauseVCPU,
+                    ffi_event: std::ptr::null_mut(),
+                }))
+            });
+        kvmi_mock.expect_reply().times(1).returning(|_, _| Ok(()));
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let _result_pause = kvm.pause();
+        let result_resume = kvm.resume();
+
+        assert!(result_resume.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_resume_vcpu_with_no_pause_events() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(0)
+            .returning(|_| {
+                Ok(Some(KVMiEvent {
+                    vcpu: 0,
+                    ev_type: KVMiEventType::PauseVCPU,
+                    ffi_event: std::ptr::null_mut(),
+                }))
+            });
+        kvmi_mock.expect_reply().times(0).returning(|_, _| Ok(()));
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let result = kvm.resume();
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_resume_vcpu_fails_if_kvmi_wait_and_pop_event_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_pause().times(1).returning(|| Ok(()));
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(1)
+            .returning(|_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        kvmi_mock.expect_reply().times(0).returning(|_, _| Ok(()));
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let _result_pause = kvm.pause();
+        let result = kvm.resume();
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_resume_vcpu_fails_if_kvmi_reply_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_pause().times(1).returning(|| Ok(()));
+        kvmi_mock
+            .expect_wait_and_pop_event()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(KVMiEvent {
+                    vcpu: 0,
+                    ev_type: KVMiEventType::PauseVCPU,
+                    ffi_event: std::ptr::null_mut(),
+                }))
+            });
+        kvmi_mock.expect_reply().times(1).returning(|_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let _result_pause = kvm.pause();
+        let result = kvm.resume();
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_read_physical_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut buffer: [u8; 4096] = [0; 4096];
+        kvmi_mock
+            .expect_read_physical()
+            .times(1)
+            .returning(|_, buffer| {
+                buffer[0] = 1;
+                Ok(())
+            });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let paddr: u64 = 0;
+
+        let _result = kvm.read_physical(paddr, &mut buffer);
+
+        assert_eq!(1, buffer[0]);
+    }
+
+    #[test]
+    fn test_read_physical_fails_if_kvmi_read_physical_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_read_physical().times(1).returning(|_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let paddr: u64 = 0;
+        let mut buffer: [u8; 4096] = [0; 4096];
+
+        let result = kvm.read_physical(paddr, &mut buffer);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_write_physical_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let paddr: u64 = 0;
+        let mut buffer: [u8; 16] = [1; 16];
+        kvmi_mock
+            .expect_write_physical()
+            .times(1)
+            .with(eq(paddr), function(move |x: &[u8]| x == buffer))
+            .returning(|_, _| Ok(()));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+
+        let result = kvm.write_physical(paddr, &mut buffer);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_write_physical_fails_if_kvmi_write_physical_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_write_physical()
+            .times(1)
+            .returning(|_, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let paddr: u64 = 0;
+        let mut buffer: [u8; 4096] = [1; 4096];
+
+        let result = kvm.write_physical(paddr, &mut buffer);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_write_registers_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let x86_register_struct: X86Registers = Default::default();
+        kvmi_mock
+            .expect_set_registers()
+            .times(1)
+            .returning(|_, _| Ok(()));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+
+        let result = kvm.write_registers(vcpu, Registers::X86(x86_register_struct));
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_write_registers_fails_if_kvmi_set_registers_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let x86_register_struct: X86Registers = Default::default();
+        kvmi_mock.expect_set_registers().times(1).returning(|_, _| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+
+        let result = kvm.write_registers(vcpu, Registers::X86(x86_register_struct));
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_read_registers_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        let regs: kvm_regs = Default::default();
+        let sregs: kvm_sregs = Default::default();
+        let msrs = KvmMsrs::new();
+        kvmi_mock
+            .expect_get_registers()
+            .times(1)
+            .return_once(move |_| Ok((regs, sregs, msrs)));
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+
+        let result = kvm.read_registers(vcpu);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_read_registers_fails_if_kvmi_get_registers_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock.expect_get_registers().times(1).returning(|_| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "something went wrong",
+            ))
+        });
+        let kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+
+        let result = kvm.read_registers(vcpu);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_cr_intercept_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_cr()
+            .with(eq(0), function(|x| matches!(x, KVMiCr::Cr3)), eq(true))
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Cr(CrType::Cr3);
+        let enabled: bool = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_cr_intercept_fails_if_kvmi_control_cr_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_cr()
+            .times(1)
+            .with(eq(0), function(|x| matches!(x, KVMiCr::Cr3)), eq(true))
+            .returning(|_, _, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Cr(CrType::Cr3);
+        let enabled: bool = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_msr_intercept_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_msr()
+            .times(1)
+            .with(eq(0), eq(0x175 as u32), eq(true))
+            .returning(|_, _, _| Ok(()));
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Msr(0x175 as u32);
+        let enabled: bool = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_msr_intercept_fails_if_kvmi_control_msr_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_msr()
+            .times(1)
+            .with(eq(0), eq(0x175 as u32), eq(true))
+            .returning(|_, _, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Msr(0x175 as u32);
+        let enabled: bool = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_breakpoint_intercept_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Breakpoint;
+        let enabled = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_breakpoint_intercept_fails_if_kvmi_conrol_events_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Breakpoint;
+        let enabled = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    #[test]
+    fn test_pf_intercept_succeeds() {
+        let mut kvmi_mock = MockKVMi::default();
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Pagefault)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        setup_kvmi_mock(&mut kvmi_mock);
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Pagefault;
+        let enabled = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_ok(), "Expected ok, got error instead!");
+    }
+
+    #[test]
+    fn test_pf_intercept_fails_if_kvmi_conrol_events_fails() {
+        let mut kvmi_mock = MockKVMi::default();
+        setup_kvmi_mock(&mut kvmi_mock);
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Pagefault)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "something went wrong",
+                ))
+            });
+        let mut kvm = Kvm::new(
+            "some_vm",
+            kvmi_mock,
+            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+        )
+        .expect("Failed to create driver");
+        let vcpu: u16 = 0;
+        let intercept_type = InterceptType::Pagefault;
+        let enabled = true;
+
+        let result = kvm.toggle_intercept(vcpu, intercept_type, enabled);
+
+        assert!(result.is_err(), "Expected error, got ok instead!");
+    }
+
+    fn setup_kvmi_mock(kvmi_mock: &mut MockKVMi) {
+        kvmi_mock.expect_init().times(1).returning(|_| Ok(()));
+        kvmi_mock.expect_get_vcpu_count().returning(move || Ok(1));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Cr)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Cr)),
+                eq(false),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Msr)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Msr)),
+                eq(false),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Pagefault)),
+                eq(true),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+        kvmi_mock
+            .expect_control_events()
+            .with(
+                eq(0),
+                function(|x| matches!(x, KVMiInterceptType::Pagefault)),
+                eq(false),
+            )
+            .times(1)
+            .returning(|_, _, _| Ok(()));
     }
 
     mock! {
