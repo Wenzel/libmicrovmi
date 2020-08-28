@@ -62,7 +62,7 @@ impl TryInto<DriverInitParam> for DriverInitParamFFI {
 
 ///an x86 segment register
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SegmentReg {
     ///Stores the base address of a code segment
     pub base: u64,
@@ -72,9 +72,20 @@ pub struct SegmentReg {
     pub selector: u16,
 }
 
+/// x86 System Table Registers
+/// (GDTR, IDTR)
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct SystemTableReg {
+    /// 32/64 bits linear base address
+    pub base: u64,
+    /// 16 bits table limit
+    pub limit: u16,
+}
+
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct X86Registers {
     /// 8 byte general purpose register.
     pub rax: u64,
@@ -152,6 +163,8 @@ pub struct X86Registers {
     pub tr: SegmentReg,
     /// Local descriptor table register
     pub ldt: SegmentReg,
+    pub idt: SystemTableReg,
+    pub gdt: SystemTableReg,
 }
 
 #[repr(C)]
@@ -209,6 +222,25 @@ pub trait Introspectable {
         unimplemented!();
     }
 
+    ///get page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to know.
+    ///
+    fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn Error>> {
+        unimplemented!();
+    }
+
+    ///set page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to set
+    /// * 'access' - access flags to be set on the given page
+    ///
+    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn Error>> {
+        unimplemented!();
+    }
+
     /// Write register values
     ///
     /// # Arguments
@@ -216,16 +248,6 @@ pub trait Introspectable {
     /// * 'reg' - Registers enum having values to be set
     ///
     fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
-    }
-
-    //get page access
-    fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn Error>> {
-        unimplemented!();
-    }
-
-    //set page access
-    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 
@@ -297,7 +319,7 @@ pub enum InterceptType {
 
 /// Various types of events along with their relevant attributes being handled by this driver
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EventType {
     ///Cr register interception
     Cr {
@@ -322,7 +344,6 @@ pub enum EventType {
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
     },
-    ///Pagefault interception
     Pagefault {
         /// Virtual memory address of the guest
         gva: u64,
@@ -340,7 +361,7 @@ pub enum EventType {
 
 ///Types of x86 control registers are listed here
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CrType {
     ///Has various control flags that modify the basic operation of the processor.
     Cr0,

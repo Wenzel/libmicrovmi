@@ -15,7 +15,7 @@ crate-type = ["cdylib", "lib"]
 
 [features]
 # Xen driver
-xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc"]
+xen = ["xenctrl", "xenstore", "xenforeignmemory", "libc", "xenvmevent-sys", "xenevtchn"]
 # KVM driver
 kvm = ["kvmi"]
 # VirtualBox driver
@@ -31,8 +31,8 @@ libc = { version = "0.2.58", optional = true }
 xenctrl = { git = "https://github.com/arnabcs17b006/xenctrl", branch = "mockable_crate",  optional = true }
 xenstore = { git = "https://github.com/arnabcs17b006/xenstore", branch = "mockable_crate", optional = true }
 xenforeignmemory = { git = "https://github.com/arnabcs17b006/xenforeignmemory", branch = "mockable_crate", optional = true }
-xenevtchn = { git = "https://github.com/arnabcs17b006/xenevtchn", branch = "mockable_crate"}
-xenvmevent-sys = { git = "https://github.com/Wenzel/xenvmevent-sys"}
+xenevtchn = { git = "https://github.com/arnabcs17b006/xenevtchn", branch = "mockable_crate", optional = true}
+xenvmevent-sys = { git = "https://github.com/arnabcs17b006/xenvmevent-sys", branch = "derive_default", optional = true}
 kvmi = { git = "https://github.com/Wenzel/kvmi", optional = true }
 fdp = { git = "https://github.com/Wenzel/fdp", optional = true }
 winapi = { version = "0.3.8", features = ["tlhelp32", "winnt", "handleapi", "securitybaseapi"], optional = true }

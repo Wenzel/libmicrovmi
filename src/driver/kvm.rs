@@ -1,16 +1,50 @@
 use kvmi::{
-    kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply, KVMiEventType,
-    KVMiInterceptType,
+    kvm_dtable, kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply,
+    KVMiEventType, KVMiInterceptType, KVMiPageAccess,
 };
+use std::convert::From;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
 use crate::api::{
-    CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType, Introspectable,
-    Registers, SegmentReg, X86Registers, PAGE_SHIFT,
+    Access, CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType,
+    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers, PAGE_SHIFT,
 };
+
+impl TryFrom<Access> for KVMiPageAccess {
+    type Error = &'static str;
+    fn try_from(access: Access) -> Result<Self, Self::Error> {
+        match access {
+            Access::NIL => Ok(KVMiPageAccess::NIL),
+            Access::R => Ok(KVMiPageAccess::R),
+            Access::W => Ok(KVMiPageAccess::W),
+            Access::RW => Ok(KVMiPageAccess::RW),
+            Access::X => Ok(KVMiPageAccess::X),
+            Access::RX => Ok(KVMiPageAccess::RX),
+            Access::WX => Ok(KVMiPageAccess::WX),
+            Access::RWX => Ok(KVMiPageAccess::RWX),
+            _ => Err("invalid access value"),
+        }
+    }
+}
+
+impl From<KVMiPageAccess> for Access {
+    fn from(access: KVMiPageAccess) -> Self {
+        match access {
+            KVMiPageAccess::NIL => Access::NIL,
+            KVMiPageAccess::R => Access::R,
+            KVMiPageAccess::W => Access::W,
+            KVMiPageAccess::RW => Access::RW,
+            KVMiPageAccess::X => Access::X,
+            KVMiPageAccess::RX => Access::RX,
+            KVMiPageAccess::WX => Access::WX,
+            KVMiPageAccess::RWX => Access::RWX,
+        }
+    }
+}
 
 impl From<kvm_segment> for SegmentReg {
     fn from(segment: kvm_segment) -> Self {
@@ -18,6 +52,15 @@ impl From<kvm_segment> for SegmentReg {
             base: segment.base,
             limit: segment.limit,
             selector: segment.selector,
+        }
+    }
+}
+
+impl From<kvm_dtable> for SystemTableReg {
+    fn from(dtable: kvm_dtable) -> Self {
+        SystemTableReg {
+            base: dtable.base,
+            limit: dtable.limit,
         }
     }
 }
@@ -86,7 +129,7 @@ impl<T: KVMIntrospectable> Kvm<T> {
                 .control_events(vcpu, KVMiInterceptType::Msr, true)
                 .unwrap();
             kvm.kvmi
-                .control_events(vcpu, KVMiInterceptType::Breakpoint, true)
+                .control_events(vcpu, KVMiInterceptType::Pagefault, true)
                 .unwrap();
         }
 
@@ -155,6 +198,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             ss: sregs.ss.into(),
             tr: sregs.tr.into(),
             ldt: sregs.ldt.into(),
+            idt: sregs.idt.into(),
+            gdt: sregs.gdt.into(),
         }))
     }
 
@@ -164,6 +209,17 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                 self.kvmi.set_registers(vcpu, &x86_registers.into())?;
             }
         }
+        Ok(())
+    }
+
+    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        let access = self.kvmi.get_page_access(paddr).unwrap();
+        Ok(access.try_into().unwrap())
+    }
+
+    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+        self.kvmi
+            .set_page_access(paddr, access.try_into().unwrap())?;
         Ok(())
     }
 
@@ -228,6 +284,12 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .kvmi
                     .control_events(vcpu, KVMiInterceptType::Breakpoint, enabled)?)
             }
+            InterceptType::Pagefault => {
+                Ok(self
+                    .kvmi
+                    .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
+            }
+            _ => unimplemented!(),
         }
     }
 
@@ -248,7 +310,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         new,
                         old,
                     },
-                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
+                    KVMiEventType::Msr { msr_type, new, old: _ } => EventType::Msr {
                         msr_type,
                         value: new,
                     },
@@ -256,8 +318,12 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         gpa,
                         insn_len,
                     },
+                    KVMiEventType::Pagefault {gva, gpa, access, view: _} =>  EventType::Pagefault {
+                        gva,
+                        gpa,
+                        access: access.into(),
+                    },
                     KVMiEventType::PauseVCPU => panic!("Unexpected PauseVCPU event. It should have been popped by resume VM. (Did you forget to resume your VM ?)"),
-                    _ => unimplemented!(),
                 };
 
                 let vcpu = kvmi_event.vcpu;
@@ -299,7 +365,7 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
                 .control_events(vcpu, KVMiInterceptType::Msr, false)
                 .unwrap();
             self.kvmi
-                .control_events(vcpu, KVMiInterceptType::Breakpoint, false)
+                .control_events(vcpu, KVMiInterceptType::Pagefault, false)
                 .unwrap();
         }
     }
@@ -383,7 +449,7 @@ mod tests {
                 .expect_control_events()
                 .with(
                     eq(vcpu as u16),
-                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
+                    function(|x| matches!(x, KVMiInterceptType::Pagefault)),
                     eq(true),
                 )
                 .times(1)
@@ -392,7 +458,7 @@ mod tests {
                 .expect_control_events()
                 .with(
                     eq(vcpu as u16),
-                    function(|x| matches!(x, KVMiInterceptType::Breakpoint)),
+                    function(|x| matches!(x, KVMiInterceptType::Pagefault)),
                     eq(false),
                 )
                 .times(1)
@@ -425,8 +491,8 @@ mod tests {
             fn control_msr(&self, vcpu: u16, reg: u32, enabled: bool) -> Result<(), std::io::Error>;
             fn read_physical(&self, gpa: u64, buffer: &mut [u8]) -> Result<(), std::io::Error>;
             fn write_physical(&self, gpa: u64, buffer: &[u8]) -> Result<(), std::io::Error>;
-            fn get_page_access(&self, gpa: u64) -> Result<u8, std::io::Error>;
-            fn set_page_access(&self, gpa: u64, access: u8) -> Result<(), std::io::Error>;
+            fn get_page_access(&self, gpa: u64) -> Result<KVMiPageAccess, std::io::Error>;
+            fn set_page_access(&self, gpa: u64, access: KVMiPageAccess) -> Result<(), std::io::Error>;
             fn pause(&self) -> Result<(), std::io::Error>;
             fn get_vcpu_count(&self) -> Result<u32, std::io::Error>;
             fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, KvmMsrs), std::io::Error>;

@@ -10,7 +10,6 @@ extern crate bitflags;
 #[macro_use]
 extern crate failure;
 
-
 use api::Introspectable;
 use api::{DriverInitParam, DriverType};
 use driver::dummy::Dummy;
