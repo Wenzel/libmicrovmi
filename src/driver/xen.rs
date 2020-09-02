@@ -3,7 +3,7 @@ use std::error::Error;
 use std::mem;
 
 use crate::api::{
-    s, CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
     SegmentReg, SystemTableReg, X86Registers,
 };
 use nix::poll::PollFlags;
