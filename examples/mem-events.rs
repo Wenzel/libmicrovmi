@@ -6,10 +6,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use microvmi::api::{
-    Access, DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable,
+    Access, DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable, PAGE_SIZE,
 };
-
-const PAGE_SIZE: usize = 4096;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -25,7 +23,7 @@ fn toggle_pf_intercept(drv: &mut Box<dyn Introspectable>, enabled: bool) {
     let intercept = InterceptType::Pagefault;
     let status_str = if enabled { "Enabling" } else { "Disabling" };
     println!("{} memory events", status_str);
-    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+    for vcpu in 0..1 {
         drv.toggle_intercept(vcpu, intercept, enabled)
             .expect(&format!("Failed to enable page faults"));
     }
@@ -39,7 +37,6 @@ fn main() {
     let matches = parse_args();
 
     let domain_name = matches.value_of("vm_name").unwrap();
-
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -61,11 +58,11 @@ fn main() {
 
     //Code snippet to get page fault
     let max_addr = drv.get_max_physical_addr().unwrap();
-
-    for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
+    //println!("max_gpfn: {}", max_addr>>PAGE_SHIFT);
+    for cur_addr in (0..max_addr).step_by(PAGE_SIZE as usize) {
         let mut access: Access = drv.get_page_access(cur_addr).unwrap();
         access &= !Access::X;
-        drv.set_page_access(cur_addr, access)
+        drv.set_page_access(cur_addr, !Access::X)
             .expect("failed to set page access");
     }
 
@@ -87,10 +84,10 @@ fn main() {
                 let mut page_access = drv.get_page_access(gpa).expect("Failed to get page access");
                 //setting the access bits in the page due to which page fault occurred
                 page_access |= pf_access;
-                drv.set_page_access(gpa, page_access)
+                drv.set_page_access(gpa, Access::RWX)
                     .expect("Failed to set page access");
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
+                //drv.reply_event(ev, EventReplyType::Continue)
+                //  .expect("Failed to send event reply");
                 i = i + 1;
             }
             None => println!("No events yet..."),
