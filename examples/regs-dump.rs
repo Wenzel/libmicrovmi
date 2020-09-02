@@ -33,7 +33,7 @@ fn main() {
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
-    let total_vcpu_count: u16 = drv.get_vcpu_count().expect("Failed to get vcpu count");
+    let total_vcpu_count: u16 = 1;
     for vcpu in 0..total_vcpu_count {
         println!("dumping registers on VCPU {}", vcpu);
         let regs = drv.read_registers(vcpu).expect("Failed to read registers");

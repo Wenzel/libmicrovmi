@@ -1,19 +1,64 @@
 use crate::api::{
-    DriverInitParam, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+    Access, CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
+    SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
+use nix::poll::PollFlags;
+use nix::poll::{poll, PollFd};
+use std::convert::TryInto;
+use std::convert::{From, TryFrom};
 use std::error::Error;
+use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenctrl::XenControl;
+use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
+use xenctrl::{XenControl, XenCr, XenEventType, XenPageAccess};
+use xenevtchn::XenEventChannel;
+use xenforeignmemory::XenForeignMem;
 use xenstore::{XBTransaction, Xs, XsOpenFlags};
+use xenvmevent_sys::{
+    vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
+};
 
-// unit struct
+impl TryFrom<Access> for XenPageAccess {
+    type Error = &'static str;
+    fn try_from(access: Access) -> Result<Self, Self::Error> {
+        match access {
+            Access::NIL => Ok(XenPageAccess::NIL),
+            Access::R => Ok(XenPageAccess::R),
+            Access::W => Ok(XenPageAccess::W),
+            Access::RW => Ok(XenPageAccess::RW),
+            Access::X => Ok(XenPageAccess::X),
+            Access::RX => Ok(XenPageAccess::RX),
+            Access::WX => Ok(XenPageAccess::WX),
+            Access::RWX => Ok(XenPageAccess::RWX),
+            _ => Err("invalid access value"),
+        }
+    }
+}
+
+impl From<XenPageAccess> for Access {
+    fn from(access: XenPageAccess) -> Self {
+        match access {
+            XenPageAccess::NIL => Access::NIL,
+            XenPageAccess::R => Access::R,
+            XenPageAccess::W => Access::W,
+            XenPageAccess::RW => Access::RW,
+            XenPageAccess::X => Access::X,
+            XenPageAccess::RX => Access::RX,
+            XenPageAccess::WX => Access::WX,
+            XenPageAccess::RWX => Access::RWX,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Xen {
     xc: XenControl,
-    xen_fgn: xenforeignmemory::XenForeignMem,
+    xev: XenEventChannel,
+    xen_fgn: XenForeignMem,
     dom_name: String,
     domid: u32,
+    back_ring: vm_event_back_ring,
 }
 
 impl Xen {
@@ -35,20 +80,24 @@ impl Xen {
         if !found {
             panic!("Cannot find domain {}", domain_name);
         }
-        let xc = XenControl::new(None, None, 0).unwrap();
-        let xen_fgn = xenforeignmemory::XenForeignMem::new().unwrap();
+
+        let mut xc = XenControl::new(None, None, 0).unwrap();
+        let (_ring_page, back_ring, remote_port) = xc
+            .monitor_enable(cand_domid)
+            .expect("Failed to map event ring page");
+        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
+
+        let xen_fgn = XenForeignMem::new().unwrap();
         let xen = Xen {
             xc,
+            xev,
             xen_fgn,
             dom_name: domain_name.to_string(),
             domid: cand_domid,
+            back_ring,
         };
         debug!("Initialized {:#?}", xen);
         xen
-    }
-
-    fn close(&mut self) {
-        debug!("close");
     }
 }
 
@@ -205,6 +254,115 @@ impl Introspectable for Xen {
         }))
     }
 
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        let fd = self.xev.xenevtchn_fd()?;
+        let fd_struct = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
+        let mut fds = [fd_struct];
+        let mut vcpu: u16 = 0;
+        let mut event_type = unsafe { mem::MaybeUninit::<EventType>::zeroed().assume_init() };
+        let poll_result = poll(&mut fds, timeout.try_into().unwrap()).unwrap();
+        let mut pending_event_port = -1;
+        if poll_result == 1 {
+            pending_event_port = self.xev.xenevtchn_pending()?;
+            if pending_event_port != -1 {
+                self.xev
+                    .xenevtchn_unmask(pending_event_port.try_into().unwrap())?;
+            }
+        }
+        let back_ring_ptr = &mut self.back_ring;
+        let mut flag = false;
+        if poll_result > 0
+            && self.xev.get_bind_port() == pending_event_port
+            && RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) != 0
+        {
+            flag = true;
+            let req = self.xc.get_request(back_ring_ptr)?;
+            if req.version != VM_EVENT_INTERFACE_VERSION {
+                panic!("version mismatch");
+            }
+            let xen_event_type = (self.xc.get_event_type(req)).unwrap();
+            event_type = match xen_event_type {
+                XenEventType::Cr { cr_type, new, old } => EventType::Cr {
+                    cr_type: match cr_type {
+                        XenCr::Cr0 => CrType::Cr0,
+                        XenCr::Cr3 => CrType::Cr3,
+                        XenCr::Cr4 => CrType::Cr4,
+                    },
+                    new,
+                    old,
+                },
+                XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                XenEventType::Breakpoint { gpa, insn_len } => {
+                    EventType::Breakpoint { gpa, insn_len }
+                }
+                XenEventType::Pagefault { gva, gpa, access } => EventType::Pagefault {
+                    gva,
+                    gpa,
+                    access: access.into(),
+                },
+                XenEventType::Singlestep { gpa } => EventType::Singlestep { gpa },
+            };
+            vcpu = req.vcpu_id.try_into().unwrap();
+            let mut rsp =
+                unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
+            rsp.reason = req.reason;
+            rsp.version = VM_EVENT_INTERFACE_VERSION;
+            rsp.vcpu_id = req.vcpu_id;
+            rsp.flags = req.flags & VM_EVENT_FLAG_VCPU_PAUSED;
+            self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+        }
+        self.xev.xenevtchn_notify()?;
+        if flag {
+            Ok(Some(Event {
+                vcpu,
+                kind: event_type,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        let access = self.xc.get_mem_access(self.domid, paddr >> PAGE_SHIFT)?;
+        Ok(access.into())
+    }
+
+    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .xc
+            .set_mem_access(self.domid, access.try_into().unwrap(), paddr >> PAGE_SHIFT)?)
+    }
+
+    fn toggle_intercept(
+        &mut self,
+        _vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        match intercept_type {
+            InterceptType::Cr(micro_cr_type) => {
+                let xen_cr = match micro_cr_type {
+                    CrType::Cr0 => XenCr::Cr0,
+                    CrType::Cr3 => XenCr::Cr3,
+                    CrType::Cr4 => XenCr::Cr4,
+                };
+                Ok(self
+                    .xc
+                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)?)
+            }
+            InterceptType::Msr(micro_msr_type) => {
+                Ok(self
+                    .xc
+                    .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
+            }
+            InterceptType::Breakpoint => {
+                Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
+            }
+            InterceptType::Pagefault => Ok(()),
+            InterceptType::Singlestep => Ok(self.xc.monitor_singlestep(self.domid, enabled)?),
+        }
+    }
+
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
         Ok(self.xc.domain_pause(self.domid)?)
@@ -218,6 +376,9 @@ impl Introspectable for Xen {
 
 impl Drop for Xen {
     fn drop(&mut self) {
-        self.close();
+        debug!("Closing Xen driver");
+        self.xc
+            .monitor_disable(self.domid)
+            .expect("Failed to unmap event ring page");
     }
 }

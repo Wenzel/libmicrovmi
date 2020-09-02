@@ -3,7 +3,6 @@ use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
 
 use crate::capi::DriverInitParamFFI;
-
 bitflags! {
     pub struct Access: u32 {
         const R=0b00000001;
@@ -314,6 +313,7 @@ pub enum InterceptType {
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
     Pagefault,
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -334,9 +334,7 @@ pub enum EventType {
         ///Type of model specific register
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
-        new: u64,
-        /// old value before cr register has been intercepted by the guest.
-        old: u64,
+        value: u64,
     },
     ///int3 interception
     Breakpoint {
@@ -345,6 +343,7 @@ pub enum EventType {
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
     },
+    ///Pagefault interception
     Pagefault {
         /// Virtual memory address of the guest
         gva: u64,
@@ -352,6 +351,11 @@ pub enum EventType {
         gpa: u64,
         /// Acsess responsible for thr pagefault
         access: Access,
+    },
+    ///Singlestep event
+    Singlestep {
+        ///Physical memory address of the guest
+        gpa: u64,
     },
 }
 
