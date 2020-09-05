@@ -58,12 +58,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: install libkvmi
+      - name: clone libkvmi
+        uses: actions/checkout@v2
+        with:
+          repository: bitdefender/libkvmi
+          path: libkvmi
+          ref: kvmi-v6
+
+      - name: build and install libkvmi
         run: |
-          git clone https://github.com/KVM-VMI/kvm --branch kvmi --depth 1
-          cd kvm/tools/kvm/kvmi
+          ./bootstrap
+          ./configure
           make
           sudo make install
+        working-directory: libkvmi
+
       - name: install stable toolchain with clippy
         uses: actions-rs/toolchain@v1
         with:
