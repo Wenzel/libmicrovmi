@@ -289,6 +289,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .kvmi
                     .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
             }
+            _ => unimplemented!(),
         }
     }
 
@@ -309,10 +310,9 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         new,
                         old,
                     },
-                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
+                    KVMiEventType::Msr { msr_type, new, old: _ } => EventType::Msr {
                         msr_type,
-                        new,
-                        old,
+                        value: new,
                     },
                     KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::Breakpoint {
                         gpa,

@@ -62,7 +62,7 @@ impl TryInto<DriverInitParam> for DriverInitParamFFI {
 
 ///an x86 segment register
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SegmentReg {
     ///Stores the base address of a code segment
     pub base: u64,
@@ -75,7 +75,7 @@ pub struct SegmentReg {
 /// x86 System Table Registers
 /// (GDTR, IDTR)
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SystemTableReg {
     /// 32/64 bits linear base address
     pub base: u64,
@@ -85,7 +85,7 @@ pub struct SystemTableReg {
 
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct X86Registers {
     /// 8 byte general purpose register.
     pub rax: u64,
@@ -314,11 +314,12 @@ pub enum InterceptType {
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
     Pagefault,
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EventType {
     ///Cr register interception
     Cr {
@@ -334,9 +335,7 @@ pub enum EventType {
         ///Type of model specific register
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
-        new: u64,
-        /// old value before cr register has been intercepted by the guest.
-        old: u64,
+        value: u64,
     },
     ///int3 interception
     Breakpoint {
@@ -353,11 +352,16 @@ pub enum EventType {
         /// Acsess responsible for thr pagefault
         access: Access,
     },
+    ///Singlestep event
+    Singlestep {
+        ///Physical memory address of the guest
+        gpa: u64,
+    },
 }
 
 ///Types of x86 control registers are listed here
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CrType {
     ///Has various control flags that modify the basic operation of the processor.
     Cr0,
