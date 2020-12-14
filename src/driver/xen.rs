@@ -3,6 +3,7 @@ use crate::api::{
 };
 use libc::{PROT_READ, PROT_WRITE};
 use std::error::Error;
+use std::io::ErrorKind;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
@@ -23,9 +24,27 @@ impl Xen {
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
         let mut found: bool = false;
         let mut cand_domid = 0;
-        for domid_str in xs.directory(XBTransaction::Null, "/local/domain".to_string()) {
+        for domid_str in xs
+            .directory(XBTransaction::Null, "/local/domain")
+            .expect("Failed to enumerate xenstore /local/domain directory")
+        {
             let name_path = format!("/local/domain/{}/name", domid_str);
-            let candidate = xs.read(XBTransaction::Null, name_path);
+            let candidate = match xs.read(XBTransaction::Null, &name_path) {
+                Ok(candidate) => candidate,
+                Err(error) => {
+                    match error.kind() {
+                        ErrorKind::PermissionDenied => {
+                            // the domain has access to Xenstore only to a subset of the ids available
+                            // we should continue
+                            debug!("failed to read xenstore entry {}", name_path);
+                            continue;
+                        }
+                        _ => {
+                            panic!("Failed to read xenstore entry {}: {}", name_path, error);
+                        }
+                    }
+                }
+            };
             debug!("Xenstore entry: [{}] {}", domid_str, candidate);
             if candidate == *domain_name {
                 cand_domid = domid_str.parse::<u32>().unwrap();
