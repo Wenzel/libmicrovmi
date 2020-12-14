@@ -5,7 +5,7 @@ use libc::{PROT_READ, PROT_WRITE};
 use std::error::Error;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::XenControl;
-use xenstore::{XBTransaction, Xs, XsOpenFlags};
+use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 
 // unit struct
 #[derive(Debug)]
