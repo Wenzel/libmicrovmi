@@ -1,12 +1,31 @@
-name: Build
+name: CI
 
 on:
   push:
     branches:
       - master
+    tags:
+      - '*'
   pull_request:
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: install stable toolchain with rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+      - uses: actions/checkout@v1
+      - name: rustfmt check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+
   dummy:
     runs-on: ubuntu-latest
 
@@ -209,19 +228,28 @@ jobs:
           cd c_examples
           make
 
-  rustfmt:
+  publish:
+    needs: [format, dummy, xen, kvm, virtualbox, hyper-v, c_api]
     runs-on: ubuntu-latest
 
+    # publish on crates.io
+    # only if push on master, and tag is 'v*'
+    # this should be triggered by cargo release, which creates a new tag and pushes to the repo
+    # cargo release --no-dev-version --skip-publish minor
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: install stable toolchain with rustfmt
+      - name: Install Xen headers and libraries
+        run: sudo apt-get install -y libxen-dev
+
+      - uses: actions/checkout@v1
+
+      - name: install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
-          components: rustfmt
-      - uses: actions/checkout@v1
-      - name: rustfmt check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check
+
+      - name: Publish
+        shell: bash
+        run: |
+          cargo publish --features xen --token ${{ secrets.CRATES_TOKEN }}
