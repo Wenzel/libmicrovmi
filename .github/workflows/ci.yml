@@ -10,7 +10,7 @@ on:
 
 jobs:
   format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: install stable toolchain with rustfmt
@@ -27,7 +27,7 @@ jobs:
           args: -- --check
 
   dummy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: install stable toolchain with clippy
@@ -49,7 +49,7 @@ jobs:
           args: -- -D warnings
 
   xen:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: install Xen headers and libraries
@@ -74,7 +74,7 @@ jobs:
           args: --features xen -- -D warnings
 
   kvm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: clone libkvmi
@@ -148,7 +148,7 @@ jobs:
           fail_ci_if_error: true
 
   virtualbox:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: clone Icebox repository
@@ -204,7 +204,7 @@ jobs:
       #    args: --features hyper-v -- -D warnings
 
   c_api:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: install stable toolchain
@@ -230,7 +230,7 @@ jobs:
 
   publish:
     needs: [format, dummy, xen, kvm, virtualbox, hyper-v, c_api]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     # publish on crates.io
     # only if push on master, and tag is 'v*'
