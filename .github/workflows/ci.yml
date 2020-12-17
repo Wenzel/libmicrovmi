@@ -228,15 +228,58 @@ jobs:
           cd c_examples
           make
 
-  publish:
+  release:
+    # create a Github release
+    # only when
+    # - push on master
+    # - tag starts with 'v*'
     needs: [format, dummy, xen, kvm, virtualbox, hyper-v, c_api]
+    runs-on: ubuntu-20.04
+    # output these value to be used by other jobs so they can add assets
+    outputs:
+      upload_url: ${{ steps.step_upload_url.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: install cargo changelog
+        run: cargo install changelog
+
+      - name: generate changelog
+        run: changelog -o changelog.md
+
+      - name: Create a Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: ${{ steps.get_version.outputs.version }}
+          body_path: changelog.md
+
+      - id: step_upload_url
+        run: echo "::set-output name=upload_url::${{ steps.create_release.outputs.upload_url }}"
+
+  publish:
+    needs: release
     runs-on: ubuntu-20.04
 
     # publish on crates.io
-    # only if push on master, and tag is 'v*'
     # this should be triggered by cargo release, which creates a new tag and pushes to the repo
     # cargo release --no-dev-version --skip-publish minor
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Install Xen headers and libraries
         run: sudo apt-get install -y libxen-dev
