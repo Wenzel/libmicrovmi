@@ -323,9 +323,17 @@ jobs:
         with:
           name: microvmi_deb
 
+      - name: get artifact path
+        id: artefact_path
+        run: |
+          PATHNAME=$(ls *.deb | head -n 1)
+          echo ::set-output name=path::${PATHNAME}
+
       - name: get artifact name
-        id: artefact
-        run: echo ::set-output name=name::${{ steps.download.outputs.download-path }}
+        id: artifact_name
+        run: |
+          NAME=$(basename ${{ steps.artefact_path.outputs.path }})
+          echo ::set-output name=name::${NAME}
 
       - name: Upload Debian package as Release asset
         uses: actions/upload-release-asset@v1.0.2
@@ -333,8 +341,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ steps.download.outputs.download-path }}
-          asset_name: ${{ steps.artefact.outputs.name }}
+          asset_path: ${{ steps.artefact_path.outputs.path }}
+          asset_name: ${{ steps.artefact_name.outputs.name }}
           asset_content_type: application/vnd.debian.binary-package
 
   publish:
