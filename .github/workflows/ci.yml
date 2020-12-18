@@ -230,7 +230,6 @@ jobs:
 
   debian_package:
     # create a Debian package with cargo deb
-    needs: [dummy, xen, kvm, virtualbox, hyper-v]
     runs-on: ubuntu-20.04
 
     steps:
@@ -308,7 +307,7 @@ jobs:
 
   release_debian:
     # add the debian package in the Github release
-    needs: [release, debian_package]
+    # needs: [debian_package]
     runs-on: ubuntu-20.04
 
     steps:
@@ -317,33 +316,30 @@ jobs:
       # https://github.com/JamesIves/github-pages-deploy-action/issues/335
       - uses: actions/checkout@v2
 
+      - name: upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: test_artefact
+          path: Cargo.toml
+
       # download artifacts
       - uses: actions/download-artifact@v2
         id: download
         with:
-          name: microvmi_deb
+          name: test_artefact
 
-      - name: get artifact path
-        id: artefact_path
+      - name: get artifact path and name
+        id: artefact
         run: |
-          PATHNAME=$(ls *.deb | head -n 1)
+          PATHNAME=$(find . -maxdepth 1 -name '*.md')
+          NAME=$(basename $PATHNAME)
           echo ::set-output name=path::${PATHNAME}
-
-      - name: get artifact name
-        id: artifact_name
-        run: |
-          NAME=$(basename ${{ steps.artefact_path.outputs.path }})
           echo ::set-output name=name::${NAME}
 
-      - name: Upload Debian package as Release asset
-        uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ steps.artefact_path.outputs.path }}
-          asset_name: ${{ steps.artefact_name.outputs.name }}
-          asset_content_type: application/vnd.debian.binary-package
+      - name: debug
+        run: |
+          echo ${{ steps.artefact.outputs.path }}
+          echo ${{ steps.artefact.outputs.name }}
 
   publish:
     needs: release
