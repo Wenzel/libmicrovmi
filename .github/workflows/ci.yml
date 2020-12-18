@@ -228,6 +228,39 @@ jobs:
           cd c_examples
           make
 
+  debian_package:
+    # create a Debian package with cargo deb
+    needs: [dummy, xen, kvm, virtualbox, hyper-v]
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: install Xen headers
+        run: sudo apt-get install -y libxen-dev
+
+      - name: install cargo deb dependencies
+        run: sudo apt-get install -y dpkg liblzma-dev
+
+      - name: install cargo deb
+        run: cargo install cargo-deb
+
+      - name: build debian package
+        run: cargo deb -- --features xen
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: microvmi_deb
+          # microvmi_x.x.x_amd64.deb
+          path: target/debian/*
+
   release:
     # create a Github release
     # only when
@@ -272,6 +305,32 @@ jobs:
 
       - id: step_upload_url
         run: echo "::set-output name=upload_url::${{ steps.create_release.outputs.upload_url }}"
+
+  release_debian:
+    # add the debian package in the Github release
+    needs: [release, debian_package]
+    runs-on: ubuntu-20.04
+
+    steps:
+      # the deploy action below depends on a checkout of the repo
+      # otherwise it fails trying to remote the 'origin' remote
+      # https://github.com/JamesIves/github-pages-deploy-action/issues/335
+      - uses: actions/checkout@v2
+
+      # download artifacts
+      - uses: actions/download-artifact@v2
+        with:
+          name: microvmi_deb
+
+      - name: Upload Debian package as Release asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: "microvmi_${{ needs.release.outputs.version }}_amd64.deb"
+          asset_name: "microvmi_${{ needs.release.outputs.version }}_amd64.deb"
+          asset_content_type: application/vnd.debian.binary-package
 
   publish:
     needs: release
