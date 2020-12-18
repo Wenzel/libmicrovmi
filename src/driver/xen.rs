@@ -1,21 +1,20 @@
-use libc::{PROT_READ, PROT_WRITE};
-use std::error::Error;
-use std::io::ErrorKind;
-use std::mem;
-use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
-
 use crate::api::{
     CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
     SegmentReg, SystemTableReg, X86Registers,
 };
+use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
+use std::error::Error;
+use std::io::ErrorKind;
+use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
 use xenctrl::{XenControl, XenCr, XenEventType};
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
+use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
@@ -338,6 +337,9 @@ impl Introspectable for Xen {
                     old,
                 },
                 XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                XenEventType::Breakpoint { insn_len, .. } => {
+                    EventType::Breakpoint { gpa: 0, insn_len }
+                }
                 _ => unimplemented!(),
             };
             vcpu = req.vcpu_id.try_into().unwrap();
@@ -381,6 +383,9 @@ impl Introspectable for Xen {
                 Ok(self
                     .xc
                     .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
+            }
+            InterceptType::Breakpoint => {
+                Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             _ => unimplemented!(),
         }
