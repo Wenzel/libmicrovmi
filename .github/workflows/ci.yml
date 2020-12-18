@@ -322,14 +322,22 @@ jobs:
         with:
           name: microvmi_deb
 
+      # from https://github.com/actions/upload-release-asset/issues/47#issuecomment-668543873
+      - name: get artifact name
+        run: |
+          ARTIFACT_PATHNAME=$(ls *.deb | head -n 1)
+          ARTIFACT_NAME=$(basename $ARTIFACT_PATHNAME)
+          echo ::set-env name=ARTIFACT_NAME::${ARTIFACT_NAME}
+          echo ::set-env name=ARTIFACT_PATHNAME::${ARTIFACT_PATHNAME}
+
       - name: Upload Debian package as Release asset
         uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: "microvmi_${{ needs.release.outputs.version }}_amd64.deb"
-          asset_name: "microvmi_${{ needs.release.outputs.version }}_amd64.deb"
+          asset_path: ${{ env.ARTIFACT_PATHNAME }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
           asset_content_type: application/vnd.debian.binary-package
 
   publish:
