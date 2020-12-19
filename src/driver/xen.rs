@@ -354,6 +354,7 @@ impl Introspectable for Xen {
                 XenEventType::Breakpoint { insn_len, .. } => {
                     EventType::Breakpoint { gpa: 0, insn_len }
                 }
+                XenEventType::Singlestep { .. } => EventType::Singlestep,
                 _ => unimplemented!(),
             };
             vcpu = req.vcpu_id.try_into().unwrap();
