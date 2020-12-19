@@ -314,6 +314,7 @@ pub enum InterceptType {
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
     Pagefault,
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -351,6 +352,7 @@ pub enum EventType {
         /// Acsess responsible for thr pagefault
         access: Access,
     },
+    Singlestep,
 }
 
 ///Types of x86 control registers are listed here
