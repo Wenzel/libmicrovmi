@@ -10,8 +10,10 @@ use std::error::Error;
 use std::io::ErrorKind;
 use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
-use xenctrl::{XenControl, XenCr, XenEventType};
+use xenctrl::{
+    XenControl, XenCr, XenEventType, RING_HAS_UNCONSUMED_REQUESTS,
+    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF, XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON,
+};
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
@@ -71,6 +73,17 @@ impl Xen {
         let (_ring_page, back_ring, remote_port) = xc
             .monitor_enable(cand_domid)
             .expect("Failed to map event ring page");
+        // enable singlestep monitoring
+        // it will only intercept events when explicitely requested using
+        // xc_domain_debug_control()
+        // TODO: call get_vcpu_count()
+        let domain_info = xc.domain_getinfo(cand_domid).unwrap();
+        let vcpu_count = (domain_info.max_vcpu_id + 1).try_into().unwrap();
+        for vcpu in 0..vcpu_count {
+            xc.monitor_singlestep(cand_domid, true).unwrap_or_else(|_| {
+                panic!("Failed to enable singlestep monitoring on VCPU {}", vcpu)
+            });
+        }
         let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
 
         let xen_fgn = XenForeignMem::new().unwrap();
@@ -82,6 +95,7 @@ impl Xen {
             domid: cand_domid,
             back_ring,
         };
+
         debug!("Initialized {:#?}", xen);
         xen
     }
@@ -364,7 +378,7 @@ impl Introspectable for Xen {
 
     fn toggle_intercept(
         &mut self,
-        _vcpu: u16,
+        vcpu: u16,
         intercept_type: InterceptType,
         enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
@@ -387,6 +401,15 @@ impl Introspectable for Xen {
             InterceptType::Breakpoint => {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
+            InterceptType::Singlestep => {
+                let op: u32 = match enabled {
+                    false => XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF,
+                    true => XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON,
+                };
+                Ok(self
+                    .xc
+                    .domain_debug_control(self.domid, op, vcpu.try_into().unwrap())?)
+            }
             _ => unimplemented!(),
         }
     }
@@ -405,6 +428,14 @@ impl Introspectable for Xen {
 impl Drop for Xen {
     fn drop(&mut self) {
         debug!("Closing Xen driver");
+        let vcpu_cpunt = self.get_vcpu_count().expect("Failed to get VCPU count");
+        for vcpu in 0..vcpu_cpunt {
+            self.xc
+                .monitor_singlestep(self.domid, false)
+                .unwrap_or_else(|_| {
+                    panic!("Failed to disable singlestep monitoring on VCPU {}", vcpu)
+                })
+        }
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
