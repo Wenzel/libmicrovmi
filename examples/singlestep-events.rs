@@ -22,7 +22,7 @@ fn toggle_singlestep_interception(drv: &mut Box<dyn Introspectable>, enabled: bo
     let intercept = InterceptType::Singlestep;
     let status_str = if enabled { "Enabling" } else { "Disabling" };
     println!("{} singlestep events", status_str);
-    for vcpu in 0..1 {
+    for vcpu in 0..drv.get_vcpu_count().expect("Failed to get VCPU count") {
         drv.toggle_intercept(vcpu, intercept, enabled)
             .expect(&format!("Failed to enable singlestep"));
     }
