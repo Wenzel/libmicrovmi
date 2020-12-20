@@ -78,26 +78,12 @@ impl Xen {
             .monitor_enable(cand_domid)
             .expect("Failed to map event ring page");
 
-        // enable singlestep monitoring
-        // it will only intercept events when explicitely requested using
-        // xc_domain_debug_control()
-        // TODO: call get_vcpu_count()
-        let domain_info = xc.domain_getinfo(cand_domid).unwrap();
-        let vcpu_count = (domain_info.max_vcpu_id + 1).try_into().unwrap();
-        for vcpu in 0..vcpu_count {
-            xc.monitor_singlestep(cand_domid, true).unwrap_or_else(|_| {
-                panic!("Failed to enable singlestep monitoring on VCPU {}", vcpu)
-            });
-        }
-        // init vec events
-        let mut vec_events: Vec<Option<vm_event_request_t>> = Vec::new();
-        vec_events.resize(vcpu_count, None);
-
         let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
         let fd = xev.xenevtchn_fd().unwrap();
         let evtchn_pollfd = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
         let xen_fgn = XenForeignMem::new().unwrap();
-        let xen = Xen {
+
+        let mut xen = Xen {
             xc,
             xev,
             xen_fgn,
@@ -105,9 +91,23 @@ impl Xen {
             domid: cand_domid,
             back_ring,
             evtchn_pollfd,
-            vec_events,
+            vec_events: Vec::new(),
         };
 
+        // enable singlestep monitoring
+        // it will only intercept events when explicitely requested using
+        // xc_domain_debug_control()
+        let vcpu_count = xen.get_vcpu_count().expect("Failed to get VCPU count");
+        for vcpu in 0..vcpu_count {
+            xen.xc
+                .monitor_singlestep(cand_domid, true)
+                .unwrap_or_else(|_| {
+                    panic!("Failed to enable singlestep monitoring on VCPU {}", vcpu)
+                });
+        }
+
+        // init vec events
+        xen.vec_events.resize(vcpu_count.try_into().unwrap(), None);
         // TODO: vm_event_request_t (vm_event_st) doesn't derive Debug even when .derive_debug(true)
         // debug!("Initialized {:#?}", xen);
         xen
@@ -184,7 +184,8 @@ impl Introspectable for Xen {
 
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         let domain_info = self.xc.domain_getinfo(self.domid)?;
-        Ok((domain_info.max_vcpu_id + 1).try_into()?)
+        let vcpu_count = (domain_info.max_vcpu_id + 1).try_into()?;
+        Ok(vcpu_count)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -399,8 +400,29 @@ impl Introspectable for Xen {
             }
             x => panic!("Unexpected poll return value {}", x),
         };
-        self.xev.xenevtchn_notify()?;
+
         Ok(event)
+    }
+
+    fn reply_event(
+        &mut self,
+        event: Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        let add_flags: u32 = match reply_type {
+            EventReplyType::Continue => VM_EVENT_FLAG_VCPU_PAUSED,
+        };
+        // get the request back
+        let vcpu_index: usize = event.vcpu.try_into().unwrap();
+        let req: vm_event_request_t = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
+        let mut rsp: vm_event_response_t =
+            unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
+        rsp.reason = req.reason;
+        rsp.version = VM_EVENT_INTERFACE_VERSION;
+        rsp.vcpu_id = req.vcpu_id;
+        rsp.flags = req.flags & add_flags;
+        self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+        Ok(self.xev.xenevtchn_notify()?)
     }
 
     fn toggle_intercept(
