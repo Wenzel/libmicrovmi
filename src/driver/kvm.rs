@@ -289,6 +289,9 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .kvmi
                     .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
             }
+            _ => {
+                unimplemented!()
+            }
         }
     }
 
