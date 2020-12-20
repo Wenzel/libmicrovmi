@@ -369,6 +369,7 @@ pub enum CrType {
 
 ///This provides an abstraction of event which the hypervisor reports and using which we introspect the guest
 #[repr(C)]
+#[derive(Debug)]
 pub struct Event {
     ///vcpu on which the event is detected
     pub vcpu: u16,

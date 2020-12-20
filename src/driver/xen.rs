@@ -477,6 +477,22 @@ impl Introspectable for Xen {
 impl Drop for Xen {
     fn drop(&mut self) {
         debug!("Closing Xen driver");
+        // ensure paused
+        self.pause().expect("Failed to pause VM");
+        // listen for remaining events to clear the ring
+        let mut cleaned = false;
+        while !cleaned {
+            match self.listen(0).expect("Failed to listen for events") {
+                None => cleaned = true,
+                Some(e) => {
+                    debug!("cleaning queue: {:?}", e);
+                    // replying continue
+                    self.reply_event(e, EventReplyType::Continue)
+                        .unwrap_or_else(|_| panic!("Failed to reply for event"))
+                }
+            }
+        }
+
         let vcpu_cpunt = self.get_vcpu_count().expect("Failed to get VCPU count");
         for vcpu in 0..vcpu_cpunt {
             self.xc
@@ -488,5 +504,7 @@ impl Drop for Xen {
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
+        // resume
+        self.resume().expect("Failed to resume VM");
     }
 }
