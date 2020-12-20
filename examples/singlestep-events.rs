@@ -60,25 +60,30 @@ fn main() {
     // listen
     let mut i: u64 = 0;
     while running.load(Ordering::SeqCst) {
-        let event = drv.listen(1000).expect("Failed to listen for events");
-        match event {
-            Some(ev) => {
-                match ev.kind {
-                    EventType::Singlestep {} => (),
-                    _ => panic!("Not singlestep event"),
-                };
-                let ev_nb_output = format!("{}", i).cyan();
-                let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
-                let singlestep_output = format!("singlestep occurred!").color("blue");
-                println!(
-                    "[{}] {} - {}: ",
-                    ev_nb_output, vcpu_output, singlestep_output
-                );
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
-                i = i + 1;
+        match drv.listen(1000) {
+            Err(error) => {
+                println!("Error while listening for events: {}. Exiting.", error);
+                break;
             }
-            None => println!("No events yet..."),
+            Ok(event) => match event {
+                Some(ev) => {
+                    match ev.kind {
+                        EventType::Singlestep {} => (),
+                        _ => panic!("Not singlestep event"),
+                    };
+                    let ev_nb_output = format!("{}", i).cyan();
+                    let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
+                    let singlestep_output = format!("singlestep occurred!").color("blue");
+                    println!(
+                        "[{}] {} - {}: ",
+                        ev_nb_output, vcpu_output, singlestep_output
+                    );
+                    drv.reply_event(ev, EventReplyType::Continue)
+                        .expect("Failed to send event reply");
+                    i = i + 1;
+                }
+                None => println!("No events yet..."),
+            },
         }
     }
     let duration = start.elapsed();
