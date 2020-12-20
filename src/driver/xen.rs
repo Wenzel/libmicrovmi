@@ -412,12 +412,13 @@ impl Introspectable for Xen {
         // get the request back
         let vcpu_index: usize = event.vcpu.try_into()?;
         let req: vm_event_request_t = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
-        let mut rsp: vm_event_response_t =
-            unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
-        rsp.reason = req.reason;
-        rsp.version = VM_EVENT_INTERFACE_VERSION;
-        rsp.vcpu_id = req.vcpu_id;
-        rsp.flags = req.flags & add_flags;
+        let mut rsp = vm_event_response_t {
+            reason: req.reason,
+            version: VM_EVENT_INTERFACE_VERSION,
+            vcpu_id: req.vcpu_id,
+            flags: req.flags & add_flags,
+            ..Default::default()
+        };
         self.xc.put_response(&mut rsp, &mut self.back_ring)?;
         Ok(self.xev.xenevtchn_notify()?)
     }
