@@ -359,43 +359,40 @@ impl Introspectable for Xen {
                     }
                 };
                 let back_ring_ptr = &mut self.back_ring;
-                match RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) != 0 {
-                    false => None,
-                    true => {
-                        let req = self.xc.get_request(back_ring_ptr)?;
-                        if req.version != VM_EVENT_INTERFACE_VERSION {
-                            panic!("version mismatch");
-                        }
-                        let xen_event_type = (self.xc.get_event_type(req))?;
-                        let vcpu: u32 = req.vcpu_id;
-                        let event_type: EventType = match xen_event_type {
-                            XenEventType::Cr { cr_type, new, old } => EventType::Cr {
-                                cr_type: match cr_type {
-                                    XenCr::Cr0 => CrType::Cr0,
-                                    XenCr::Cr3 => CrType::Cr3,
-                                    XenCr::Cr4 => CrType::Cr4,
-                                },
-                                new,
-                                old,
-                            },
-                            XenEventType::Msr { msr_type, value } => {
-                                EventType::Msr { msr_type, value }
-                            }
-                            XenEventType::Breakpoint { insn_len, .. } => {
-                                EventType::Breakpoint { gpa: 0, insn_len }
-                            }
-                            XenEventType::Singlestep { .. } => EventType::Singlestep,
-                            _ => unimplemented!(),
-                        };
-                        // associate VCPU => vm_event_request_t
-                        // to find it in reply_event()
-                        let vcpu_index: usize = vcpu.try_into()?;
-                        self.vec_events[vcpu_index] = Some(req);
-                        Some(Event {
-                            vcpu: vcpu.try_into()?,
-                            kind: event_type,
-                        })
+                if RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) == 0 {
+                    None
+                } else {
+                    let req = self.xc.get_request(back_ring_ptr)?;
+                    if req.version != VM_EVENT_INTERFACE_VERSION {
+                        panic!("version mismatch");
                     }
+                    let xen_event_type = (self.xc.get_event_type(req))?;
+                    let vcpu: u32 = req.vcpu_id;
+                    let event_type: EventType = match xen_event_type {
+                        XenEventType::Cr { cr_type, new, old } => EventType::Cr {
+                            cr_type: match cr_type {
+                                XenCr::Cr0 => CrType::Cr0,
+                                XenCr::Cr3 => CrType::Cr3,
+                                XenCr::Cr4 => CrType::Cr4,
+                            },
+                            new,
+                            old,
+                        },
+                        XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                        XenEventType::Breakpoint { insn_len, .. } => {
+                            EventType::Breakpoint { gpa: 0, insn_len }
+                        }
+                        XenEventType::Singlestep { .. } => EventType::Singlestep,
+                        _ => unimplemented!(),
+                    };
+                    // associate VCPU => vm_event_request_t
+                    // to find it in reply_event()
+                    let vcpu_index: usize = vcpu.try_into()?;
+                    self.vec_events[vcpu_index] = Some(req);
+                    Some(Event {
+                        vcpu: vcpu.try_into()?,
+                        kind: event_type,
+                    })
                 }
             }
             x => panic!("Unexpected poll return value {}", x),
@@ -451,9 +448,10 @@ impl Introspectable for Xen {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
             InterceptType::Singlestep => {
-                let op: u32 = match enabled {
-                    false => XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF,
-                    true => XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON,
+                let op: u32 = if enabled {
+                    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON
+                } else {
+                    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF
                 };
                 Ok(self
                     .xc
