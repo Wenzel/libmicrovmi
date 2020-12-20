@@ -329,7 +329,7 @@ impl Introspectable for Xen {
 
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         let mut fds: [PollFd; 1] = [self.evtchn_pollfd];
-        let event: Option<Event> = match poll(&mut fds, timeout.try_into().unwrap()).unwrap() {
+        let event: Option<Event> = match poll(&mut fds, timeout.try_into()?)? {
             0 => {
                 // timeout. no file descriptors were ready
                 None
@@ -389,10 +389,10 @@ impl Introspectable for Xen {
                         };
                         // associate VCPU => vm_event_request_t
                         // to find it in reply_event()
-                        let vcpu_index: usize = vcpu.try_into().unwrap();
+                        let vcpu_index: usize = vcpu.try_into()?;
                         self.vec_events[vcpu_index] = Some(req);
                         Some(Event {
-                            vcpu: vcpu.try_into().unwrap(),
+                            vcpu: vcpu.try_into()?,
                             kind: event_type,
                         })
                     }
@@ -413,7 +413,7 @@ impl Introspectable for Xen {
             EventReplyType::Continue => VM_EVENT_FLAG_VCPU_PAUSED,
         };
         // get the request back
-        let vcpu_index: usize = event.vcpu.try_into().unwrap();
+        let vcpu_index: usize = event.vcpu.try_into()?;
         let req: vm_event_request_t = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
         let mut rsp: vm_event_response_t =
             unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
