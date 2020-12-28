@@ -5,8 +5,10 @@ use crate::api::{
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
+use nix::sys::mman::munmap;
 use std::convert::TryInto;
 use std::error::Error;
+use std::ffi::c_void;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
@@ -19,8 +21,8 @@ use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
-    vm_event_back_ring, vm_event_request_t, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED,
-    VM_EVENT_INTERFACE_VERSION,
+    vm_event_back_ring, vm_event_request_t, vm_event_response_t, vm_event_sring,
+    VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
 
 pub struct Xen {
@@ -29,6 +31,7 @@ pub struct Xen {
     xen_fgn: XenForeignMem,
     _dom_name: String,
     domid: u32,
+    ring_page: *mut vm_event_sring,
     back_ring: vm_event_back_ring,
     evtchn_pollfd: PollFd,
     // VCPU -> vm_event_request_t
@@ -74,7 +77,7 @@ impl Xen {
         }
 
         let mut xc = XenControl::new(None, None, 0).unwrap();
-        let (_ring_page, back_ring, remote_port) = xc
+        let (ring_page, back_ring, remote_port) = xc
             .monitor_enable(cand_domid)
             .expect("Failed to map event ring page");
 
@@ -89,6 +92,7 @@ impl Xen {
             xen_fgn,
             _dom_name: domain_name.to_string(),
             domid: cand_domid,
+            ring_page,
             back_ring,
             evtchn_pollfd,
             vec_events: Vec::new(),
@@ -494,12 +498,23 @@ impl Drop for Xen {
 
         let vcpu_cpunt = self.get_vcpu_count().expect("Failed to get VCPU count");
         for vcpu in 0..vcpu_cpunt {
+            debug!("disabling singlestep for VCPU {}", vcpu);
             self.xc
                 .monitor_singlestep(self.domid, false)
                 .unwrap_or_else(|_| {
                     panic!("Failed to disable singlestep monitoring on VCPU {}", vcpu)
                 })
         }
+        // unmap
+        debug!("unmapping ring buffer");
+        unsafe {
+            munmap(
+                self.ring_page as *mut c_void,
+                PAGE_SIZE.try_into().expect("Failed to convert to u32"),
+            )
+            .expect("Failed to unmap ring page")
+        }
+
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
