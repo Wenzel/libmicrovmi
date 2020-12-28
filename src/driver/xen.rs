@@ -468,6 +468,18 @@ impl Introspectable for Xen {
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
+        // get domain info, check if already paused
+        let dom_info = self.xc.domain_getinfo(self.domid)?;
+        if dom_info.domid != self.domid {
+            // TODO error
+            panic!("Invalid domid: {}", dom_info.domid);
+        }
+        if dom_info.paused() == 1 {
+            // already paused
+            // nothing to do here
+            debug!("already paused");
+            return Ok(());
+        }
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
