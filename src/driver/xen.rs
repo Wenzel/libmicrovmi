@@ -101,15 +101,11 @@ impl Xen {
         // enable singlestep monitoring
         // it will only intercept events when explicitely requested using
         // xc_domain_debug_control()
-        let vcpu_count = xen.get_vcpu_count().expect("Failed to get VCPU count");
-        for vcpu in 0..vcpu_count {
-            xen.xc
-                .monitor_singlestep(cand_domid, true)
-                .unwrap_or_else(|_| {
-                    panic!("Failed to enable singlestep monitoring on VCPU {}", vcpu)
-                });
-        }
+        xen.xc
+            .monitor_singlestep(cand_domid, true)
+            .unwrap_or_else(|_| panic!("Failed to enable singlestep monitoring"));
 
+        let vcpu_count = xen.get_vcpu_count().expect("Failed to get VCPU count");
         // init vec events
         xen.vec_events.resize(vcpu_count.try_into().unwrap(), None);
         // TODO: vm_event_request_t (vm_event_st) doesn't derive Debug even when .derive_debug(true)
@@ -511,12 +507,13 @@ impl Drop for Xen {
         let vcpu_cpunt = self.get_vcpu_count().expect("Failed to get VCPU count");
         for vcpu in 0..vcpu_cpunt {
             debug!("disabling singlestep for VCPU {}", vcpu);
-            self.xc
-                .monitor_singlestep(self.domid, false)
-                .unwrap_or_else(|_| {
-                    panic!("Failed to disable singlestep monitoring on VCPU {}", vcpu)
-                })
+            self.toggle_intercept(vcpu, InterceptType::Singlestep, false)
+                .unwrap_or_else(|_| panic!("Failed to disable singlestep on VCPU {}", vcpu));
         }
+
+        self.xc
+            .monitor_singlestep(self.domid, false)
+            .unwrap_or_else(|_| panic!("Failed to disable singlestep monitoring"));
         // unmap
         debug!("unmapping ring buffer");
         unsafe {
@@ -524,7 +521,7 @@ impl Drop for Xen {
                 self.ring_page as *mut c_void,
                 PAGE_SIZE.try_into().expect("Failed to convert to u32"),
             )
-            .expect("Failed to unmap ring page")
+            .expect("Failed to unmap ring page");
         }
 
         self.xc
