@@ -314,6 +314,7 @@ pub enum InterceptType {
     /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Breakpoint,
     Pagefault,
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -351,6 +352,7 @@ pub enum EventType {
         /// Acsess responsible for thr pagefault
         access: Access,
     },
+    Singlestep,
 }
 
 ///Types of x86 control registers are listed here
@@ -367,6 +369,7 @@ pub enum CrType {
 
 ///This provides an abstraction of event which the hypervisor reports and using which we introspect the guest
 #[repr(C)]
+#[derive(Debug)]
 pub struct Event {
     ///vcpu on which the event is detected
     pub vcpu: u16,

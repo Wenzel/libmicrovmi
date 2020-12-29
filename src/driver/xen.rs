@@ -1,32 +1,41 @@
 use crate::api::{
-    CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
-    SegmentReg, SystemTableReg, X86Registers,
+    CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType, Introspectable,
+    Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
+use nix::sys::mman::munmap;
 use std::convert::TryInto;
 use std::error::Error;
+use std::ffi::c_void;
+use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
-use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
-use xenctrl::{XenControl, XenCr, XenEventType};
+use xenctrl::{
+    XenControl, XenCr, XenEventType, RING_HAS_UNCONSUMED_REQUESTS,
+    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF, XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON,
+};
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
-    vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
+    vm_event_back_ring, vm_event_request_t, vm_event_response_t, vm_event_sring,
+    VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
 
-#[derive(Debug)]
 pub struct Xen {
     xc: XenControl,
     xev: XenEventChannel,
     xen_fgn: XenForeignMem,
-    dom_name: String,
+    _dom_name: String,
     domid: u32,
+    ring_page: *mut vm_event_sring,
     back_ring: vm_event_back_ring,
+    evtchn_pollfd: PollFd,
+    // VCPU -> vm_event_request_t
+    vec_events: Vec<Option<vm_event_request_t>>,
 }
 
 impl Xen {
@@ -68,21 +77,39 @@ impl Xen {
         }
 
         let mut xc = XenControl::new(None, None, 0).unwrap();
-        let (_ring_page, back_ring, remote_port) = xc
+        let (ring_page, back_ring, remote_port) = xc
             .monitor_enable(cand_domid)
             .expect("Failed to map event ring page");
-        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
 
+        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
+        let fd = xev.xenevtchn_fd().unwrap();
+        let evtchn_pollfd = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
         let xen_fgn = XenForeignMem::new().unwrap();
-        let xen = Xen {
+
+        let mut xen = Xen {
             xc,
             xev,
             xen_fgn,
-            dom_name: domain_name.to_string(),
+            _dom_name: domain_name.to_string(),
             domid: cand_domid,
+            ring_page,
             back_ring,
+            evtchn_pollfd,
+            vec_events: Vec::new(),
         };
-        debug!("Initialized {:#?}", xen);
+
+        // enable singlestep monitoring
+        // it will only intercept events when explicitely requested using
+        // xc_domain_debug_control()
+        xen.xc
+            .monitor_singlestep(cand_domid, true)
+            .unwrap_or_else(|_| panic!("Failed to enable singlestep monitoring"));
+
+        let vcpu_count = xen.get_vcpu_count().expect("Failed to get VCPU count");
+        // init vec events
+        xen.vec_events.resize(vcpu_count.try_into().unwrap(), None);
+        // TODO: vm_event_request_t (vm_event_st) doesn't derive Debug even when .derive_debug(true)
+        // debug!("Initialized {:#?}", xen);
         xen
     }
 }
@@ -157,7 +184,8 @@ impl Introspectable for Xen {
 
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         let domain_info = self.xc.domain_getinfo(self.domid)?;
-        Ok((domain_info.max_vcpu_id + 1).try_into()?)
+        let vcpu_count = (domain_info.max_vcpu_id + 1).try_into()?;
+        Ok(vcpu_count)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -300,71 +328,104 @@ impl Introspectable for Xen {
     }
 
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
-        let fd = self.xev.xenevtchn_fd()?;
-        let fd_struct = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
-        let mut fds = [fd_struct];
-        let mut vcpu: u16 = 0;
-        let mut event_type = unsafe { mem::MaybeUninit::<EventType>::zeroed().assume_init() };
-        let poll_result = poll(&mut fds, timeout.try_into().unwrap()).unwrap();
-        let mut pending_event_port = -1;
-        if poll_result == 1 {
-            pending_event_port = self.xev.xenevtchn_pending()?;
-            if pending_event_port != -1 {
-                self.xev
-                    .xenevtchn_unmask(pending_event_port.try_into().unwrap())?;
+        let mut fds: [PollFd; 1] = [self.evtchn_pollfd];
+        let event: Option<Event> = match poll(&mut fds, timeout.try_into()?)? {
+            0 => {
+                // timeout. no file descriptors were ready
+                None
             }
-        }
-        let back_ring_ptr = &mut self.back_ring;
-        let mut flag = false;
-        if poll_result > 0
-            && self.xev.get_bind_port() == pending_event_port
-            && RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) != 0
-        {
-            flag = true;
-            let req = self.xc.get_request(back_ring_ptr)?;
-            if req.version != VM_EVENT_INTERFACE_VERSION {
-                panic!("version mismatch");
+            -1 => {
+                // failure
+                return Err(Box::new(IoError::last_os_error()));
             }
-            let xen_event_type = (self.xc.get_event_type(req)).unwrap();
-            event_type = match xen_event_type {
-                XenEventType::Cr { cr_type, new, old } => EventType::Cr {
-                    cr_type: match cr_type {
-                        XenCr::Cr0 => CrType::Cr0,
-                        XenCr::Cr3 => CrType::Cr3,
-                        XenCr::Cr4 => CrType::Cr4,
-                    },
-                    new,
-                    old,
-                },
-                XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
-                XenEventType::Breakpoint { insn_len, .. } => {
-                    EventType::Breakpoint { gpa: 0, insn_len }
+            1 => {
+                // event available
+                match self.xev.xenevtchn_pending()? {
+                    -1 => {
+                        // no event channel port is pending
+                        // TODO: Err
+                        panic!("No event channel port is pending");
+                    }
+                    pending_event_port => {
+                        let bind_port = self.xev.get_bind_port();
+                        if pending_event_port != self.xev.get_bind_port() {
+                            panic!(
+                                "Event received for invalid port {}, expected port {}",
+                                pending_event_port, bind_port
+                            );
+                        }
+                        // unmask
+                        self.xev.xenevtchn_unmask(pending_event_port.try_into()?)?;
+                    }
+                };
+                let back_ring_ptr = &mut self.back_ring;
+                if RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) == 0 {
+                    None
+                } else {
+                    let req = self.xc.get_request(back_ring_ptr)?;
+                    if req.version != VM_EVENT_INTERFACE_VERSION {
+                        panic!("version mismatch");
+                    }
+                    let xen_event_type = (self.xc.get_event_type(req))?;
+                    let vcpu: u32 = req.vcpu_id;
+                    let event_type: EventType = match xen_event_type {
+                        XenEventType::Cr { cr_type, new, old } => EventType::Cr {
+                            cr_type: match cr_type {
+                                XenCr::Cr0 => CrType::Cr0,
+                                XenCr::Cr3 => CrType::Cr3,
+                                XenCr::Cr4 => CrType::Cr4,
+                            },
+                            new,
+                            old,
+                        },
+                        XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                        XenEventType::Breakpoint { insn_len, .. } => {
+                            EventType::Breakpoint { gpa: 0, insn_len }
+                        }
+                        XenEventType::Singlestep { .. } => EventType::Singlestep,
+                        _ => unimplemented!(),
+                    };
+                    // associate VCPU => vm_event_request_t
+                    // to find it in reply_event()
+                    let vcpu_index: usize = vcpu.try_into()?;
+                    self.vec_events[vcpu_index] = Some(req);
+                    Some(Event {
+                        vcpu: vcpu.try_into()?,
+                        kind: event_type,
+                    })
                 }
-                _ => unimplemented!(),
-            };
-            vcpu = req.vcpu_id.try_into().unwrap();
-            let mut rsp =
-                unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
-            rsp.reason = req.reason;
-            rsp.version = VM_EVENT_INTERFACE_VERSION;
-            rsp.vcpu_id = req.vcpu_id;
-            rsp.flags = req.flags & VM_EVENT_FLAG_VCPU_PAUSED;
-            self.xc.put_response(&mut rsp, &mut self.back_ring)?;
-        }
-        self.xev.xenevtchn_notify()?;
-        if flag {
-            Ok(Some(Event {
-                vcpu,
-                kind: event_type,
-            }))
-        } else {
-            Ok(None)
-        }
+            }
+            x => panic!("Unexpected poll return value {}", x),
+        };
+
+        Ok(event)
+    }
+
+    fn reply_event(
+        &mut self,
+        event: Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        let add_flags: u32 = match reply_type {
+            EventReplyType::Continue => VM_EVENT_FLAG_VCPU_PAUSED,
+        };
+        // get the request back
+        let vcpu_index: usize = event.vcpu.try_into()?;
+        let req: vm_event_request_t = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
+        let mut rsp = vm_event_response_t {
+            reason: req.reason,
+            version: VM_EVENT_INTERFACE_VERSION,
+            vcpu_id: req.vcpu_id,
+            flags: req.flags & add_flags,
+            ..Default::default()
+        };
+        self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+        Ok(self.xev.xenevtchn_notify()?)
     }
 
     fn toggle_intercept(
         &mut self,
-        _vcpu: u16,
+        vcpu: u16,
         intercept_type: InterceptType,
         enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
@@ -387,12 +448,34 @@ impl Introspectable for Xen {
             InterceptType::Breakpoint => {
                 Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
             }
+            InterceptType::Singlestep => {
+                let op: u32 = if enabled {
+                    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON
+                } else {
+                    XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF
+                };
+                Ok(self
+                    .xc
+                    .domain_debug_control(self.domid, op, vcpu.try_into().unwrap())?)
+            }
             _ => unimplemented!(),
         }
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
+        // get domain info, check if already paused
+        let dom_info = self.xc.domain_getinfo(self.domid)?;
+        if dom_info.domid != self.domid {
+            // TODO error
+            panic!("Invalid domid: {}", dom_info.domid);
+        }
+        if dom_info.paused() == 1 {
+            // already paused
+            // nothing to do here
+            debug!("already paused");
+            return Ok(());
+        }
         Ok(self.xc.domain_pause(self.domid)?)
     }
 
@@ -405,8 +488,46 @@ impl Introspectable for Xen {
 impl Drop for Xen {
     fn drop(&mut self) {
         debug!("Closing Xen driver");
+        // ensure paused
+        self.pause().expect("Failed to pause VM");
+        // listen for remaining events to clear the ring
+        let mut cleaned = false;
+        while !cleaned {
+            match self.listen(0).expect("Failed to listen for events") {
+                None => cleaned = true,
+                Some(e) => {
+                    debug!("cleaning queue: {:?}", e);
+                    // replying continue
+                    self.reply_event(e, EventReplyType::Continue)
+                        .unwrap_or_else(|_| panic!("Failed to reply for event"))
+                }
+            }
+        }
+
+        let vcpu_cpunt = self.get_vcpu_count().expect("Failed to get VCPU count");
+        for vcpu in 0..vcpu_cpunt {
+            debug!("disabling singlestep for VCPU {}", vcpu);
+            self.toggle_intercept(vcpu, InterceptType::Singlestep, false)
+                .unwrap_or_else(|_| panic!("Failed to disable singlestep on VCPU {}", vcpu));
+        }
+
+        self.xc
+            .monitor_singlestep(self.domid, false)
+            .unwrap_or_else(|_| panic!("Failed to disable singlestep monitoring"));
+        // unmap
+        debug!("unmapping ring buffer");
+        unsafe {
+            munmap(
+                self.ring_page as *mut c_void,
+                PAGE_SIZE.try_into().expect("Failed to convert to u32"),
+            )
+            .expect("Failed to unmap ring page");
+        }
+
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
+        // resume
+        self.resume().expect("Failed to resume VM");
     }
 }
