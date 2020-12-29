@@ -13,6 +13,12 @@ fn parse_args() -> ArgMatches<'static> {
         .version("0.1")
         .about("Watches singlestep VMI events")
         .arg(Arg::with_name("vm_name").index(1).required(true))
+        .arg(
+            Arg::with_name("count")
+                .help("Listen for <count> events then quit")
+                .takes_value(true)
+                .short("c"),
+        )
         .get_matches()
 }
 
@@ -40,6 +46,11 @@ fn main() {
     let init_option = matches
         .value_of("kvmi_socket")
         .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+    let count_opt = matches.value_of("count").map(|counter_str| {
+        counter_str
+            .parse::<u64>()
+            .expect("Counter is not a valid number")
+    });
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -81,6 +92,14 @@ fn main() {
                     drv.reply_event(ev, EventReplyType::Continue)
                         .expect("Failed to send event reply");
                     i = i + 1;
+                    match count_opt {
+                        None => continue,
+                        Some(counter) => {
+                            if i == counter {
+                                break;
+                            }
+                        }
+                    };
                 }
                 None => println!("No events yet..."),
             },
