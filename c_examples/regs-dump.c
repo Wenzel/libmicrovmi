@@ -14,17 +14,17 @@ void read_registers(void* driver, const char* vm_name) {
     Registers regs;
     memset(&regs, 0, sizeof(regs));
     if (microvmi_read_registers(driver, 0, &regs)) {
-        printf("rax: 0x%" PRIx64 "\n", regs.x86._0.rax);
-        printf("rbx: 0x%" PRIx64 "\n", regs.x86._0.rbx);
-        printf("rcx: 0x%" PRIx64 "\n", regs.x86._0.rcx);
-        printf("rdx: 0x%" PRIx64 "\n", regs.x86._0.rdx);
-        printf("rsi: 0x%" PRIx64 "\n", regs.x86._0.rsi);
-        printf("rdi: 0x%" PRIx64 "\n", regs.x86._0.rdi);
-        printf("rsp: 0x%" PRIx64 "\n", regs.x86._0.rsp);
-        printf("rbp: 0x%" PRIx64 "\n", regs.x86._0.rbp);
-        printf("rip: 0x%" PRIx64 "\n", regs.x86._0.rip);
-        printf("rflags: 0x%" PRIx64 "\n", regs.x86._0.rflags);
-        printf("cr3: 0x%" PRIx64 "\n", regs.x86._0.cr3);
+        printf("rax: 0x%" PRIx64 "\n", regs.x86.rax);
+        printf("rbx: 0x%" PRIx64 "\n", regs.x86.rbx);
+        printf("rcx: 0x%" PRIx64 "\n", regs.x86.rcx);
+        printf("rdx: 0x%" PRIx64 "\n", regs.x86.rdx);
+        printf("rsi: 0x%" PRIx64 "\n", regs.x86.rsi);
+        printf("rdi: 0x%" PRIx64 "\n", regs.x86.rdi);
+        printf("rsp: 0x%" PRIx64 "\n", regs.x86.rsp);
+        printf("rbp: 0x%" PRIx64 "\n", regs.x86.rbp);
+        printf("rip: 0x%" PRIx64 "\n", regs.x86.rip);
+        printf("rflags: 0x%" PRIx64 "\n", regs.x86.rflags);
+        printf("cr3: 0x%" PRIx64 "\n", regs.x86.cr3);
     } else {
         printf("Unable to read registers.\n");
     }
