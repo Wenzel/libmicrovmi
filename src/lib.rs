@@ -12,7 +12,6 @@ use enum_iterator::IntoEnumIterator;
 
 use api::Introspectable;
 use api::{DriverInitParam, DriverType};
-use driver::dummy::Dummy;
 #[cfg(feature = "hyper-v")]
 use driver::hyperv::HyperV;
 #[cfg(feature = "kvm")]
@@ -75,9 +74,6 @@ fn init_driver(
     init_option: Option<DriverInitParam>,
 ) -> Option<Box<dyn Introspectable>> {
     match driver_type {
-        DriverType::Dummy => {
-            Some(Box::new(Dummy::new(domain_name, init_option)) as Box<dyn Introspectable>)
-        }
         #[cfg(feature = "hyper-v")]
         DriverType::HyperV => {
             Some(Box::new(HyperV::new(domain_name, init_option)) as Box<dyn Introspectable>)
