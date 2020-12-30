@@ -26,28 +26,6 @@ jobs:
           command: fmt
           args: -- --check
 
-  dummy:
-    runs-on: ubuntu-20.04
-
-    steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy
-      - uses: actions/checkout@v1
-      - name: build Dummy driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy dummy
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: -- -D warnings
-
   xen:
     runs-on: ubuntu-20.04
 
@@ -230,7 +208,7 @@ jobs:
 
   debian_package:
     # create a Debian package with cargo deb
-    needs: [dummy, xen, kvm, virtualbox, hyper-v]
+    needs: [xen, kvm, virtualbox, hyper-v]
     runs-on: ubuntu-20.04
 
     steps:
@@ -266,7 +244,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, dummy, xen, kvm, virtualbox, hyper-v, c_api]
+    needs: [format, xen, kvm, virtualbox, hyper-v, c_api]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
