@@ -2,6 +2,8 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
 
+use enum_iterator::IntoEnumIterator;
+
 use crate::capi::DriverInitParamFFI;
 
 bitflags! {
@@ -19,7 +21,7 @@ bitflags! {
 
 ///Represents the available hypervisor VMI drivers supported by libmicrovmi
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, IntoEnumIterator)]
 pub enum DriverType {
     Dummy,
     HyperV,
@@ -37,7 +39,7 @@ pub enum DriverType {
 ///
 /// This is equivalent to LibVMI's `vmi_init_data_type_t`
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DriverInitParam {
     KVMiSocket(String),
 }
