@@ -22,13 +22,9 @@ bitflags! {
 #[derive(Debug)]
 pub enum DriverType {
     Dummy,
-    #[cfg(feature = "hyper-v")]
     HyperV,
-    #[cfg(feature = "kvm")]
     KVM,
-    #[cfg(feature = "virtualbox")]
     VirtualBox,
-    #[cfg(feature = "xen")]
     Xen,
 }
 

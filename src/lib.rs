@@ -28,7 +28,7 @@ pub fn init(
     driver_type: Option<DriverType>,
     init_option: Option<DriverInitParam>,
 ) -> Box<dyn Introspectable> {
-    debug!("Microvmi init");
+    info!("Microvmi init");
     match driver_type {
         Some(drv_type) => match drv_type {
             DriverType::Dummy => {
@@ -48,6 +48,10 @@ pub fn init(
             DriverType::Xen => {
                 Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>
             }
+            _ => panic!(
+                "Selected driver {:?} has not been compiled in libmicrovmi",
+                drv_type
+            ),
         },
         None => {
             // test Hyper-V
@@ -82,4 +86,39 @@ pub fn init(
 #[cfg(feature = "kvm")]
 fn create_kvm(domain_name: &str, init_option: Option<DriverInitParam>) -> Box<dyn Introspectable> {
     Box::new(Kvm::new(domain_name, create_kvmi(), init_option).unwrap()) as Box<dyn Introspectable>
+}
+
+/// Tests whether the given driver type has been compiled in libmicrovmi
+fn is_driver_compiled(driver_type: DriverType) -> bool {
+    match driver_type {
+        DriverType::Dummy => true,
+        DriverType::HyperV => {
+            if cfg!(feature = "hyper-v") {
+                true
+            } else {
+                false
+            }
+        }
+        DriverType::KVM => {
+            if cfg!(feature = "kvm") {
+                true
+            } else {
+                false
+            }
+        }
+        DriverType::VirtualBox => {
+            if cfg!(feature = "virtualbox") {
+                true
+            } else {
+                false
+            }
+        }
+        DriverType::Xen => {
+            if cfg!(feature = "xen") {
+                true
+            } else {
+                false
+            }
+        }
+    }
 }
