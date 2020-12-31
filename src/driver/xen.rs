@@ -1,19 +1,22 @@
 use crate::api::{
-    CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
-    SegmentReg, SystemTableReg, X86Registers,
+    CrType, DriverError, DriverInitParam, Event, EventType, InterceptType, Introspectable,
+    Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
 use std::convert::TryInto;
-use std::error::Error;
+use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
+use std::num::TryFromIntError;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
+use xenctrl::error::XcError;
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
 use xenctrl::{XenControl, XenCr, XenEventType};
 use xenevtchn::XenEventChannel;
 use xenforeignmemory::XenForeignMem;
+use xenforeignmemory::XenForeignMemoryError;
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
@@ -88,7 +91,7 @@ impl Xen {
 }
 
 impl Introspectable for Xen {
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn DriverError>> {
         let mut cur_paddr: u64;
         let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
@@ -100,7 +103,10 @@ impl Introspectable for Xen {
             let gfn = cur_paddr >> PAGE_SHIFT;
             offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
-            let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
+            let page = self
+                .xen_fgn
+                .map(self.domid, PROT_READ, gfn)
+                .map_err(XenDriverError::from)?;
             // determine how much we can read
             let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
@@ -119,7 +125,7 @@ impl Introspectable for Xen {
         Ok(())
     }
 
-    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn DriverError>> {
         let mut phys_address: u64;
         let mut offset: u64;
         let mut count_mut: u64 = buf.len() as u64;
@@ -131,7 +137,10 @@ impl Introspectable for Xen {
             let pfn = phys_address >> PAGE_SHIFT;
             offset = u64::from(PAGE_SIZE - 1) & phys_address;
             // map pfn
-            let page = self.xen_fgn.map(self.domid, PROT_WRITE, pfn)?;
+            let page = self
+                .xen_fgn
+                .map(self.domid, PROT_WRITE, pfn)
+                .map_err(XenDriverError::from)?;
             // determine how much we can write
             let write_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
@@ -150,18 +159,29 @@ impl Introspectable for Xen {
         Ok(())
     }
 
-    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        let max_gpfn = self.xc.domain_maximum_gpfn(self.domid)?;
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn DriverError>> {
+        let max_gpfn = self
+            .xc
+            .domain_maximum_gpfn(self.domid)
+            .map_err(XenDriverError::from)?;
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
-    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
-        let domain_info = self.xc.domain_getinfo(self.domid)?;
-        Ok((domain_info.max_vcpu_id + 1).try_into()?)
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn DriverError>> {
+        let domain_info = self
+            .xc
+            .domain_getinfo(self.domid)
+            .map_err(XenDriverError::from)?;
+        Ok((domain_info.max_vcpu_id + 1)
+            .try_into()
+            .map_err(XenDriverError::from)?)
     }
 
-    fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let hvm_cpu = self.xc.domain_hvm_getcontext_partial(self.domid, vcpu)?;
+    fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn DriverError>> {
+        let hvm_cpu = self
+            .xc
+            .domain_hvm_getcontext_partial(self.domid, vcpu)
+            .map_err(XenDriverError::from)?;
         // TODO: hardcoded for x86 for now
         Ok(Registers::X86(X86Registers {
             rax: hvm_cpu.rax,
@@ -239,8 +259,11 @@ impl Introspectable for Xen {
         }))
     }
 
-    fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
-        let (buffer, mut cpu, size) = self.xc.domain_hvm_getcontext(self.domid, vcpu)?;
+    fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn DriverError>> {
+        let (buffer, mut cpu, size) = self
+            .xc
+            .domain_hvm_getcontext(self.domid, vcpu)
+            .map_err(XenDriverError::from)?;
         match reg {
             Registers::X86(x86_registers) => {
                 cpu.rax = x86_registers.rax;
@@ -295,12 +318,16 @@ impl Introspectable for Xen {
             }
         }
         self.xc
-            .domain_hvm_setcontext(self.domid, buffer, size.try_into().unwrap())?;
+            .domain_hvm_setcontext(self.domid, buffer, size.try_into().unwrap())
+            .map_err(XenDriverError::from)?;
         Ok(())
     }
 
-    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
-        let fd = self.xev.xenevtchn_fd()?;
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn DriverError>> {
+        let fd = self
+            .xev
+            .xenevtchn_fd()
+            .map_err(XenDriverError::from)?;
         let fd_struct = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
         let mut fds = [fd_struct];
         let mut vcpu: u16 = 0;
@@ -308,10 +335,14 @@ impl Introspectable for Xen {
         let poll_result = poll(&mut fds, timeout.try_into().unwrap()).unwrap();
         let mut pending_event_port = -1;
         if poll_result == 1 {
-            pending_event_port = self.xev.xenevtchn_pending()?;
+            pending_event_port = self
+                .xev
+                .xenevtchn_pending()
+                .map_err(XenDriverError::from)?;
             if pending_event_port != -1 {
                 self.xev
-                    .xenevtchn_unmask(pending_event_port.try_into().unwrap())?;
+                    .xenevtchn_unmask(pending_event_port.try_into().unwrap())
+                    .map_err(XenDriverError::from)?;
             }
         }
         let back_ring_ptr = &mut self.back_ring;
@@ -321,7 +352,10 @@ impl Introspectable for Xen {
             && RING_HAS_UNCONSUMED_REQUESTS!(back_ring_ptr) != 0
         {
             flag = true;
-            let req = self.xc.get_request(back_ring_ptr)?;
+            let req = self
+                .xc
+                .get_request(back_ring_ptr)
+                .map_err(XenDriverError::from)?;
             if req.version != VM_EVENT_INTERFACE_VERSION {
                 panic!("version mismatch");
             }
@@ -349,9 +383,13 @@ impl Introspectable for Xen {
             rsp.version = VM_EVENT_INTERFACE_VERSION;
             rsp.vcpu_id = req.vcpu_id;
             rsp.flags = req.flags & VM_EVENT_FLAG_VCPU_PAUSED;
-            self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+            self.xc
+                .put_response(&mut rsp, &mut self.back_ring)
+                .map_err(XenDriverError::from)?;
         }
-        self.xev.xenevtchn_notify()?;
+        self.xev
+            .xenevtchn_notify()
+            .map_err(XenDriverError::from)?;
         if flag {
             Ok(Some(Event {
                 vcpu,
@@ -367,7 +405,7 @@ impl Introspectable for Xen {
         _vcpu: u16,
         intercept_type: InterceptType,
         enabled: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn DriverError>> {
         match intercept_type {
             InterceptType::Cr(micro_cr_type) => {
                 let xen_cr = match micro_cr_type {
@@ -377,28 +415,27 @@ impl Introspectable for Xen {
                 };
                 Ok(self
                     .xc
-                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)?)
-            }
-            InterceptType::Msr(micro_msr_type) => {
-                Ok(self
-                    .xc
-                    .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
-            }
-            InterceptType::Breakpoint => {
-                Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
+                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)
+                    .map_err(XenDriverError::from)?)
             }
             _ => unimplemented!(),
         }
     }
 
-    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
+    fn pause(&mut self) -> Result<(), Box<dyn DriverError>> {
         debug!("pause");
-        Ok(self.xc.domain_pause(self.domid)?)
+        Ok(self
+            .xc
+            .domain_pause(self.domid)
+            .map_err(XenDriverError::from)?)
     }
 
-    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+    fn resume(&mut self) -> Result<(), Box<dyn DriverError>> {
         debug!("resume");
-        Ok(self.xc.domain_unpause(self.domid)?)
+        Ok(self
+            .xc
+            .domain_unpause(self.domid)
+            .map_err(XenDriverError::from)?)
     }
 }
 
@@ -408,5 +445,29 @@ impl Drop for Xen {
         self.xc
             .monitor_disable(self.domid)
             .expect("Failed to unmap event ring page");
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum XenDriverError {
+    #[error("no pending event channel ports")]
+    NoPendingChannel,
+    #[error(transparent)]
+    TryFromIntError(#[from] TryFromIntError),
+    #[error(transparent)]
+    IoError(#[from] IoError),
+    #[error(transparent)]
+    XcError(#[from] XcError),
+    #[error(transparent)]
+    NixError(#[from] nix::Error),
+    #[error(transparent)]
+    ForeignMemoryError(#[from] XenForeignMemoryError),
+}
+
+impl DriverError for XenDriverError {}
+
+impl From<XenDriverError> for Box<dyn DriverError> {
+    fn from(err: XenDriverError) -> Box<dyn DriverError> {
+        Box::new(err)
     }
 }

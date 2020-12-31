@@ -30,7 +30,7 @@ env_logger = "0.8"
 libc = { version = "0.2", optional = true }
 xenctrl = { version = "0.4.2", optional = true }
 xenstore-rs = { version = "0.3.0", optional = true }
-xenforeignmemory = { version = "0.1.0", optional = true }
+xenforeignmemory = { git = "https://github.com/rageagainsthepc/xenforeignmemory.git", branch = "remove-failure-crate", optional = true }
 xenevtchn = { version = "0.1.2", optional = true }
 xenvmevent-sys = { version = "0.1.3", optional = true }
 kvmi = { version = "0.2.1", optional = true }
@@ -42,6 +42,7 @@ vid-sys = { version = "0.3.0", features = ["deprecated-apis"], optional = true }
 bitflags = "1.2.1"
 cty = "0.2.1"
 nix = "0.19"
+thiserror = "1.0"
 
 [dev-dependencies]
 ctrlc = "3.1"
