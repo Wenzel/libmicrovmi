@@ -177,7 +177,10 @@ pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
 #[derive(thiserror::Error, Debug)]
-pub enum MicrovmiError {}
+pub enum MicrovmiError {
+    #[error(transparent)]
+    DriverError(#[from] DriverError),
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum DriverError {

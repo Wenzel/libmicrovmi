@@ -10,9 +10,12 @@ pub enum DummyDriverError {
 pub struct Dummy;
 
 impl Dummy {
-    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
+    pub fn new(
+        domain_name: &str,
+        _init_option: Option<DriverInitParam>,
+    ) -> Result<Self, DriverError> {
         debug!("init on {}", domain_name);
-        Dummy
+        Ok(Dummy)
     }
 }
 

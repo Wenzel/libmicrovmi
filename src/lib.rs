@@ -32,7 +32,7 @@ pub fn init(
     Ok(match driver_type {
         Some(drv_type) => match drv_type {
             DriverType::Dummy => {
-                Box::new(Dummy::new(domain_name, init_option)) as Box<dyn Introspectable>
+                Box::new(Dummy::new(domain_name, init_option)?) as Box<dyn Introspectable>
             }
             #[cfg(feature = "hyper-v")]
             DriverType::HyperV => {
@@ -76,7 +76,7 @@ pub fn init(
                 return Ok(Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>);
             }
             // return Dummy if no other driver has been compiled
-            Box::new(Dummy::new(domain_name, init_option)) as Box<dyn Introspectable>
+            Box::new(Dummy::new(domain_name, init_option)?) as Box<dyn Introspectable>
         }
     })
 }
