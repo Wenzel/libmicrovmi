@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
+use thiserror;
 
 use crate::capi::DriverInitParamFFI;
 
@@ -175,6 +176,9 @@ pub enum Registers {
 
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
+
+#[derive(thiserror::Error, Debug)]
+pub enum MicrovmiError {}
 
 pub trait Introspectable {
     /// Retrieve the number of VCPUs.
