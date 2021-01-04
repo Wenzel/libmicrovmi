@@ -3,6 +3,8 @@ use std::ffi::{CStr, IntoStringError};
 
 use crate::capi::DriverInitParamFFI;
 use crate::driver::dummy::DummyDriverError;
+#[cfg(feature = "virtualbox")]
+use crate::driver::virtualbox::VirtualBoxDriverError;
 
 bitflags! {
     pub struct Access: u32 {
@@ -186,6 +188,9 @@ pub enum MicrovmiError {
 pub enum DriverError {
     #[error(transparent)]
     Dummy(#[from] DummyDriverError),
+    #[cfg(feature = "virtualbox")]
+    #[error(transparent)]
+    VirtualBox(#[from] VirtualBoxDriverError),
 }
 
 pub trait Introspectable {
