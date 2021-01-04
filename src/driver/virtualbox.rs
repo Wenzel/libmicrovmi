@@ -20,10 +20,13 @@ pub struct VBox {
 }
 
 impl VBox {
-    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
+    pub fn new(
+        domain_name: &str,
+        _init_option: Option<DriverInitParam>,
+    ) -> Result<Self, DriverError> {
         // init FDP
         let fdp = FDP::new(domain_name);
-        VBox { fdp }
+        Ok(VBox { fdp })
     }
 }
 

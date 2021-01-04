@@ -42,7 +42,7 @@ pub fn init(
             DriverType::KVM => create_kvm(domain_name, init_option),
             #[cfg(feature = "virtualbox")]
             DriverType::VirtualBox => {
-                Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>
+                Box::new(VBox::new(domain_name, init_option)?) as Box<dyn Introspectable>
             }
             #[cfg(feature = "xen")]
             DriverType::Xen => {
@@ -67,7 +67,9 @@ pub fn init(
             // test VirtualBox
             #[cfg(feature = "virtualbox")]
             {
-                return Ok(Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>);
+                return Ok(
+                    Box::new(VBox::new(domain_name, init_option)?) as Box<dyn Introspectable>
+                );
             }
 
             // test Xen
