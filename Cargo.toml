@@ -49,3 +49,7 @@ clap = "2.33.0"
 colored = "1.9.3"
 mockall = "0.7.1"
 test-case = "1.0.0"
+
+# Wait for test-case 1.0.1 release
+[patch.crates-io]
+test-case = { git = "https://github.com/frondeus/test-case" }
