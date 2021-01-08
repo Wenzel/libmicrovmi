@@ -5,6 +5,7 @@
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![tokei](https://tokei.rs/b1/github/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
 [![repo size](https://img.shields.io/github/repo-size/Wenzel/libmicrovmi)](https://github.com/Wenzel/libmicrovmi)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/Wenzel/libmicrovmi)
 
 > A cross-platform unified interface on top of hypervisor's VMI APIs
 
