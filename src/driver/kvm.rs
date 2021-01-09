@@ -475,10 +475,10 @@ mod tests {
 
     mock! {
         KVMi{}
-        trait Debug {
+        impl Debug for KVMi {
             fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
         }
-        trait KVMIntrospectable: Debug {
+        impl KVMIntrospectable for KVMi {
             fn init(&mut self, socket_path: &str) -> Result<(), std::io::Error>;
             fn control_events(
                 &self,
