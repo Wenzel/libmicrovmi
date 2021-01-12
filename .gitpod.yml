@@ -1,0 +1,22 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: cargo build --features kvm,virtualbox,xen
+
+vscode:
+  extensions:
+    # Theia does not support rust-analyzer, therefore this plugin list targets vscode instead. 
+    - editorconfig.editorconfig
+    - rust-lang.rust
+    - matklad.rust-analyzer
+    - eamodio.gitlens
+    - serayuzgur.crates
+    - belfz.search-crates-io
+    - bungcip.better-toml
+
+github:
+  prebuilds:
+    branches: true
+    addCheck: false
+    addComment: true
