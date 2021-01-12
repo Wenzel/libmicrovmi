@@ -6,9 +6,7 @@ use clap::{App, Arg, ArgMatches};
 use colored::*;
 use env_logger;
 
-use microvmi::api::{
-    CrType, DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable,
-};
+use microvmi::api::{CrType, DriverInitParam, EventType, InterceptType, Introspectable};
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
