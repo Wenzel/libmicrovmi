@@ -177,9 +177,11 @@ pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
 pub trait Introspectable {
+    type DriverError;
+
     /// Retrieve the number of VCPUs.
     ///
-    fn get_vcpu_count(&self) -> Result<u16, Box<dyn DriverError>> {
+    fn get_vcpu_count(&self) -> Result<u16, Self::DriverError> {
         unimplemented!();
     }
 
@@ -190,7 +192,7 @@ pub trait Introspectable {
     /// * 'paddr' - the physical address to read from
     /// * 'buf' - the data read from memory
     ///
-    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn DriverError>> {
+    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
@@ -201,7 +203,7 @@ pub trait Introspectable {
     /// * 'paddr' - the physical address to write into
     /// * 'buf' - the data to be written into memory
     ///
-    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn DriverError>> {
+    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
@@ -209,7 +211,7 @@ pub trait Introspectable {
     ///
     /// Returns maximum physical address in 64 bit unsigned integer format.
     ///
-    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn DriverError>> {
+    fn get_max_physical_addr(&self) -> Result<u64, Self::DriverError> {
         unimplemented!();
     }
 
@@ -218,7 +220,7 @@ pub trait Introspectable {
     /// # Arguments
     /// * 'vcpu' - vcpu id for which the value of registers are to be dumped as the argument
     ///
-    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn DriverError>> {
+    fn read_registers(&self, _vcpu: u16) -> Result<Registers, Self::DriverError> {
         unimplemented!();
     }
 
@@ -227,7 +229,7 @@ pub trait Introspectable {
     /// # Arguments
     /// * 'paddr' - physical address of the page whose access we want to know.
     ///
-    fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn DriverError>> {
+    fn get_page_access(&self, _paddr: u64) -> Result<Access, Self::DriverError> {
         unimplemented!();
     }
 
@@ -237,7 +239,7 @@ pub trait Introspectable {
     /// * 'paddr' - physical address of the page whose access we want to set
     /// * 'access' - access flags to be set on the given page
     ///
-    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn DriverError>> {
+    fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
@@ -247,19 +249,19 @@ pub trait Introspectable {
     /// * 'vcpu' - vcpu id for which the value of registers are to be set
     /// * 'reg' - Registers enum having values to be set
     ///
-    fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Box<dyn DriverError>> {
+    fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
     /// Used to pause the VM
     ///
-    fn pause(&mut self) -> Result<(), Box<dyn DriverError>> {
+    fn pause(&mut self) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
     /// Used to resume the VM
     ///
-    fn resume(&mut self) -> Result<(), Box<dyn DriverError>> {
+    fn resume(&mut self) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
@@ -275,7 +277,7 @@ pub trait Introspectable {
         _vcpu: u16,
         _intercept_type: InterceptType,
         _enabled: bool,
-    ) -> Result<(), Box<dyn DriverError>> {
+    ) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 
@@ -284,7 +286,7 @@ pub trait Introspectable {
     /// # Arguments
     /// * 'timeout' - Time for which it will wait for a new event
     ///
-    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn DriverError>> {
+    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Self::DriverError> {
         unimplemented!();
     }
 
@@ -298,7 +300,7 @@ pub trait Introspectable {
         &mut self,
         _event: Event,
         _reply_type: EventReplyType,
-    ) -> Result<(), Box<dyn DriverError>> {
+    ) -> Result<(), Self::DriverError> {
         unimplemented!();
     }
 }
