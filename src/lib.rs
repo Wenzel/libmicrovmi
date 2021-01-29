@@ -66,9 +66,7 @@ fn init_driver(
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     match driver_type {
         #[cfg(feature = "hyper-v")]
-        DriverType::HyperV => {
-            Ok(Box::new(HyperV::new(domain_name, init_option)) as Box<dyn Introspectable>)
-        }
+        DriverType::HyperV => Ok(Box::new(HyperV::new(domain_name, init_option)?)),
         #[cfg(feature = "kvm")]
         DriverType::KVM => Ok(create_kvm(domain_name, init_option)),
         #[cfg(feature = "virtualbox")]
