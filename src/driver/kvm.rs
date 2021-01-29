@@ -98,14 +98,24 @@ pub struct Kvm<T: KVMIntrospectable> {
     vec_events: Vec<Option<KVMiEvent>>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum KVMDriverError {
+    #[error("KVM driver initialization requires an additional socket parameter")]
+    MissingSocketParameter,
+    #[error("Timeout waiting for a pause event")]
+    NoPauseEventAvailable,
+    #[error("Unexpected event {0:?} while resuming VM")]
+    UnexpectedEventWhileResuming(KVMiEventType),
+}
+
 impl<T: KVMIntrospectable> Kvm<T> {
     pub fn new(
         domain_name: &str,
         mut kvmi: T,
         init_option: Option<DriverInitParam>,
     ) -> Result<Self, Box<dyn Error>> {
-        let DriverInitParam::KVMiSocket(socket_path) = init_option
-            .expect("KVM driver initialization requires an additional socket parameter.");
+        let DriverInitParam::KVMiSocket(socket_path) =
+            init_option.ok_or(KVMDriverError::MissingSocketParameter)?;
         debug!("init on {} (socket: {})", domain_name, socket_path);
         kvmi.init(&socket_path)?;
         let mut kvm = Kvm {
@@ -115,22 +125,17 @@ impl<T: KVMIntrospectable> Kvm<T> {
         };
 
         // set vec_events size
-        let vcpu_count = kvm.get_vcpu_count().unwrap();
-        kvm.vec_events
-            .resize_with(vcpu_count.try_into().unwrap(), || None);
+        let vcpu_count = kvm.get_vcpu_count()?;
+        kvm.vec_events.resize_with(vcpu_count.try_into()?, || None);
 
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
         for vcpu in 0..vcpu_count {
+            kvm.kvmi.control_events(vcpu, KVMiInterceptType::Cr, true)?;
             kvm.kvmi
-                .control_events(vcpu, KVMiInterceptType::Cr, true)
-                .unwrap();
+                .control_events(vcpu, KVMiInterceptType::Msr, true)?;
             kvm.kvmi
-                .control_events(vcpu, KVMiInterceptType::Msr, true)
-                .unwrap();
-            kvm.kvmi
-                .control_events(vcpu, KVMiInterceptType::Pagefault, true)
-                .unwrap();
+                .control_events(vcpu, KVMiInterceptType::Pagefault, true)?;
         }
 
         Ok(kvm)
@@ -139,7 +144,7 @@ impl<T: KVMIntrospectable> Kvm<T> {
 
 impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
-        Ok(self.kvmi.get_vcpu_count().unwrap().try_into()?)
+        Ok(self.kvmi.get_vcpu_count()?.try_into()?)
     }
 
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
@@ -213,13 +218,12 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     }
 
     fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
-        let access = self.kvmi.get_page_access(paddr).unwrap();
-        Ok(access.try_into().unwrap())
+        let access = self.kvmi.get_page_access(paddr)?;
+        Ok(access.try_into()?)
     }
 
     fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
-        self.kvmi
-            .set_page_access(paddr, access.try_into().unwrap())?;
+        self.kvmi.set_page_access(paddr, access.try_into()?)?;
         Ok(())
     }
 
@@ -245,17 +249,21 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
 
         while self.expect_pause_ev > 0 {
             // wait
-            let kvmi_event = self.kvmi.wait_and_pop_event(1000)?.unwrap();
+            let kvmi_event = self
+                .kvmi
+                .wait_and_pop_event(1000)?
+                .ok_or_else(|| Box::new(KVMDriverError::NoPauseEventAvailable))?;
             match kvmi_event.ev_type {
                 KVMiEventType::PauseVCPU => {
                     debug!("VCPU {} - Received Pause Event", kvmi_event.vcpu);
                     self.expect_pause_ev -= 1;
                     self.kvmi.reply(&kvmi_event, KVMiEventReply::Continue)?;
                 }
-                _ => panic!(
-                    "Unexpected {:?} event type while resuming VM",
-                    kvmi_event.ev_type
-                ),
+                _ => {
+                    return Err(Box::new(KVMDriverError::UnexpectedEventWhileResuming(
+                        kvmi_event.ev_type,
+                    )))
+                }
             }
         }
         Ok(())
@@ -295,7 +303,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         // wait for next event and pop it
         debug!("wait for next event");
-        let kvmi_event_opt = self.kvmi.wait_and_pop_event(timeout.try_into().unwrap())?;
+        let kvmi_event_opt = self.kvmi.wait_and_pop_event(timeout.try_into()?)?;
         match kvmi_event_opt {
             None => Ok(None),
             Some(kvmi_event) => {
@@ -326,7 +334,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                 };
 
                 let vcpu = kvmi_event.vcpu;
-                let vcpu_index: usize = vcpu.try_into().unwrap();
+                let vcpu_index: usize = vcpu.try_into()?;
                 self.vec_events[vcpu_index] = Some(kvmi_event);
 
                 Ok(Some(Event {
@@ -346,7 +354,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             EventReplyType::Continue => KVMiEventReply::Continue,
         };
         // get KVMiEvent associated with this VCPU
-        let vcpu_index: usize = event.vcpu.try_into().unwrap();
+        let vcpu_index: usize = event.vcpu.try_into()?;
         let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
         Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
     }
