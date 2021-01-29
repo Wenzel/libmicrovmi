@@ -57,7 +57,8 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
+    let mut drv: Box<dyn Introspectable> =
+        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
     //Enable int3 interception
     toggle_int3_interception(&mut drv, true);

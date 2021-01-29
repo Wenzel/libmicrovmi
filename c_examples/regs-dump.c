@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
     void* driver = microvmi_init(argv[1], NULL, NULL, &init_error);
     if (!driver) {
         fprintf(stderr, "%s\n", init_error);
+        rs_cstring_free((char*)init_error);
         return 1;
     }
     read_registers(driver, argv[1]);
