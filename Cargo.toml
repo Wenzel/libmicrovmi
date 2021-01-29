@@ -30,6 +30,7 @@ env_logger = "0.8"
 bitflags = "1.2.1"
 cty = "0.2.1"
 nix = "0.19"
+thiserror = "1.0"
 libc = { version = "0.2", optional = true }
 xenctrl = { version = "0.4.2", optional = true }
 xenstore-rs = { version = "0.3.0", optional = true }
