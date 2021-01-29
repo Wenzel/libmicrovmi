@@ -2,6 +2,7 @@
 pub mod api;
 pub mod capi;
 mod driver;
+pub mod errors;
 
 #[macro_use]
 extern crate log;
@@ -20,6 +21,7 @@ use driver::kvm::Kvm;
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
+use errors::MicrovmiError;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
@@ -27,37 +29,26 @@ pub fn init(
     domain_name: &str,
     driver_type: Option<DriverType>,
     init_option: Option<DriverInitParam>,
-) -> Box<dyn Introspectable> {
+) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     info!("Microvmi init");
     match driver_type {
         None => {
             // for each possible DriverType
             for drv_type in DriverType::into_enum_iter() {
                 // try to init
-                // TODO: the driver init should return a Result
                 match init_driver(domain_name, drv_type, init_option.clone()) {
-                    Some(driver) => {
-                        return driver;
+                    Ok(driver) => {
+                        return Ok(driver);
                     }
-                    None => {
-                        info!(
-                            "Driver {:?} not compiled in libmicrovmi. Skipping.",
-                            drv_type
-                        );
+                    Err(e) => {
+                        debug!("{:?} driver initialization failed: {}", drv_type, e);
                         continue;
                     }
                 }
             }
-            // TODO: to Err
-            panic!("No suitable libmicrovmi driver avaialble !");
+            Err(MicrovmiError::NoDriverAvailable)
         }
-        Some(drv_type) => match init_driver(domain_name, drv_type, init_option) {
-            None => panic!(
-                "Selected driver {:?} has not been compiled in libmicrovmi",
-                drv_type
-            ),
-            Some(driver) => driver,
-        },
+        Some(drv_type) => init_driver(domain_name, drv_type, init_option),
     }
 }
 
@@ -72,22 +63,22 @@ fn init_driver(
     domain_name: &str,
     driver_type: DriverType,
     init_option: Option<DriverInitParam>,
-) -> Option<Box<dyn Introspectable>> {
+) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     match driver_type {
         #[cfg(feature = "hyper-v")]
         DriverType::HyperV => {
-            Some(Box::new(HyperV::new(domain_name, init_option)) as Box<dyn Introspectable>)
+            Ok(Box::new(HyperV::new(domain_name, init_option)) as Box<dyn Introspectable>)
         }
         #[cfg(feature = "kvm")]
-        DriverType::KVM => Some(create_kvm(domain_name, init_option)),
+        DriverType::KVM => Ok(create_kvm(domain_name, init_option)),
         #[cfg(feature = "virtualbox")]
         DriverType::VirtualBox => {
-            Some(Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>)
+            Ok(Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>)
         }
         #[cfg(feature = "xen")]
         DriverType::Xen => {
-            Some(Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>)
+            Ok(Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>)
         }
-        _ => None,
+        _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
     }
 }
