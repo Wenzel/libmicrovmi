@@ -43,7 +43,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     microvmi_envlogger_init();
-    void* driver = microvmi_init(argv[1], NULL, NULL);
+    const char* init_error = NULL;
+    void* driver = microvmi_init(argv[1], NULL, NULL, &init_error);
+    if (!driver) {
+        fprintf(stderr, "%s\n", init_error);
+        return 1;
+    }
     dump_memory(driver, argv[1]);
     microvmi_destroy(driver);
     return 0;

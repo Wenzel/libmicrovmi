@@ -1,8 +1,9 @@
 use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
 use crate::init;
+use bitflags::_core::ptr::null_mut;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 use std::convert::TryInto;
-use std::ffi::{c_void, CStr};
+use std::ffi::{c_void, CStr, CString};
 use std::slice;
 
 /// Support passing initialization options
@@ -17,18 +18,24 @@ pub enum DriverInitParamFFI {
 /// This simply calls env_logger::init()
 /// Usually, it's the library consumer who should add this Rust crate dependency,
 /// however, with a C program, we provide this workaround where we provide an API to do just that.
-#[allow(clippy::missing_safety_doc)]
+/// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_envlogger_init() {
     env_logger::init();
 }
 
-#[allow(clippy::missing_safety_doc)]
+/// Entrypoint for libmicrovmi
+/// Initializes a specific driver, or all drivers compiled and returns the first one that succeeded
+///
+/// In case of error, init_error will be allocated with the underlying error message.
+/// The init_error pointer should be freed with rs_cstring_free()
+/// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_init(
     domain_name: *const c_char,
     driver_type: *const DriverType,
     driver_init_option: *const DriverInitParamFFI,
+    init_error: *mut *const c_char,
 ) -> *mut c_void {
     let safe_domain_name = CStr::from_ptr(domain_name).to_string_lossy().into_owned();
     let optional_driver_type: Option<DriverType> = if driver_type.is_null() {
@@ -44,8 +51,17 @@ pub unsafe extern "C" fn microvmi_init(
                 .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
         )
     };
-    let driver = init(&safe_domain_name, optional_driver_type, init_option);
-    Box::into_raw(Box::new(driver)) as *mut c_void
+    match init(&safe_domain_name, optional_driver_type, init_option) {
+        Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
+        Err(err) => {
+            if !init_error.is_null() {
+                (*init_error) = CString::new(format!("{}", err))
+                    .expect("Failed to convert MicrovmiError to CString")
+                    .into_raw();
+            };
+            null_mut()
+        }
+    }
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -122,4 +138,18 @@ unsafe fn get_driver_mut_ptr(context: *mut c_void) -> *mut dyn Introspectable {
 
 unsafe fn get_driver_box(context: *mut c_void) -> Box<Box<dyn Introspectable>> {
     Box::from_raw(context as *mut _)
+}
+
+/// Free a CString allocated by Rust (for ex. using `rust_string_to_c`)
+///
+/// # Safety
+///
+/// s must be allocated by rust, using `CString::new`
+// Note: this function was taken from https://github.com/OISF/suricata/blob/62e665c8482c90b30f6edfa7b0f0eabf8a4fcc79/rust/src/common.rs#L69
+#[no_mangle]
+pub unsafe extern "C" fn rs_cstring_free(s: *mut c_char) {
+    if s.is_null() {
+        return;
+    }
+    drop(CString::from_raw(s));
 }
