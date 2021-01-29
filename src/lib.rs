@@ -55,19 +55,23 @@ pub fn init(
 /// Initialize a given driver type
 /// return None if the requested driver has not been compiled in libmicrovmi
 fn init_driver(
-    domain_name: &str,
+    _domain_name: &str,
     driver_type: DriverType,
-    init_option: Option<DriverInitParam>,
+    _init_option: Option<DriverInitParam>,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     match driver_type {
         #[cfg(feature = "hyper-v")]
-        DriverType::HyperV => Ok(Box::new(HyperV::new(domain_name, init_option)?)),
+        DriverType::HyperV => Ok(Box::new(HyperV::new(_domain_name, _init_option)?)),
         #[cfg(feature = "kvm")]
-        DriverType::KVM => Ok(Box::new(Kvm::new(domain_name, create_kvmi(), init_option)?)),
+        DriverType::KVM => Ok(Box::new(Kvm::new(
+            _domain_name,
+            create_kvmi(),
+            _init_option,
+        )?)),
         #[cfg(feature = "virtualbox")]
-        DriverType::VirtualBox => Ok(Box::new(VBox::new(domain_name, init_option)?)),
+        DriverType::VirtualBox => Ok(Box::new(VBox::new(_domain_name, _init_option)?)),
         #[cfg(feature = "xen")]
-        DriverType::Xen => Ok(Box::new(Xen::new(domain_name, init_option)?)),
+        DriverType::Xen => Ok(Box::new(Xen::new(_domain_name, _init_option)?)),
         _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
     }
 }
