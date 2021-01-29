@@ -52,7 +52,10 @@ pub enum XenDriverError {
 }
 
 impl Xen {
-    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
+    pub fn new(
+        domain_name: &str,
+        _init_option: Option<DriverInitParam>,
+    ) -> Result<Self, Box<dyn Error>> {
         debug!("init on {}", domain_name);
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
@@ -105,7 +108,7 @@ impl Xen {
             back_ring,
         };
         debug!("Initialized {:#?}", xen);
-        xen
+        Ok(xen)
     }
 }
 

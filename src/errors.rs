@@ -1,7 +1,7 @@
 use crate::api::DriverType;
-use thiserror::Error;
+use std::error::Error;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum MicrovmiError {
     #[error("no suitable microvmi driver available")]
     NoDriverAvailable,

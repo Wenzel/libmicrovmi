@@ -76,9 +76,7 @@ fn init_driver(
             Ok(Box::new(VBox::new(domain_name, init_option)) as Box<dyn Introspectable>)
         }
         #[cfg(feature = "xen")]
-        DriverType::Xen => {
-            Ok(Box::new(Xen::new(domain_name, init_option)) as Box<dyn Introspectable>)
-        }
+        DriverType::Xen => Ok(Box::new(Xen::new(domain_name, init_option)?)),
         _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
     }
 }
