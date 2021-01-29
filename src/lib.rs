@@ -52,11 +52,6 @@ pub fn init(
     }
 }
 
-#[cfg(feature = "kvm")]
-fn create_kvm(domain_name: &str, init_option: Option<DriverInitParam>) -> Box<dyn Introspectable> {
-    Box::new(Kvm::new(domain_name, create_kvmi(), init_option).unwrap()) as Box<dyn Introspectable>
-}
-
 /// Initialize a given driver type
 /// return None if the requested driver has not been compiled in libmicrovmi
 fn init_driver(
@@ -68,7 +63,7 @@ fn init_driver(
         #[cfg(feature = "hyper-v")]
         DriverType::HyperV => Ok(Box::new(HyperV::new(domain_name, init_option)?)),
         #[cfg(feature = "kvm")]
-        DriverType::KVM => Ok(create_kvm(domain_name, init_option)),
+        DriverType::KVM => Ok(Box::new(Kvm::new(domain_name, create_kvmi(), init_option)?)),
         #[cfg(feature = "virtualbox")]
         DriverType::VirtualBox => Ok(Box::new(VBox::new(domain_name, init_option)?)),
         #[cfg(feature = "xen")]
