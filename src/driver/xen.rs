@@ -5,15 +5,19 @@ use crate::api::{
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
 use nix::poll::{poll, PollFd};
+use std::convert::Infallible;
 use std::convert::TryInto;
 use std::error::Error;
+use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
+use std::num::TryFromIntError;
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
+use xenctrl::error::XcError;
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
 use xenctrl::{XenControl, XenCr, XenEventType};
 use xenevtchn::XenEventChannel;
-use xenforeignmemory::XenForeignMem;
+use xenforeignmemory::{XenForeignMem, XenForeignMemoryError};
 use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
@@ -27,6 +31,24 @@ pub struct Xen {
     dom_name: String,
     domid: u32,
     back_ring: vm_event_back_ring,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum XenDriverError {
+    #[error("event version mismatch: {0} <-> {1}")]
+    EventVersionMismatch(u32, u32),
+    #[error("failed to convert integer")]
+    TryFromIntError(#[from] TryFromIntError),
+    #[error("failed to convert integer")]
+    InfallibleFromIntError(#[from] Infallible),
+    #[error("IO error")]
+    IoError(#[from] IoError),
+    #[error("xenctrl error")]
+    XcError(#[from] XcError),
+    #[error("UNIX error")]
+    NixError(#[from] nix::Error),
+    #[error("xenforeignmemory error")]
+    ForeignMemoryError(#[from] XenForeignMemoryError),
 }
 
 impl Xen {
@@ -100,7 +122,10 @@ impl Introspectable for Xen {
             let gfn = cur_paddr >> PAGE_SHIFT;
             offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
-            let page = self.xen_fgn.map(self.domid, PROT_READ, gfn)?;
+            let page = self
+                .xen_fgn
+                .map(self.domid, PROT_READ, gfn)
+                .map_err(XenDriverError::from)?;
             // determine how much we can read
             let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
@@ -114,7 +139,7 @@ impl Introspectable for Xen {
             count_mut -= read_len;
             buf_offset += read_len;
             // unmap page
-            self.xen_fgn.unmap(page).unwrap();
+            self.xen_fgn.unmap(page).map_err(XenDriverError::from)?;
         }
         Ok(())
     }
@@ -131,7 +156,10 @@ impl Introspectable for Xen {
             let pfn = phys_address >> PAGE_SHIFT;
             offset = u64::from(PAGE_SIZE - 1) & phys_address;
             // map pfn
-            let page = self.xen_fgn.map(self.domid, PROT_WRITE, pfn)?;
+            let page = self
+                .xen_fgn
+                .map(self.domid, PROT_WRITE, pfn)
+                .map_err(XenDriverError::from)?;
             // determine how much we can write
             let write_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
@@ -145,23 +173,34 @@ impl Introspectable for Xen {
             count_mut -= write_len;
             buf_offset += write_len;
             // unmap page
-            self.xen_fgn.unmap(page).unwrap();
+            self.xen_fgn.unmap(page).map_err(XenDriverError::from)?;
         }
         Ok(())
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        let max_gpfn = self.xc.domain_maximum_gpfn(self.domid)?;
+        let max_gpfn = self
+            .xc
+            .domain_maximum_gpfn(self.domid)
+            .map_err(XenDriverError::from)?;
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
-        let domain_info = self.xc.domain_getinfo(self.domid)?;
-        Ok((domain_info.max_vcpu_id + 1).try_into()?)
+        let domain_info = self
+            .xc
+            .domain_getinfo(self.domid)
+            .map_err(XenDriverError::from)?;
+        Ok((domain_info.max_vcpu_id + 1)
+            .try_into()
+            .map_err(XenDriverError::from)?)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        let hvm_cpu = self.xc.domain_hvm_getcontext_partial(self.domid, vcpu)?;
+        let hvm_cpu = self
+            .xc
+            .domain_hvm_getcontext_partial(self.domid, vcpu)
+            .map_err(XenDriverError::from)?;
         // TODO: hardcoded for x86 for now
         Ok(Registers::X86(X86Registers {
             rax: hvm_cpu.rax,
@@ -195,37 +234,37 @@ impl Introspectable for Xen {
             cs: SegmentReg {
                 base: hvm_cpu.cs_base,
                 limit: hvm_cpu.cs_limit,
-                selector: hvm_cpu.cs_sel.try_into().unwrap(),
+                selector: hvm_cpu.cs_sel.try_into().map_err(XenDriverError::from)?,
             },
             ds: SegmentReg {
                 base: hvm_cpu.ds_base,
                 limit: hvm_cpu.ds_limit,
-                selector: hvm_cpu.ds_sel.try_into().unwrap(),
+                selector: hvm_cpu.ds_sel.try_into().map_err(XenDriverError::from)?,
             },
             es: SegmentReg {
                 base: hvm_cpu.es_base,
                 limit: hvm_cpu.es_limit,
-                selector: hvm_cpu.es_sel.try_into().unwrap(),
+                selector: hvm_cpu.es_sel.try_into().map_err(XenDriverError::from)?,
             },
             fs: SegmentReg {
                 base: hvm_cpu.fs_base,
                 limit: hvm_cpu.fs_limit,
-                selector: hvm_cpu.fs_sel.try_into().unwrap(),
+                selector: hvm_cpu.fs_sel.try_into().map_err(XenDriverError::from)?,
             },
             gs: SegmentReg {
                 base: hvm_cpu.gs_base,
                 limit: hvm_cpu.gs_limit,
-                selector: hvm_cpu.gs_sel.try_into().unwrap(),
+                selector: hvm_cpu.gs_sel.try_into().map_err(XenDriverError::from)?,
             },
             ss: SegmentReg {
                 base: hvm_cpu.ss_base,
                 limit: hvm_cpu.ss_limit,
-                selector: hvm_cpu.ss_sel.try_into().unwrap(),
+                selector: hvm_cpu.ss_sel.try_into().map_err(XenDriverError::from)?,
             },
             tr: SegmentReg {
                 base: hvm_cpu.tr_base,
                 limit: hvm_cpu.tr_limit,
-                selector: hvm_cpu.tr_sel.try_into().unwrap(),
+                selector: hvm_cpu.tr_sel.try_into().map_err(XenDriverError::from)?,
             },
             idt: SystemTableReg {
                 base: hvm_cpu.idtr_base,
@@ -285,33 +324,69 @@ impl Introspectable for Xen {
                 cpu.gs_limit = x86_registers.gs.limit;
                 cpu.ss_limit = x86_registers.ss.limit;
                 cpu.tr_limit = x86_registers.tr.limit;
-                cpu.cs_sel = x86_registers.cs.selector.try_into().unwrap();
-                cpu.ds_sel = x86_registers.ds.selector.try_into().unwrap();
-                cpu.es_sel = x86_registers.es.selector.try_into().unwrap();
-                cpu.fs_sel = x86_registers.fs.selector.try_into().unwrap();
-                cpu.gs_sel = x86_registers.gs.selector.try_into().unwrap();
-                cpu.ss_sel = x86_registers.ss.selector.try_into().unwrap();
-                cpu.tr_sel = x86_registers.tr.selector.try_into().unwrap();
+                cpu.cs_sel = x86_registers
+                    .cs
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.ds_sel = x86_registers
+                    .ds
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.es_sel = x86_registers
+                    .es
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.fs_sel = x86_registers
+                    .fs
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.gs_sel = x86_registers
+                    .gs
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.ss_sel = x86_registers
+                    .ss
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
+                cpu.tr_sel = x86_registers
+                    .tr
+                    .selector
+                    .try_into()
+                    .map_err(XenDriverError::from)?;
             }
         }
-        self.xc
-            .domain_hvm_setcontext(self.domid, buffer, size.try_into().unwrap())?;
+        self.xc.domain_hvm_setcontext(
+            self.domid,
+            buffer,
+            size.try_into().map_err(XenDriverError::from)?,
+        )?;
         Ok(())
     }
 
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
-        let fd = self.xev.xenevtchn_fd()?;
+        let fd = self.xev.xenevtchn_fd().map_err(XenDriverError::from)?;
         let fd_struct = PollFd::new(fd, PollFlags::POLLIN | PollFlags::POLLERR);
         let mut fds = [fd_struct];
         let mut vcpu: u16 = 0;
         let mut event_type = unsafe { mem::MaybeUninit::<EventType>::zeroed().assume_init() };
-        let poll_result = poll(&mut fds, timeout.try_into().unwrap()).unwrap();
+        let poll_result = poll(&mut fds, timeout.try_into().map_err(XenDriverError::from)?)?;
         let mut pending_event_port = -1;
         if poll_result == 1 {
-            pending_event_port = self.xev.xenevtchn_pending()?;
+            pending_event_port = self.xev.xenevtchn_pending().map_err(XenDriverError::from)?;
             if pending_event_port != -1 {
                 self.xev
-                    .xenevtchn_unmask(pending_event_port.try_into().unwrap())?;
+                    .xenevtchn_unmask(
+                        pending_event_port
+                            .try_into()
+                            .map_err(XenDriverError::from)?,
+                    )
+                    .map_err(XenDriverError::from)?;
             }
         }
         let back_ring_ptr = &mut self.back_ring;
@@ -323,9 +398,12 @@ impl Introspectable for Xen {
             flag = true;
             let req = self.xc.get_request(back_ring_ptr)?;
             if req.version != VM_EVENT_INTERFACE_VERSION {
-                panic!("version mismatch");
+                return Err(Box::new(XenDriverError::EventVersionMismatch(
+                    req.version,
+                    VM_EVENT_INTERFACE_VERSION,
+                )));
             }
-            let xen_event_type = (self.xc.get_event_type(req)).unwrap();
+            let xen_event_type = (self.xc.get_event_type(req)).map_err(XenDriverError::from)?;
             event_type = match xen_event_type {
                 XenEventType::Cr { cr_type, new, old } => EventType::Cr {
                     cr_type: match cr_type {
@@ -342,16 +420,18 @@ impl Introspectable for Xen {
                 }
                 _ => unimplemented!(),
             };
-            vcpu = req.vcpu_id.try_into().unwrap();
+            vcpu = req.vcpu_id.try_into().map_err(XenDriverError::from)?;
             let mut rsp =
                 unsafe { mem::MaybeUninit::<vm_event_response_t>::zeroed().assume_init() };
             rsp.reason = req.reason;
             rsp.version = VM_EVENT_INTERFACE_VERSION;
             rsp.vcpu_id = req.vcpu_id;
             rsp.flags = req.flags & VM_EVENT_FLAG_VCPU_PAUSED;
-            self.xc.put_response(&mut rsp, &mut self.back_ring)?;
+            self.xc
+                .put_response(&mut rsp, &mut self.back_ring)
+                .map_err(XenDriverError::from)?;
         }
-        self.xev.xenevtchn_notify()?;
+        self.xev.xenevtchn_notify().map_err(XenDriverError::from)?;
         if flag {
             Ok(Some(Event {
                 vcpu,
@@ -377,28 +457,35 @@ impl Introspectable for Xen {
                 };
                 Ok(self
                     .xc
-                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)?)
+                    .monitor_write_ctrlreg(self.domid, xen_cr, enabled, true, true)
+                    .map_err(XenDriverError::from)?)
             }
-            InterceptType::Msr(micro_msr_type) => {
-                Ok(self
-                    .xc
-                    .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)?)
-            }
-            InterceptType::Breakpoint => {
-                Ok(self.xc.monitor_software_breakpoint(self.domid, enabled)?)
-            }
+            InterceptType::Msr(micro_msr_type) => Ok(self
+                .xc
+                .monitor_mov_to_msr(self.domid, micro_msr_type, enabled)
+                .map_err(XenDriverError::from)?),
+            InterceptType::Breakpoint => Ok(self
+                .xc
+                .monitor_software_breakpoint(self.domid, enabled)
+                .map_err(XenDriverError::from)?),
             _ => unimplemented!(),
         }
     }
 
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("pause");
-        Ok(self.xc.domain_pause(self.domid)?)
+        Ok(self
+            .xc
+            .domain_pause(self.domid)
+            .map_err(XenDriverError::from)?)
     }
 
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
-        Ok(self.xc.domain_unpause(self.domid)?)
+        Ok(self
+            .xc
+            .domain_unpause(self.domid)
+            .map_err(XenDriverError::from)?)
     }
 }
 
