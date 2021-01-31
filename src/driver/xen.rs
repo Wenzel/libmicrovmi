@@ -35,6 +35,8 @@ pub struct Xen {
 
 #[derive(thiserror::Error, Debug)]
 pub enum XenDriverError {
+    #[error("failed to read xenstore entry {0}: {1}")]
+    XenstoreReadError(String, IoError),
     #[error("event version mismatch: {0} <-> {1}")]
     EventVersionMismatch(u32, u32),
     #[error("failed to convert integer")]
@@ -58,13 +60,10 @@ impl Xen {
     ) -> Result<Self, Box<dyn Error>> {
         debug!("init on {}", domain_name);
         // find domain name in xenstore
-        let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
+        let xs = Xs::new(XsOpenFlags::ReadOnly)?;
         let mut found: bool = false;
         let mut cand_domid = 0;
-        for domid_str in xs
-            .directory(XBTransaction::Null, "/local/domain")
-            .expect("Failed to enumerate xenstore /local/domain directory")
-        {
+        for domid_str in xs.directory(XBTransaction::Null, "/local/domain")? {
             let name_path = format!("/local/domain/{}/name", domid_str);
             let candidate = match xs.read(XBTransaction::Null, &name_path) {
                 Ok(candidate) => candidate,
@@ -77,7 +76,9 @@ impl Xen {
                             continue;
                         }
                         _ => {
-                            panic!("Failed to read xenstore entry {}: {}", name_path, error);
+                            return Err(Box::new(XenDriverError::XenstoreReadError(
+                                name_path, error,
+                            )))
                         }
                     }
                 }
@@ -92,13 +93,11 @@ impl Xen {
             panic!("Cannot find domain {}", domain_name);
         }
 
-        let mut xc = XenControl::new(None, None, 0).unwrap();
-        let (_ring_page, back_ring, remote_port) = xc
-            .monitor_enable(cand_domid)
-            .expect("Failed to map event ring page");
-        let xev = XenEventChannel::new(cand_domid, remote_port).unwrap();
+        let mut xc = XenControl::new(None, None, 0)?;
+        let (_ring_page, back_ring, remote_port) = xc.monitor_enable(cand_domid)?;
+        let xev = XenEventChannel::new(cand_domid, remote_port)?;
 
-        let xen_fgn = XenForeignMem::new().unwrap();
+        let xen_fgn = XenForeignMem::new()?;
         let xen = Xen {
             xc,
             xev,
