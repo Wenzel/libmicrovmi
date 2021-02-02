@@ -144,7 +144,7 @@ impl Introspectable for Xen {
         Ok(())
     }
 
-    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
         let mut phys_address: u64;
         let mut offset: u64;
         let mut count_mut: u64 = buf.len() as u64;

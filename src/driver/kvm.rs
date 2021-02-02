@@ -151,7 +151,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(self.kvmi.read_physical(paddr, buf)?)
     }
 
-    fn write_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.kvmi.write_physical(paddr, buf)?)
     }
 
