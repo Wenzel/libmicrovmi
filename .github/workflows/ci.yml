@@ -222,6 +222,32 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --examples -- -D warnings
 
+  python:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+
+      - uses: actions/checkout@v1
+
+      - name: build Python extension
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: -p pymicrovmi
+
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy dummy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -p pymicrovmi -- -D warnings
+
+
   debian_package:
     # create a Debian package with cargo deb
     needs: [xen, kvm, virtualbox, hyper-v]
@@ -290,7 +316,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, hyper-v, c_api, examples]
+    needs: [format, xen, kvm, virtualbox, hyper-v, c_api, examples, python]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
