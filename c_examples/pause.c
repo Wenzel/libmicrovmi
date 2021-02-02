@@ -22,7 +22,7 @@ void pause_vm(void* driver, unsigned long sleep_duration) {
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        printf("Usage: regs-dump <vm_name> <sleep_seconds>.\n");
+        printf("Usage: pause <vm_name> <sleep_seconds>.\n");
         return 1;
     }
     unsigned long sleep_duration_sec = strtoul(argv[2], NULL, 0);
