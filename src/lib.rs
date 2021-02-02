@@ -6,7 +6,6 @@ pub mod api;
 pub mod capi;
 mod driver;
 pub mod errors;
-pub mod pyapi;
 
 #[macro_use]
 extern crate log;

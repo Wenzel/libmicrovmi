@@ -11,7 +11,6 @@ license = "GPL-3.0-only"
 keywords = ["introspection", "VMI"]
 
 [lib]
-name = "microvmi"
 crate-type = ["cdylib", "lib"]
 
 [features]
@@ -46,10 +45,6 @@ widestring = { version = "0.4", optional = true }
 ntapi = { version = "0.3", optional = true }
 vid-sys = { version = "=0.3.0", features = ["deprecated-apis"], optional = true }
 
-[dependencies.pyo3]
-version = "0.13.1"
-features = ["extension-module"]
-
 [dev-dependencies]
 ctrlc = "3.1"
 clap = "2.33"
@@ -74,4 +69,9 @@ priority = "optional"
 assets = [
     ["target/release/libmicrovmi.so", "usr/lib/libmicrovmi.so", "644"],
     ["target/release/capi/libmicrovmi.h", "usr/include/libmicrovmi.h", "644"],
+]
+
+[workspace]
+members = [
+    "python"
 ]

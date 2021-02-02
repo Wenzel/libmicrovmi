@@ -1,6 +1,5 @@
-use crate::init;
-
-use crate::api::Introspectable;
+use microvmi::api::Introspectable;
+use microvmi::init;
 use pyo3::prelude::*;
 
 /// microvmi Python module declaration
