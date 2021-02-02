@@ -201,7 +201,7 @@ pub trait Introspectable {
     /// * 'paddr' - the physical address to write into
     /// * 'buf' - the data to be written into memory
     ///
-    fn write_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 
