@@ -59,6 +59,7 @@ fn init_driver(
     driver_type: DriverType,
     _init_option: Option<DriverInitParam>,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
+    #[allow(clippy::match_single_binding)]
     match driver_type {
         #[cfg(feature = "hyper-v")]
         DriverType::HyperV => Ok(Box::new(HyperV::new(_domain_name, _init_option)?)),
