@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 /// microvmi Python module declaration
 #[pymodule]
-fn microvmi(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pymicrovmi(_py: Python, m: &PyModule) -> PyResult<()> {
     // init the env logger at module init
     env_logger::init();
 
