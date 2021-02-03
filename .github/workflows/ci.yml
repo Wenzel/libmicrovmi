@@ -452,3 +452,21 @@ jobs:
         shell: bash
         run: |
           cargo publish --features xen --token ${{ secrets.CRATES_TOKEN }}
+
+
+  publish_pypi:
+    needs: release
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Build Wheels with manylinux
+        run: docker run --rm -v `pwd`:/io quay.io/pypa/manylinux2014_x86_64 /io/python/build-wheels.sh
+
+      - name: Publish on PyPI 🚀
+        uses: pypa/gh-action-pypi-publish@v1.3.1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_ACCESS_TOKEN }}
+          packages_dir: python/dist
