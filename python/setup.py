@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
+
+from pathlib import Path
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
-with open("README.md", "r", encoding="utf-8") as fh:
+CUR_DIR = Path(__file__).resolve().parent
+
+with open(str(CUR_DIR / "README.md"), "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open("requirements.txt") as f:
+with open(str(CUR_DIR / "requirements.txt")) as f:
     requirements = f.read().splitlines()
 
 setup(
@@ -23,9 +27,9 @@ setup(
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
-    python_requires=">=3",
+    python_requires=">=3.6",
 )
