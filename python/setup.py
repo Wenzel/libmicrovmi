@@ -14,7 +14,7 @@ with open(str(CUR_DIR / "requirements.txt")) as f:
 
 setup(
     name="microvmi",
-    version="0.0.1",
+    version="0.0.2",
     author="Mathieu Tarral",
     author_email="mathieu.tarral@protonmail.com",
     description="Python bindings for libmicrovmi",
