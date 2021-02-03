@@ -469,4 +469,4 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_ACCESS_TOKEN }}
-          packages_dir: python/dist
+          packages_dir: python/dist/manylinux
