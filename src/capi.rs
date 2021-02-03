@@ -18,7 +18,7 @@ pub enum DriverInitParamFFI {
 /// This simply calls env_logger::init()
 /// Usually, it's the library consumer who should add this Rust crate dependency,
 /// however, with a C program, we provide this workaround where we provide an API to do just that.
-/// # Safety
+#[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_envlogger_init() {
     env_logger::init();
@@ -28,8 +28,10 @@ pub unsafe extern "C" fn microvmi_envlogger_init() {
 /// Initializes a specific driver, or all drivers compiled and returns the first one that succeeded
 ///
 /// In case of error, init_error will be allocated with the underlying error message.
-/// The init_error pointer should be freed with rs_cstring_free()
+///
 /// # Safety
+///
+/// The init_error pointer should be freed with rs_cstring_free()
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_init(
     domain_name: *const c_char,
