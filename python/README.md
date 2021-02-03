@@ -41,3 +41,12 @@ from microvmi import Microvmi, DriverType, DriverInitParam
 init_param = DriverInitParam.kvmi_unix_socket("/tmp/introspector")
 micro = Microvmi("Windows10", DriverType.KVM, init_param)
 ~~~
+
+## Developer
+
+To generate the wheels
+
+~~~shell
+cd ..   # go back to project root
+docker run --rm -v `pwd`:/io quay.io/pypa/manylinux2014_x86_64 /io/python/build-wheels.sh
+~~~
