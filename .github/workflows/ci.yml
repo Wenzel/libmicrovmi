@@ -232,6 +232,11 @@ jobs:
           toolchain: stable
           components: clippy
 
+      - name: Set up Python 3.7 🐍
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.7'
+
       - uses: actions/checkout@v1
 
       - name: build Python extension
@@ -243,10 +248,18 @@ jobs:
       - name: annotate commit with clippy warnings
         uses: actions-rs/clippy-check@v1
         with:
-          name: clippy dummy
+          name: clippy python
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -p pymicrovmi -- -D warnings
 
+      - name: install Python package
+        run: |
+          python -m pip install -r requirements.txt
+          ./setup.py install
+        working-directory: python
+
+      - name: smoke test
+        run: python3 -c 'from microvmi import Microvmi, DriverType, DriverInitParam'
 
   debian_package:
     # create a Debian package with cargo deb
