@@ -1,28 +1,13 @@
+mod errors;
+
 use log::{debug, info};
-use microvmi::api as rapi; // rust api
-use microvmi::errors::MicrovmiError;
-use microvmi::init;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::PyErr;
-use std::convert::From;
 
-// create a NewType for MicrovmiError, since we cannot implement
-// From trait on external types
-#[derive(thiserror::Error, Debug)]
-pub enum PyMicrovmiError {
-    #[error("{source}")]
-    Microvmi {
-        #[from]
-        source: MicrovmiError,
-    },
-}
-
-impl From<PyMicrovmiError> for PyErr {
-    fn from(err: PyMicrovmiError) -> PyErr {
-        PyErr::new::<PyValueError, String>(err.to_string())
-    }
-}
+use errors::PyMicrovmiError;
+use microvmi::api as rapi; // rust api
+use microvmi::init;
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -89,7 +74,7 @@ impl DriverInitParam {
 // compatible
 #[pyclass(unsendable)]
 struct Microvmi {
-    _driver: Box<dyn rapi::Introspectable>,
+    driver: Box<dyn rapi::Introspectable>,
 }
 
 #[pymethods]
@@ -141,8 +126,17 @@ impl Microvmi {
         } else {
             None
         };
-        let _driver =
+        let driver =
             init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
-        Ok(Microvmi { _driver })
+        Ok(Microvmi { driver })
+    }
+
+    /// read physical memory starting from paddr, of a given size
+    fn read_physical(&self, paddr: u64, size: usize) -> PyResult<Vec<u8>> {
+        let mut buffer = vec![0; size];
+        self.driver
+            .read_physical(paddr, &mut buffer)
+            .map_err(PyMicrovmiError::from)?;
+        Ok(buffer)
     }
 }
