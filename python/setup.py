@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+
+import toml
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
+
 CUR_DIR = Path(__file__).resolve().parent
 
-with open(str(CUR_DIR / "README.md"), "r", encoding="utf-8") as fh:
+# python package version is taken from Cargo.toml to avoid duplication
+with open(str(CUR_DIR / "Cargo.toml"), "r", encoding="utf-8") as f:
+    cargo = f.read()
+    cargo_toml = toml.loads(cargo)
+
+with open(str(CUR_DIR / cargo_toml['package']['readme']), "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 with open(str(CUR_DIR / "requirements.txt")) as f:
@@ -14,10 +22,10 @@ with open(str(CUR_DIR / "requirements.txt")) as f:
 
 setup(
     name="microvmi",
-    version="0.0.2",
+    version=cargo_toml['package']['version'],
     author="Mathieu Tarral",
     author_email="mathieu.tarral@protonmail.com",
-    description="Python bindings for libmicrovmi",
+    description=cargo_toml['package']['description'],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Wenzel/libmicrovmi",

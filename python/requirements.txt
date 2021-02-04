@@ -1,3 +1,4 @@
 setuptools-rust
 setuptools
 wheel
+toml==0.10.2
