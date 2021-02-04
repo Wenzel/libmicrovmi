@@ -19,6 +19,7 @@ crate-type = ["cdylib"]
 [dependencies]
 log = "0.4.8"
 env_logger = "0.8"
+thiserror = "1.0"
 microvmi = { path = "../" }
 
 [dependencies.pyo3]

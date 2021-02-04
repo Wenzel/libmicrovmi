@@ -1,8 +1,28 @@
 use log::{debug, info};
 use microvmi::api as rapi; // rust api
+use microvmi::errors::MicrovmiError;
 use microvmi::init;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::PyErr;
+use std::convert::From;
+
+// create a NewType for MicrovmiError, since we cannot implement
+// From trait on external types
+#[derive(thiserror::Error, Debug)]
+pub enum PyMicrovmiError {
+    #[error("{source}")]
+    Microvmi {
+        #[from]
+        source: MicrovmiError,
+    },
+}
+
+impl From<PyMicrovmiError> for PyErr {
+    fn from(err: PyMicrovmiError) -> PyErr {
+        PyErr::new::<PyValueError, String>(err.to_string())
+    }
+}
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -121,7 +141,8 @@ impl Microvmi {
         } else {
             None
         };
-        let _driver = init(domain_name, rust_driver_type, rust_init_param);
+        let _driver =
+            init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
         Ok(Microvmi { _driver })
     }
 }
