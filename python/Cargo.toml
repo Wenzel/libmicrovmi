@@ -16,6 +16,16 @@ keywords = ["introspection", "VMI"]
 name = "pymicrovmi"
 crate-type = ["cdylib"]
 
+[features]
+# Xen driver
+xen = ["microvmi/xen"]
+# KVM driver
+kvm = ["microvmi/kvm"]
+# VirtualBox driver
+virtualbox = ["microvmi/virtualbox"]
+# Hyper-v driver
+hyper-v = ["microvmi/hyper-v"]
+
 [dependencies]
 log = "0.4.8"
 env_logger = "0.8"
