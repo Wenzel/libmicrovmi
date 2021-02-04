@@ -461,8 +461,12 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      - name: Build our manylinux Docker container
+        run: docker build -t manylinux2014_microvmi .
+        working-directory: python
+
       - name: Build Wheels with manylinux
-        run: docker run --rm -v `pwd`:/io quay.io/pypa/manylinux2014_x86_64 /io/python/build-wheels.sh
+        run: docker run --rm -v `pwd`:/io manylinux2014_microvmi /io/python/build-wheels.sh
 
       - name: Publish on PyPI 🚀
         uses: pypa/gh-action-pypi-publish@v1.3.1
