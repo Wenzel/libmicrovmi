@@ -1,3 +1,4 @@
+use log::{debug, info};
 use microvmi::api as rapi; // rust api
 use microvmi::init;
 use pyo3::exceptions::PyValueError;
@@ -44,7 +45,7 @@ enum DriverInitParamType {
 // initialized instance of DriverInitParam struct
 /// Manages additional driver initialization parameters
 #[pyclass]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct DriverInitParam {
     pub param_type: DriverInitParamType,
     pub param_data_string: String,
@@ -83,7 +84,12 @@ impl Microvmi {
         driver_type: Option<u32>,
         init_param: Option<DriverInitParam>,
     ) -> PyResult<Self> {
+        info!("Microvmi Python init");
         // convert Python DriverType to rust API DriverType
+        debug!(
+            "Microvmi Python init driver_type: {:?}, init_param: {:?}",
+            driver_type, init_param
+        );
         let rust_driver_type: Option<rapi::DriverType> = if let Some(drv_type) = driver_type {
             Some(match drv_type {
                 DriverType::HYPERV => Ok(rapi::DriverType::HyperV),
