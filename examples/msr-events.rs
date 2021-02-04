@@ -95,7 +95,8 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
+    let mut drv: Box<dyn Introspectable> =
+        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
     toggle_msr_intercepts(&mut drv, &registers, true);
 

@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::error::Error;
 use std::ffi::CString;
 use std::iter::Iterator;
 use std::mem;
@@ -159,7 +160,10 @@ pub struct HyperV {
 }
 
 impl HyperV {
-    pub fn new(domain_name: &str, _init_option: Option<DriverInitParam>) -> Self {
+    pub fn new(
+        domain_name: &str,
+        _init_option: Option<DriverInitParam>,
+    ) -> Result<Self, Box<dyn Error>> {
         debug!("HyperV driver init on {}", domain_name);
 
         Self::enable_se_debug_privilege();
@@ -208,11 +212,11 @@ impl HyperV {
                         info!("[{}] Partition HANDLE: {:p}", pid, duplicated_handle);
                         info!("[{}] Partition ID: {}", pid, partition_id);
 
-                        return HyperV {
+                        return Ok(HyperV {
                             pid,
                             partition: duplicated_handle,
                             partition_id,
-                        };
+                        });
                     }
                 }
             }

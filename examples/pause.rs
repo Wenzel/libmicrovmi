@@ -38,7 +38,8 @@ fn main() {
     let init_option = matches
         .value_of("kvmi_socket")
         .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-    let mut drv: Box<dyn Introspectable> = microvmi::init(domain_name, None, init_option);
+    let mut drv: Box<dyn Introspectable> =
+        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
     println!("pausing VM for {} seconds", timeout);
     drv.pause().expect("Failed to pause VM");
