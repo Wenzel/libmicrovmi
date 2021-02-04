@@ -3,6 +3,24 @@ FROM quay.io/pypa/manylinux2014_x86_64
 # install clang
 RUN yum -y install clang
 
+# Xen
+# Note: the first sed disables a compiler flag that would be treated as an error
+# the second sed disabled the compilation of qemu, which is very long and also
+# had errors, and we don't need it anyway
+RUN git clone -b RELEASE-4.11.0 --depth 1 https://github.com/xen-project/xen \
+        && cd xen \
+        && yum install -y dev86 xz-devel python-devel gettext-devel iasl \
+                ncurses-devel pixman-devel wget yajl-devel zlib-devel \
+                glibc-devel.i686 \
+        && ./configure --disable-xen --disable-docs --disable-stubdom \
+                --enable-tools --disable-rombios \
+        && sed -i '/$(call cc-option-add,CFLAGS,CC,-Wno-unused-local-typedefs)/a $(call cc-option-add,CFLAGS,CC,-Wno-address-of-packed-member)' Config.mk \
+        && sed -i 28,32d tools/Makefile \
+        && make -j4 dist-tools \
+        && make install-tools \
+        && cd .. \
+        && rm -rf xen
+
 # libkvmi v6
 RUN git clone -b kvmi-v6 https://github.com/bitdefender/libkvmi.git \
     && cd libkvmi \
