@@ -466,7 +466,7 @@ jobs:
         working-directory: python
 
       - name: Build Wheels with manylinux
-        run: docker run --rm -v `pwd`:/io manylinux2014_microvmi /io/python/build-wheels.sh --features kvm,virtualbox
+        run: docker run --rm -v `pwd`:/io manylinux2014_microvmi /io/python/build-wheels.sh --features xen,kvm,virtualbox
 
       - name: Publish on PyPI 🚀
         uses: pypa/gh-action-pypi-publish@v1.3.1
