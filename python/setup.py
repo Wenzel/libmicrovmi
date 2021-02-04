@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 from pathlib import Path
 
 import toml
@@ -8,6 +9,21 @@ from setuptools_rust import Binding, RustExtension
 
 
 CUR_DIR = Path(__file__).resolve().parent
+
+# check for --features
+features = []
+if "--features" in sys.argv:
+    index = sys.argv.index("--features")
+    # remove --features
+    sys.argv.pop(index)
+    # remove and retieve --features arg
+    try:
+        features_str = sys.argv.pop(index)
+    except IndexError:
+        print("invalid --features argument")
+        sys.exit(1)
+    else:
+        features = features_str.split(',')
 
 # python package version is taken from Cargo.toml to avoid duplication
 with open(str(CUR_DIR / "Cargo.toml"), "r", encoding="utf-8") as f:
@@ -30,7 +46,8 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Wenzel/libmicrovmi",
     install_requires=requirements,
-    rust_extensions=[RustExtension("microvmi.pymicrovmi", binding=Binding.PyO3)],
+    rust_extensions=[RustExtension("microvmi.pymicrovmi", binding=Binding.PyO3,
+                                   features=features)],
     packages=["microvmi"],
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
