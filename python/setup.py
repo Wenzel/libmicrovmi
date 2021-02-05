@@ -11,9 +11,11 @@ from setuptools_rust import Binding, RustExtension
 CUR_DIR = Path(__file__).resolve().parent
 
 # check for --features
-features = []
-if "--features" in sys.argv:
+try:
     index = sys.argv.index("--features")
+except ValueError:
+    features = []
+else:
     # remove --features
     sys.argv.pop(index)
     # remove and retieve --features arg
@@ -23,14 +25,24 @@ if "--features" in sys.argv:
         print("invalid --features argument")
         sys.exit(1)
     else:
-        features = features_str.split(',')
+        features = features_str.split(",")
+
+# check for --release
+debug = False
+try:
+    index = sys.argv.index("--release")
+except ValueError:
+    debug = True
+else:
+    debug = False
+    sys.argv.pop(index)
 
 # python package version is taken from Cargo.toml to avoid duplication
 with open(str(CUR_DIR / "Cargo.toml"), "r", encoding="utf-8") as f:
     cargo = f.read()
     cargo_toml = toml.loads(cargo)
 
-with open(str(CUR_DIR / cargo_toml['package']['readme']), "r", encoding="utf-8") as fh:
+with open(str(CUR_DIR / cargo_toml["package"]["readme"]), "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 with open(str(CUR_DIR / "requirements.txt")) as f:
@@ -38,16 +50,19 @@ with open(str(CUR_DIR / "requirements.txt")) as f:
 
 setup(
     name="microvmi",
-    version=cargo_toml['package']['version'],
+    version=cargo_toml["package"]["version"],
     author="Mathieu Tarral",
     author_email="mathieu.tarral@protonmail.com",
-    description=cargo_toml['package']['description'],
+    description=cargo_toml["package"]["description"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Wenzel/libmicrovmi",
     install_requires=requirements,
-    rust_extensions=[RustExtension("microvmi.pymicrovmi", binding=Binding.PyO3,
-                                   features=features)],
+    rust_extensions=[
+        RustExtension(
+            "microvmi.pymicrovmi", binding=Binding.PyO3, features=features, debug=debug
+        )
+    ],
     packages=["microvmi"],
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
