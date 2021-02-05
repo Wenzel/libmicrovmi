@@ -153,4 +153,14 @@ impl Microvmi {
             .map_err(PyMicrovmiError::from)?;
         Ok(buffer)
     }
+
+    /// pause the VM
+    fn pause(&mut self) -> PyResult<()> {
+        Ok(self.driver.pause().map_err(PyMicrovmiError::from)?)
+    }
+
+    /// resume the VM
+    fn resume(&mut self) -> PyResult<()> {
+        Ok(self.driver.resume().map_err(PyMicrovmiError::from)?)
+    }
 }
