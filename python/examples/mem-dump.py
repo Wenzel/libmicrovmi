@@ -54,8 +54,7 @@ def dump_mem(vm_name, output_file):
                     except ValueError:
                         continue
                     else:
-                        bin_buffer = bytearray(buffer)
-                        f.write(bin_buffer)
+                        f.write(buffer)
                     finally:
                         progress.update(dump_task, advance=READ_SIZE)
 
