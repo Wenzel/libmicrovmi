@@ -169,7 +169,10 @@ impl Microvmi {
     /// Returns:
     ///     int: the maximum physical address
     fn get_max_physical_addr(&self) -> PyResult<u64> {
-        let max_addr = self.driver.get_max_physical_addr().map_err(PyMicrovmiError::from)?;
+        let max_addr = self
+            .driver
+            .get_max_physical_addr()
+            .map_err(PyMicrovmiError::from)?;
         Ok(max_addr)
     }
 }
