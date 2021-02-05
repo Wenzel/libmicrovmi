@@ -79,9 +79,16 @@ struct Microvmi {
 
 #[pymethods]
 impl Microvmi {
-    // TODO: pass driver type and driver parameters
     // enums are not available in PyO3 (yet)
+    // TODO: docstring is not exposed in Python (bug ?)
     /// initializes libmicrovmi from the specified domain name
+    /// if driver_type is None, every driver compiled in libmicrovmi will be tested,
+    /// and the first one that succeeds will be returned, or an error
+    ///
+    /// Args:
+    ///     domain_name (str): the domain name
+    ///     driver_type (int, optional): the hypervisor driver type on which the library should be initialized.
+    ///     init_param (DriverInitParam, optional): additional initialization parameters for driver initialization
     #[new]
     #[args(domain_name, driver_type = "None", init_param = "None")]
     fn new(
@@ -132,6 +139,13 @@ impl Microvmi {
     }
 
     /// read physical memory starting from paddr, of a given size
+    ///
+    /// Args:
+    ///     paddr: (int) physical address from where the read operation should start
+    ///     size: (int) size of the read operation
+    ///
+    /// Returns:
+    ///     List[int]: the read operation result
     fn read_physical(&self, paddr: u64, size: usize) -> PyResult<Vec<u8>> {
         let mut buffer = vec![0; size];
         self.driver
