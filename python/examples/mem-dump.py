@@ -34,7 +34,7 @@ def dump_mem(vm_name, output_file):
     micro = Microvmi(vm_name)
     destination = output_file.format(vm_name=vm_name)
     with pause_ctxt(micro):
-        max_addr = micro.get_max_physical_addr()
+        max_addr = micro.max_addr
         print(
             f"Dumping physical memory on {vm_name} until 0x{max_addr:X} to {destination}"
         )
