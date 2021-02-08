@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use errors::PyMicrovmiError;
 use microvmi::api as rapi; // rust api
 use microvmi::init;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyByteArray, PyBytes};
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -156,6 +156,19 @@ impl MicrovmiExt {
         })?;
 
         Ok(pybuffer)
+    }
+
+    /// read VM physical memory starting from paddr into the given buffer
+    ///
+    /// Args:
+    ///     paddr (int): the physical address to start reading from
+    ///     buffer (bytearray): the buffer to read into
+    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> PyResult<()> {
+        let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
+        self.driver
+            .read_physical(paddr, mut_buf)
+            .map_err(PyMicrovmiError::from)?;
+        Ok(())
     }
 
     /// pause the VM
