@@ -16,7 +16,7 @@ fn pymicrovmi(_py: Python, m: &PyModule) -> PyResult<()> {
     // init the env logger at module init
     env_logger::init();
 
-    m.add_class::<Microvmi>()?;
+    m.add_class::<MicrovmiExt>()?;
     m.add_class::<DriverType>()?;
     m.add_class::<DriverInitParam>()?;
 
@@ -74,12 +74,12 @@ impl DriverInitParam {
 // TODO: make Introspectable trait inherit Send trait, and make the drivers implementation
 // compatible
 #[pyclass(unsendable)]
-struct Microvmi {
+struct MicrovmiExt {
     driver: Box<dyn rapi::Introspectable>,
 }
 
 #[pymethods]
-impl Microvmi {
+impl MicrovmiExt {
     // enums are not available in PyO3 (yet)
     // TODO: docstring is not exposed in Python (bug ?)
     /// initializes libmicrovmi from the specified domain name
@@ -136,7 +136,7 @@ impl Microvmi {
         };
         let driver =
             init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
-        Ok(Microvmi { driver })
+        Ok(MicrovmiExt { driver })
     }
 
     /// read VM physical memory starting from paddr, of a given size
