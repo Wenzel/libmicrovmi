@@ -41,6 +41,8 @@ else:
 with open(str(CUR_DIR / "Cargo.toml"), "r", encoding="utf-8") as f:
     cargo = f.read()
     cargo_toml = toml.loads(cargo)
+    author = cargo_toml["package"]["authors"][0].split("<")[0].strip()
+    author_email = cargo_toml["package"]["authors"][0].split("<")[1][:-1].strip()
 
 with open(str(CUR_DIR / cargo_toml["package"]["readme"]), "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -51,8 +53,8 @@ with open(str(CUR_DIR / "requirements.txt")) as f:
 setup(
     name="microvmi",
     version=cargo_toml["package"]["version"],
-    author="Mathieu Tarral",
-    author_email="mathieu.tarral@protonmail.com",
+    author=author,
+    author_email=author_email,
     description=cargo_toml["package"]["description"],
     long_description=long_description,
     long_description_content_type="text/markdown",
