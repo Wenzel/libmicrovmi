@@ -41,12 +41,12 @@ def dump_mem(vm_name, output_file):
         with open(destination, "wb") as f:
             with Progress(
                 "[progress.description]{task.description}",
-                BarColumn(bar_width=None),
                 TextColumn("[bold yellow]0x{task.completed:X}"),
+                BarColumn(bar_width=None),
                 "[progress.percentage]{task.percentage:>3.0f}%",
                 transient=True,
             ) as progress:
-                dump_task = progress.add_task("Dumping ...", total=max_addr)
+                dump_task = progress.add_task("Dumping ", total=max_addr)
                 for addr in range(0, max_addr, READ_SIZE):
                     logging.debug("dumping at 0x%x", addr)
                     try:
