@@ -52,10 +52,10 @@ def dump_mem(vm_name, output_file):
                     try:
                         buffer = micro.read_physical(addr, READ_SIZE)
                     except ValueError:
-                        continue
-                    else:
-                        f.write(buffer)
+                        # write 0 page
+                        buffer = bytes(READ_SIZE)
                     finally:
+                        f.write(buffer)
                         progress.update(dump_task, advance=READ_SIZE)
 
 
