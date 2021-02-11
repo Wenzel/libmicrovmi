@@ -132,11 +132,12 @@ impl Introspectable for Xen {
             let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
             } else {
-                buf.len() as u64
+                count_mut
             };
 
             // do the read
-            buf[buf_offset as usize..].copy_from_slice(&page[..read_len as usize]);
+            let buf_offset_end = (buf_offset + read_len) as usize;
+            buf[buf_offset as usize..buf_offset_end].copy_from_slice(&page[..read_len as usize]);
             // update loop variables
             count_mut -= read_len;
             buf_offset += read_len;
