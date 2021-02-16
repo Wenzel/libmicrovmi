@@ -25,7 +25,10 @@ class PhysicalMemoryIO(RawIOBase):
         if size < 0:
             # -1: read all bytes until EOF
             raise NotImplementedError
-        return self._m.read_physical(self._cur_pos, size)
+        data = bytearray(size)
+        bytes_read = self._m.read_physical_into(self._cur_pos, data)
+        self._log.debug("read return: len: %s, content: %s", len(data), data[:100])
+        return bytes(data[:bytes_read])
 
     def readinto(self, buffer: bytearray) -> Optional[int]:
         self._m.read_physical_into(self._cur_pos, buffer)

@@ -146,16 +146,22 @@ impl MicrovmiExt {
     ///     size: (int) size of the read operation
     ///
     /// Returns:
-    ///     bytes: the read operation result
-    fn read_physical<'p>(&self, py: Python<'p>, paddr: u64, size: usize) -> PyResult<&'p PyBytes> {
+    ///     Tuple[bytes, int]: the read operation result and the amount bytes read
+    fn read_physical<'p>(
+        &self,
+        py: Python<'p>,
+        paddr: u64,
+        size: usize,
+    ) -> PyResult<(&'p PyBytes, u64)> {
+        let mut bytes_read: u64 = 0;
         let pybuffer: &PyBytes = PyBytes::new_with(py, size, |mut buffer| {
             self.driver
-                .read_physical(paddr, &mut buffer)
-                .map_err(PyMicrovmiError::from)?;
+                .read_physical(paddr, &mut buffer, &mut bytes_read)
+                .ok();
             Ok(())
         })?;
 
-        Ok(pybuffer)
+        Ok((pybuffer, bytes_read))
     }
 
     /// read VM physical memory starting from paddr into the given buffer
@@ -163,12 +169,14 @@ impl MicrovmiExt {
     /// Args:
     ///     paddr (int): the physical address to start reading from
     ///     buffer (bytearray): the buffer to read into
-    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> PyResult<()> {
+    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> PyResult<u64> {
         let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
+        let mut bytes_read: u64 = 0;
+        // ignore read error
         self.driver
-            .read_physical(paddr, mut_buf)
-            .map_err(PyMicrovmiError::from)?;
-        Ok(())
+            .read_physical(paddr, mut_buf, &mut bytes_read)
+            .ok();
+        Ok(bytes_read)
     }
 
     /// pause the VM
