@@ -95,10 +95,20 @@ pub unsafe extern "C" fn microvmi_read_physical(
     physical_address: uint64_t,
     buffer: *mut uint8_t,
     size: size_t,
+    bytes_read: *mut uint64_t,
 ) -> bool {
     let driver = get_driver_mut_ptr(context);
+    let bytes_read_ok = if bytes_read.as_mut().is_none() {
+        return false;
+    } else {
+        bytes_read.as_mut().unwrap()
+    };
     (*driver)
-        .read_physical(physical_address, slice::from_raw_parts_mut(buffer, size))
+        .read_physical(
+            physical_address,
+            slice::from_raw_parts_mut(buffer, size),
+            bytes_read_ok,
+        )
         .is_ok()
 }
 

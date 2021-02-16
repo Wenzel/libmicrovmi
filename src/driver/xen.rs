@@ -112,10 +112,16 @@ impl Xen {
 }
 
 impl Introspectable for Xen {
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn read_physical(
+        &self,
+        paddr: u64,
+        buf: &mut [u8],
+        bytes_read: &mut u64,
+    ) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
         let mut count_mut: u64 = buf.len() as u64;
         let mut buf_offset: u64 = 0;
+        *bytes_read = 0;
         while count_mut > 0 {
             // compute new paddr
             cur_paddr = paddr + buf_offset;
@@ -140,6 +146,7 @@ impl Introspectable for Xen {
             // update loop variables
             count_mut -= read_len;
             buf_offset += read_len;
+            *bytes_read += read_len;
             // unmap page
             self.xen_fgn.unmap(page).map_err(XenDriverError::from)?;
         }
