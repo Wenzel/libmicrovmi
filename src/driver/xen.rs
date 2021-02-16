@@ -114,15 +114,14 @@ impl Xen {
 impl Introspectable for Xen {
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
-        let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
         let mut buf_offset: u64 = 0;
         while count_mut > 0 {
             // compute new paddr
-            cur_paddr = paddr + offset;
+            cur_paddr = paddr + buf_offset;
             // get the current gfn
             let gfn = cur_paddr >> PAGE_SHIFT;
-            offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
+            let offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
             let page = self
                 .xen_fgn
