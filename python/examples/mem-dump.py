@@ -49,14 +49,13 @@ def dump_mem(vm_name, output_file):
                 dump_task = progress.add_task("Dumping ", total=max_addr)
                 for addr in range(0, max_addr, READ_SIZE):
                     logging.debug("dumping at 0x%x", addr)
-                    try:
-                        buffer = micro.read_physical(addr, READ_SIZE)
-                    except ValueError:
-                        # write 0 page
-                        buffer = bytes(READ_SIZE)
-                    finally:
-                        f.write(buffer)
-                        progress.update(dump_task, advance=READ_SIZE)
+                    buffer = bytearray(READ_SIZE)
+                    bytes_read = micro.read_physical_into(addr, buffer)
+                    f.write(buffer[:bytes_read])
+                    if bytes_read != READ_SIZE:
+                        pad = bytes(READ_SIZE - bytes_read)
+                        f.write(pad)
+                    progress.update(dump_task, advance=READ_SIZE)
 
 
 def main():
