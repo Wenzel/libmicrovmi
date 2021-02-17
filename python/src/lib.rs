@@ -169,14 +169,14 @@ impl MicrovmiExt {
     /// Args:
     ///     paddr (int): the physical address to start reading from
     ///     buffer (bytearray): the buffer to read into
-    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> PyResult<u64> {
+    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> u64 {
         let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
         let mut bytes_read: u64 = 0;
         // ignore read error
         self.driver
             .read_physical(paddr, mut_buf, &mut bytes_read)
             .ok();
-        Ok(bytes_read)
+        bytes_read
     }
 
     /// pause the VM

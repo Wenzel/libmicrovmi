@@ -62,6 +62,18 @@ class Microvmi:
         """
         return self._micro.read_physical(paddr, size)
 
+    def read_physical_into(self, paddr: int, buffer: bytearray) -> int:
+        """Read the buffer size of physical memory at paddr
+
+        Args:
+            paddr (int): the physical address to start reading from
+            buffer (bytearray): the buffer to read into
+
+        Return
+            int: the amount of bytes read
+        """
+        return self._micro.read_physical_into(paddr, buffer)
+
     def pause(self):
         """Pause the VM"""
         self._micro.pause()
