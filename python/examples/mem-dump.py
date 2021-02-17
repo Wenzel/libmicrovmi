@@ -8,7 +8,7 @@ from microvmi import Microvmi
 from rich.progress import Progress, BarColumn, TextColumn
 from rich import print
 
-READ_SIZE = 4096
+READ_SIZE = 1024 * 1024
 
 
 @contextmanager
