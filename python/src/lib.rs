@@ -103,8 +103,8 @@ impl MicrovmiExt {
             "Microvmi Python init driver_type: {:?}, init_param: {:?}",
             driver_type, init_param
         );
-        let rust_driver_type: Option<rapi::DriverType> = if let Some(drv_type) = driver_type {
-            Some(match drv_type {
+        let rust_driver_type = driver_type
+            .map(|drv_type| match drv_type {
                 DriverType::HYPERV => Ok(rapi::DriverType::HyperV),
                 DriverType::KVM => Ok(rapi::DriverType::KVM),
                 DriverType::VIRTUALBOX => Ok(rapi::DriverType::VirtualBox),
@@ -113,27 +113,15 @@ impl MicrovmiExt {
                     "Invalid value for DriverType: {}",
                     drv_type
                 ))),
-            }?)
-        } else {
-            None
-        };
+            })
+            .transpose()?;
         // convert Python DriverInitParam to rust API DriverinitParam
-        let rust_init_param: Option<rapi::DriverInitParam> = if let Some(param) = init_param {
-            Some(
-                #[allow(unreachable_patterns)]
-                match param.param_type {
-                    DriverInitParamType::KVMiUnixSocket => {
-                        Ok(rapi::DriverInitParam::KVMiSocket(param.param_data_string))
-                    }
-                    _ => Err(PyValueError::new_err(format!(
-                        "Invalid value for DriverInitParam type: {:?}",
-                        param.param_type
-                    ))),
-                }?,
-            )
-        } else {
-            None
-        };
+        let rust_init_param: Option<rapi::DriverInitParam> =
+            init_param.map(|param| match param.param_type {
+                DriverInitParamType::KVMiUnixSocket => {
+                    rapi::DriverInitParam::KVMiSocket(param.param_data_string)
+                }
+            });
         let driver =
             init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
         Ok(MicrovmiExt { driver })
