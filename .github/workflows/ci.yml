@@ -206,6 +206,25 @@ jobs:
           cd c_examples
           make
 
+  examples:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+
+      - uses: actions/checkout@v1
+
+      - name: build examples with clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy examples
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --examples -- -D warnings
+
   debian_package:
     # create a Debian package with cargo deb
     needs: [xen, kvm, virtualbox, hyper-v]
@@ -244,7 +263,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, hyper-v, c_api]
+    needs: [format, xen, kvm, virtualbox, hyper-v, c_api, examples]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
