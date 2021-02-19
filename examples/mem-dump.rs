@@ -3,7 +3,6 @@ use std::io::Write;
 use std::path::Path;
 
 use clap::{App, Arg, ArgMatches};
-use env_logger;
 
 use microvmi::api::{DriverInitParam, Introspectable};
 

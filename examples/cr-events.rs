@@ -4,7 +4,6 @@ use std::time::Instant;
 
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use env_logger;
 
 use microvmi::api::{CrType, DriverInitParam, EventType, InterceptType, Introspectable};
 
@@ -33,7 +32,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &Vec<CrType>, enabled: bool) {
+fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &[CrType], enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
     for cr in vec_cr {
@@ -43,7 +42,7 @@ fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &Vec<CrType>,
         //for vcpu in 0..drv.get_vcpu_count().unwrap() {
         let vcpu = 0;
         drv.toggle_intercept(vcpu, intercept, enabled)
-            .expect(&format!("Failed to enable {:?}", cr));
+            .unwrap_or_else(|_| panic!("Failed to enable {:?}", cr));
         //}
     }
 
@@ -122,7 +121,7 @@ fn main() {
                 );
                 // drv.reply_event(ev, EventReplyType::Continue)
                 //   .expect("Failed to send event reply");
-                i = i + 1;
+                i += 1;
             }
             None => println!("No events yet..."),
         }
