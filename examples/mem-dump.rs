@@ -24,6 +24,12 @@ fn parse_args() -> ArgMatches<'static> {
                 "pass additional KVMi socket initialization parameter required for the KVM driver",
             ),
         )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .takes_value(true)
+                .help("Output path"),
+        )
         .get_matches()
 }
 
@@ -33,9 +39,13 @@ fn main() {
     let matches = parse_args();
     let domain_name = matches.value_of("vm_name").unwrap();
 
-    let dump_name = format!("{}.dump", domain_name);
-    let dump_path = Path::new(&dump_name);
-    let mut dump_file = File::create(dump_path).expect("Fail to open dump file");
+    let dump_path = Path::new(
+        matches
+            .value_of("output")
+            .map_or(&*format!("{}.dump", domain_name), |s| s),
+    )
+    .to_path_buf();
+    let mut dump_file = File::create(&dump_path).expect("Fail to open dump file");
     dump_path.canonicalize().unwrap();
 
     let init_option = matches
