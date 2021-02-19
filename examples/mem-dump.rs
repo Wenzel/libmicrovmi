@@ -3,6 +3,8 @@ use std::io::Write;
 use std::path::Path;
 
 use clap::{App, Arg, ArgMatches};
+use indicatif::{ProgressBar, ProgressStyle};
+use log::{debug, trace};
 
 use microvmi::api::{DriverInitParam, Introspectable};
 
@@ -44,20 +46,25 @@ fn main() {
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");
 
-    let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
     let max_addr = drv.get_max_physical_addr().unwrap();
-    println!("Max address @{:x}", max_addr);
-    println!("Dumping physical memory to {}", dump_path.display());
+    println!(
+        "Dumping physical memory to {} until {:#X}",
+        dump_path.display(),
+        max_addr
+    );
     for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
-        let result = drv.read_physical(cur_addr, &mut buffer);
-        match result {
-            Ok(()) => {
-                dump_file
-                    .write_all(&buffer)
-                    .expect("failed to write to file");
-            }
-            Err(_error) => (),
-        }
+        trace!(
+            "reading {:#X} bytes of memory at {:#X}",
+            PAGE_SIZE,
+            cur_addr
+        );
+        // reset buffer each loop
+        let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
+        drv.read_physical(cur_addr, &mut buffer)
+            .unwrap_or_else(|_| debug!("failed to read memory at {:#X}", cur_addr));
+        dump_file
+            .write_all(&buffer)
+            .expect("failed to write to file");
     }
 
     println!("resuming the VM");
