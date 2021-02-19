@@ -1,5 +1,4 @@
 use clap::{App, Arg, ArgMatches};
-use env_logger;
 
 use microvmi::api::{DriverInitParam, Introspectable};
 

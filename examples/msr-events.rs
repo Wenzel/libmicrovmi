@@ -1,6 +1,5 @@
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use env_logger;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -48,7 +47,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, vec_msr: &Vec<u32>, enabled: bool) {
+fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, vec_msr: &[u32], enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
     for msr in vec_msr {
@@ -57,7 +56,7 @@ fn toggle_msr_intercepts(drv: &mut Box<dyn Introspectable>, vec_msr: &Vec<u32>, 
         println!("{} intercept on 0x{:x}", status_str, msr);
         for vcpu in 0..drv.get_vcpu_count().unwrap() {
             drv.toggle_intercept(vcpu, intercept, enabled)
-                .expect(&format!("Failed to enable 0x{:x}", msr));
+                .unwrap_or_else(|_| panic!("Failed to enable 0x{:x}", msr));
         }
     }
 
@@ -123,7 +122,7 @@ fn main() {
                 );
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
-                i = i + 1;
+                i += 1;
             }
             None => println!("No events yet..."),
         }

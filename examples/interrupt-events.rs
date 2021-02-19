@@ -4,7 +4,6 @@ use std::time::Instant;
 
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use env_logger;
 
 use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
 
@@ -32,7 +31,7 @@ fn toggle_int3_interception(drv: &mut Box<dyn Introspectable>, enabled: bool) {
     println!("{} interrupt events", status_str);
     for vcpu in 0..drv.get_vcpu_count().unwrap() {
         drv.toggle_intercept(vcpu, intercept, enabled)
-            .expect(&format!("Failed to enable interrupts"));
+            .expect("Failed to enable interrupts");
     }
 
     drv.resume().expect("Failed to resume VM");
@@ -78,14 +77,14 @@ fn main() {
                 };
                 let ev_nb_output = format!("{}", i).cyan();
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
-                let interrupt_output = format!("interrupt occurred!").color("blue");
+                let interrupt_output = "interrupt occurred!".color("blue");
                 println!(
                     "[{}] {} - {}: gpa = 0x{:x}    insn_len = 0x{:x}",
                     ev_nb_output, vcpu_output, interrupt_output, gpa, insn_len
                 );
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
-                i = i + 1;
+                i += 1;
             }
             None => println!("No events yet..."),
         }

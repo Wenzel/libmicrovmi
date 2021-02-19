@@ -1,6 +1,5 @@
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use env_logger;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -27,7 +26,7 @@ fn toggle_pf_intercept(drv: &mut Box<dyn Introspectable>, enabled: bool) {
     println!("{} memory events", status_str);
     for vcpu in 0..drv.get_vcpu_count().unwrap() {
         drv.toggle_intercept(vcpu, intercept, enabled)
-            .expect(&format!("Failed to enable page faults"));
+            .unwrap_or_else(|_| panic!("Failed to enable page faults"));
     }
 
     drv.resume().expect("Failed to resume VM");
@@ -80,7 +79,7 @@ fn main() {
                 };
                 let ev_nb_output = format!("{}", i).cyan();
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
-                let pagefault_output = format!("pagefault occurred!").color("blue");
+                let pagefault_output = "pagefault occurred!".color("blue");
                 println!(
                     "[{}] {} - {}:   gva = 0x{:x}    gpa = 0x{:x}    access = {:?} ",
                     ev_nb_output, vcpu_output, pagefault_output, gva, gpa, pf_access
@@ -92,7 +91,7 @@ fn main() {
                     .expect("Failed to set page access");
                 drv.reply_event(ev, EventReplyType::Continue)
                     .expect("Failed to send event reply");
-                i = i + 1;
+                i += 1;
             }
             None => println!("No events yet..."),
         }
