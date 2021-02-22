@@ -233,12 +233,6 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-
       - name: install Xen headers
         run: sudo apt-get install -y libxen-dev
 
@@ -277,12 +271,6 @@ jobs:
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
 
       - name: install cargo changelog
         run: cargo install changelog
@@ -350,12 +338,6 @@ jobs:
         run: sudo apt-get install -y libxen-dev
 
       - uses: actions/checkout@v1
-
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
 
       - name: Publish
         shell: bash
