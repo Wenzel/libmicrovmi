@@ -239,6 +239,14 @@ jobs:
       - name: install cargo deb dependencies
         run: sudo apt-get install -y dpkg liblzma-dev
 
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo
+
       - name: install cargo deb
         run: cargo install cargo-deb
 
@@ -271,6 +279,14 @@ jobs:
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo
 
       - name: install cargo changelog
         run: cargo install changelog
