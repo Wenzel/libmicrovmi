@@ -60,7 +60,7 @@ jobs:
         with:
           repository: bitdefender/libkvmi
           path: libkvmi
-          ref: kvmi-v6
+          ref: bf5776319e1801b59125c994c459446f0ed6837e
 
       - name: build and install libkvmi
         run: |

@@ -1,6 +1,8 @@
+#[cfg(test)] // only needed for tests
+use kvmi::errors::KVMiError;
 use kvmi::{
     kvm_dtable, kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply,
-    KVMiEventType, KVMiInterceptType, KVMiPageAccess,
+    KVMiEventType, KVMiInterceptType, KVMiPageAccess, SocketType,
 };
 use std::convert::From;
 use std::convert::TryFrom;
@@ -11,7 +13,7 @@ use std::vec::Vec;
 
 use crate::api::{
     Access, CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType,
-    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers, PAGE_SHIFT,
+    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 
 impl TryFrom<Access> for KVMiPageAccess {
@@ -102,10 +104,6 @@ pub struct Kvm<T: KVMIntrospectable> {
 pub enum KVMDriverError {
     #[error("KVM driver initialization requires an additional socket parameter")]
     MissingSocketParameter,
-    #[error("Timeout waiting for a pause event")]
-    NoPauseEventAvailable,
-    #[error("Unexpected event {0:?} while resuming VM")]
-    UnexpectedEventWhileResuming(KVMiEventType),
 }
 
 impl<T: KVMIntrospectable> Kvm<T> {
@@ -117,7 +115,8 @@ impl<T: KVMIntrospectable> Kvm<T> {
         let DriverInitParam::KVMiSocket(socket_path) =
             init_option.ok_or(KVMDriverError::MissingSocketParameter)?;
         debug!("init on {} (socket: {})", domain_name, socket_path);
-        kvmi.init(&socket_path)?;
+        let unix_socket = SocketType::UnixSocket(socket_path);
+        kvmi.init(unix_socket)?;
         let mut kvm = Kvm {
             kvmi,
             expect_pause_ev: 0,
@@ -156,8 +155,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        let max_gfn = self.kvmi.get_maximum_gfn()?;
-        Ok(max_gfn << PAGE_SHIFT)
+        Ok(self.kvmi.get_maximum_paddr()?)
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -217,13 +215,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(())
     }
 
-    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
-        let access = self.kvmi.get_page_access(paddr)?;
-        Ok(access.try_into()?)
-    }
-
     fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
-        self.kvmi.set_page_access(paddr, access.try_into()?)?;
+        self.kvmi.set_page_access(paddr, access.try_into()?, 0)?;
         Ok(())
     }
 
@@ -242,30 +235,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
 
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         debug!("resume");
-        // already resumed ?
-        if self.expect_pause_ev == 0 {
-            return Ok(());
-        }
-
-        while self.expect_pause_ev > 0 {
-            // wait
-            let kvmi_event = self
-                .kvmi
-                .wait_and_pop_event(1000)?
-                .ok_or_else(|| Box::new(KVMDriverError::NoPauseEventAvailable))?;
-            match kvmi_event.ev_type {
-                KVMiEventType::PauseVCPU => {
-                    debug!("VCPU {} - Received Pause Event", kvmi_event.vcpu);
-                    self.expect_pause_ev -= 1;
-                    self.kvmi.reply(&kvmi_event, KVMiEventReply::Continue)?;
-                }
-                _ => {
-                    return Err(Box::new(KVMDriverError::UnexpectedEventWhileResuming(
-                        kvmi_event.ev_type,
-                    )))
-                }
-            }
-        }
+        self.kvmi.resume()?;
         Ok(())
     }
 
@@ -487,7 +457,7 @@ mod tests {
             fn fmt<'a>(&self, f: &mut Formatter<'a>) -> std::fmt::Result;
         }
         impl KVMIntrospectable for KVMi {
-            fn init(&mut self, socket_path: &str) -> Result<(), std::io::Error>;
+            fn init(&mut self, socket: SocketType) -> Result<(), std::io::Error>;
             fn control_events(
                 &self,
                 vcpu: u16,
@@ -498,15 +468,16 @@ mod tests {
             fn control_msr(&self, vcpu: u16, reg: u32, enabled: bool) -> Result<(), std::io::Error>;
             fn read_physical(&self, gpa: u64, buffer: &mut [u8]) -> Result<(), std::io::Error>;
             fn write_physical(&self, gpa: u64, buffer: &[u8]) -> Result<(), std::io::Error>;
-            fn get_page_access(&self, gpa: u64) -> Result<KVMiPageAccess, std::io::Error>;
-            fn set_page_access(&self, gpa: u64, access: KVMiPageAccess) -> Result<(), std::io::Error>;
+            fn set_page_access(&self, gpa: u64, access: KVMiPageAccess, view: u16) -> Result<(), std::io::Error>;
             fn pause(&self) -> Result<(), std::io::Error>;
+            fn resume(&mut self) -> Result<(), KVMiError>;
             fn get_vcpu_count(&self) -> Result<u32, std::io::Error>;
             fn get_registers(&self, vcpu: u16) -> Result<(kvm_regs, kvm_sregs, KvmMsrs), std::io::Error>;
             fn set_registers(&self, vcpu: u16, regs: &kvm_regs) -> Result<(), std::io::Error>;
             fn wait_and_pop_event(&self, ms: i32) -> Result<Option<KVMiEvent>, std::io::Error>;
             fn reply(&self, event: &KVMiEvent, reply_type: KVMiEventReply) -> Result<(), std::io::Error>;
             fn get_maximum_gfn(&self) -> Result<u64, std::io::Error>;
+            fn get_maximum_paddr(&self) -> Result<u64, KVMiError>;
         }
     }
 }
