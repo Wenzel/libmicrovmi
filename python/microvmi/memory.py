@@ -5,6 +5,8 @@ from typing import Optional
 
 from .pymicrovmi import MicrovmiExt
 
+PAGE_SIZE = 4096
+
 
 class PhysicalMemoryIO(RawIOBase):
     """This class provides a Python IO object to work
@@ -26,9 +28,16 @@ class PhysicalMemoryIO(RawIOBase):
             # -1: read all bytes until EOF
             raise NotImplementedError
         data = bytearray(size)
-        bytes_read = self._m.read_physical_into(self._cur_pos, data)
-        self._log.debug("read return: len: %s, content: %s", len(data), data[:100])
-        return bytes(data[:bytes_read])
+        for offset in range(0, size, PAGE_SIZE):
+            if size - offset < PAGE_SIZE:
+                read_len = size - offset
+            else:
+                read_len = PAGE_SIZE
+            pos = self._cur_pos + offset
+            chunk, _ = self._m.read_physical(pos, read_len)
+            end_offset = offset + read_len
+            data[offset:end_offset] = chunk
+        return bytes(data)
 
     def readinto(self, buffer: bytearray) -> Optional[int]:
         self._m.read_physical_into(self._cur_pos, buffer)
