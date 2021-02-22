@@ -15,6 +15,7 @@ use crate::api::{
     Access, CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType,
     Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
+use kvmi::constants::PAGE_SIZE;
 
 impl TryFrom<Access> for KVMiPageAccess {
     type Error = &'static str;
@@ -147,7 +148,14 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
     }
 
     fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
-        Ok(self.kvmi.read_physical(paddr, buf)?)
+        // kvmi read_physical can only handle a 4K buf request
+        // any buffer bigger than that will result in an IOError (KVM_EINVAL)
+        // need to chunk the read in 4K
+        for (i, chunk) in buf.chunks_mut(PAGE_SIZE).enumerate() {
+            let cur_paddr = paddr + (i * PAGE_SIZE) as u64;
+            self.kvmi.read_physical(cur_paddr, chunk)?;
+        }
+        Ok(())
     }
 
     fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
