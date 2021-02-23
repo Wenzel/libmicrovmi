@@ -1,8 +1,7 @@
 from enum import Enum
-from os import SEEK_SET
 from typing import Optional
 
-from microvmi.memory import PhysicalMemoryIO
+from microvmi.memory import PhysicalMemoryIO, PaddedPhysicalMemoryIO
 
 
 from .pymicrovmi import MicrovmiExt, DriverInitParam
@@ -39,11 +38,17 @@ class Microvmi:
         )
         self._micro = MicrovmiExt(domain_name, drv_type_ext, drv_init_param)
         self._memory = PhysicalMemoryIO(self._micro)
+        self._padded_memory = PaddedPhysicalMemoryIO(self._micro)
 
     @property
     def memory(self) -> PhysicalMemoryIO:
         """Return a file object to interact with the VM's physical memory"""
         return self._memory
+
+    @property
+    def padded_memory(self) -> PaddedPhysicalMemoryIO:
+        """Return a file object to interact with the VM's physical memory"""
+        return self._padded_memory
 
     @property
     def max_addr(self) -> int:
