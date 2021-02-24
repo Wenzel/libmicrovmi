@@ -233,17 +233,19 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-
       - name: install Xen headers
         run: sudo apt-get install -y libxen-dev
 
       - name: install cargo deb dependencies
         run: sudo apt-get install -y dpkg liblzma-dev
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo
 
       - name: install cargo deb
         run: cargo install cargo-deb
@@ -278,11 +280,13 @@ jobs:
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
 
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v2
         with:
-          profile: minimal
-          toolchain: stable
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo
 
       - name: install cargo changelog
         run: cargo install changelog
@@ -350,12 +354,6 @@ jobs:
         run: sudo apt-get install -y libxen-dev
 
       - uses: actions/checkout@v1
-
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
 
       - name: Publish
         shell: bash
