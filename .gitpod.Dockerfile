@@ -4,7 +4,9 @@ RUN sudo apt-get update \
     && sudo apt-get install -y --no-install-recommends clang libxen-dev \
     && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/
 
-RUN git clone https://github.com/bitdefender/libkvmi.git -b bf5776319e1801b59125c994c459446f0ed6837e \
+RUN git clone https://github.com/bitdefender/libkvmi.git \
+    && cd libkvmi \
+    && git checkout bf5776319e1801b59125c994c459446f0ed6837e \
     && cd libkvmi \
     && ./bootstrap \
     && ./configure \
