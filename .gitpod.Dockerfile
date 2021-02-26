@@ -7,7 +7,6 @@ RUN sudo apt-get update \
 RUN git clone https://github.com/bitdefender/libkvmi.git \
     && cd libkvmi \
     && git checkout bf5776319e1801b59125c994c459446f0ed6837e \
-    && cd libkvmi \
     && ./bootstrap \
     && ./configure \
     && make \
