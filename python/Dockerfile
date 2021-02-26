@@ -21,9 +21,10 @@ RUN git clone -b RELEASE-4.11.0 --depth 1 https://github.com/xen-project/xen \
         && cd .. \
         && rm -rf xen
 
-# libkvmi v6
-RUN git clone -b kvmi-v6 https://github.com/bitdefender/libkvmi.git \
+# libkvmi v7
+RUN git clone https://github.com/bitdefender/libkvmi.git \
     && cd libkvmi \
+    && git checkout bf5776319e1801b59125c994c459446f0ed6837e \
     && ./bootstrap \
     && ./configure \
     && make \
