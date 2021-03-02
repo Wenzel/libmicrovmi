@@ -53,3 +53,21 @@ colored = "2.0"
 mockall = "0.9"
 test-case = "1"
 indicatif = "0.15.0"
+
+
+[build-dependencies]
+cbindgen = "0.18.0"
+
+
+[package.metadata.deb]
+extended-description = "A simple virtual machine introspection library providing a cross-platform interface on multiple hypervisors"
+# force an old enough libc6
+# otherwise, the current libc of the CI is taken, and it will be too recent
+depends = "libc6 (>= 2.19)"
+section = "libs"
+priority = "optional"
+# add generated libmicrovmi.h header
+assets = [
+    ["target/release/libmicrovmi.so", "usr/lib/libmicrovmi.so", "644"],
+    ["c_examples/libmicrovmi.h", "usr/include/libmicrovmi.h", "644"],
+]

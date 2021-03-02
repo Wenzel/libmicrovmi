@@ -190,17 +190,14 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: install cbindgen
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cbindgen
-          version: latest
-          use-tool-cache: true
+
       - uses: actions/checkout@v1
+
       - name: build libmicrovmi
         uses: actions-rs/cargo@v1
         with:
           command: build
+
       - name: build C API
         run: |
           cd c_examples
@@ -236,6 +233,34 @@ jobs:
       - name: install Xen headers
         run: sudo apt-get install -y libxen-dev
 
+      - name: clone Icebox
+        uses: actions/checkout@v2
+        with:
+          repository: thalium/icebox
+          path: icebox
+
+      - name: install VirtualBox's FDP headers
+        run: |
+          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
+          sudo cp include/* /usr/local/include
+          sudo cp libFDP.so /usr/local/lib
+        working-directory: icebox/src/FDP
+
+      - name: clone libkvmi
+        uses: actions/checkout@v2
+        with:
+          repository: bitdefender/libkvmi
+          path: libkvmi
+          ref: bf5776319e1801b59125c994c459446f0ed6837e
+
+      - name: build and install libkvmi
+        run: |
+          ./bootstrap
+          ./configure
+          make
+          sudo make install
+        working-directory: libkvmi
+
       - name: install cargo deb dependencies
         run: sudo apt-get install -y dpkg liblzma-dev
 
@@ -251,7 +276,7 @@ jobs:
         run: cargo install cargo-deb
 
       - name: build debian package
-        run: cargo deb -- --features xen
+        run: cargo deb -- --features xen,kvm,virtualbox
 
       - name: upload artifact
         uses: actions/upload-artifact@v2
