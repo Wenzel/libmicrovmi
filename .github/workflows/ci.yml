@@ -190,17 +190,14 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: install cbindgen
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cbindgen
-          version: latest
-          use-tool-cache: true
+
       - uses: actions/checkout@v1
+
       - name: build libmicrovmi
         uses: actions-rs/cargo@v1
         with:
           command: build
+
       - name: build C API
         run: |
           cd c_examples
