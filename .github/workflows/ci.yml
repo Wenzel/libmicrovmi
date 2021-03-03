@@ -380,7 +380,9 @@ jobs:
 
       - uses: actions/checkout@v1
 
+      # explicitely allow a dirty working directory, since build.rs will generate
+      # a file outside OUT_DIR, in c_examples/
       - name: Publish
         shell: bash
         run: |
-          cargo publish --features xen --token ${{ secrets.CRATES_TOKEN }}
+          cargo publish --allow-dirty --features xen --token ${{ secrets.CRATES_TOKEN }}
