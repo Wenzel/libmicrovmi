@@ -69,5 +69,5 @@ priority = "optional"
 # add generated libmicrovmi.h header
 assets = [
     ["target/release/libmicrovmi.so", "usr/lib/libmicrovmi.so", "644"],
-    ["c_examples/libmicrovmi.h", "usr/include/libmicrovmi.h", "644"],
+    ["target/release/capi/libmicrovmi.h", "usr/include/libmicrovmi.h", "644"],
 ]
