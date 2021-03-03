@@ -1,6 +1,6 @@
 use crate::api::{
-    CrType, DriverInitParam, Event, EventType, InterceptType, Introspectable, Registers,
-    SegmentReg, SystemTableReg, X86Registers,
+    CrType, DriverInitParam, DriverType, Event, EventType, InterceptType, Introspectable,
+    Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
@@ -488,6 +488,10 @@ impl Introspectable for Xen {
             .xc
             .domain_unpause(self.domid)
             .map_err(XenDriverError::from)?)
+    }
+
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::Xen
     }
 }
 

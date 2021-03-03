@@ -133,6 +133,14 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
+/// return the concrete DriverType for the given Microvmi driver
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_driver_type(context: *mut c_void) -> DriverType {
+    let drv = get_driver_mut_ptr(context);
+    (*drv).get_driver_type()
+}
+
 unsafe fn get_driver_mut_ptr(context: *mut c_void) -> *mut dyn Introspectable {
     let driver: *mut *mut dyn Introspectable = context as *mut _;
     driver.read()

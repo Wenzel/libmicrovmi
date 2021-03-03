@@ -12,7 +12,7 @@ use std::mem;
 use std::vec::Vec;
 
 use crate::api::{
-    Access, CrType, DriverInitParam, Event, EventReplyType, EventType, InterceptType,
+    Access, CrType, DriverInitParam, DriverType, Event, EventReplyType, EventType, InterceptType,
     Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use kvmi::constants::PAGE_SIZE;
@@ -335,6 +335,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         let vcpu_index: usize = event.vcpu.try_into()?;
         let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
         Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
+    }
+
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::KVM
     }
 }
 
