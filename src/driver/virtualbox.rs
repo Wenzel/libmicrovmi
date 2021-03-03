@@ -18,7 +18,7 @@ impl VBox {
         _init_option: Option<DriverInitParam>,
     ) -> Result<Self, Box<dyn Error>> {
         // init FDP
-        let fdp = FDP::new(domain_name);
+        let fdp = FDP::new(domain_name)?;
         Ok(VBox { fdp })
     }
 }
