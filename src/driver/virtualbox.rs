@@ -3,7 +3,8 @@ use std::error::Error;
 use fdp::{RegisterType, FDP};
 
 use crate::api::{
-    DriverInitParam, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+    DriverInitParam, DriverType, Introspectable, Registers, SegmentReg, SystemTableReg,
+    X86Registers,
 };
 
 // unit struct
@@ -104,5 +105,9 @@ impl Introspectable for VBox {
 
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         self.fdp.resume()
+    }
+
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::VirtualBox
     }
 }

@@ -7,7 +7,7 @@ use std::ptr::{null, null_mut};
 use std::slice;
 use std::vec::Vec;
 
-use crate::api::{DriverInitParam, Introspectable};
+use crate::api::{DriverInitParam, DriverType, Introspectable};
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemHandleInformation, SYSTEM_HANDLE_INFORMATION,
@@ -259,7 +259,11 @@ impl HyperV {
     }
 }
 
-impl Introspectable for HyperV {}
+impl Introspectable for HyperV {
+    fn get_driver_type(&self) -> DriverType {
+        DriverType::HyperV
+    }
+}
 
 impl Drop for HyperV {
     fn drop(&mut self) {

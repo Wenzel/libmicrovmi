@@ -298,6 +298,9 @@ pub trait Introspectable {
     ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
+
+    /// Return the concrete DriverType
+    fn get_driver_type(&self) -> DriverType;
 }
 
 /// Various types of intercepts handled by libmicrovmi
