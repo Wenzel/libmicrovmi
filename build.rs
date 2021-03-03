@@ -34,9 +34,12 @@ fn main() {
         .with_config(config)
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(out_path);
+        .write_to_file(&out_path);
 
     println!("cargo:rerun-if-changed=src/capi.rs");
     // if it has been removed
-    println!("cargo:rerun-if-changed=target/capi/libmicrovmi.h");
+    println!(
+        "{}",
+        format!("cargo:rerun-if-changed={}", &out_path.display())
+    );
 }
