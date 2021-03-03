@@ -21,7 +21,9 @@ pub enum DriverInitParamFFI {
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_envlogger_init() {
-    env_logger::init();
+    // this function might be called multiple times
+    // with try_init we avoid panicking
+    env_logger::try_init().ok();
 }
 
 /// Entrypoint for libmicrovmi
