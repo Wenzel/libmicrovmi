@@ -13,7 +13,6 @@
 
 - [Overview](#overview)
 - [Documentation](#documentation)
-- [Example](#example)
 - [Maintainers](#maintainers)
 - [License](#license)
 
@@ -76,43 +75,6 @@ To build the docs locally:
 $ cargo install mdbook
 $ mdbook build doc
 $ xdg-open doc/book/index.html
-~~~
-
-## Example
-
-### mem-dump
-
-A small binary is available to demonstrate what the `libmicrovmi` can do: `mem-dump`
-
-It will dump the raw memory of the specified domain in a `domain_name.dump`
-file.
-
-Example with the `xen` driver:
-~~~
-$ cargo run --features xen --example mem-dump winxp
-~~~
-
-A memory dump should have been written in `winxp.dump`.
-
-### API example
-
-~~~Rust
-// select drive type (Dummy, Xen, KVM, ...)
-let drv_type = DriverType::Dummy;
-// init library
-let mut drv: Box<dyn Introspectable> = microvmi::init(drv_type, domain_name);
-// pause VM
-drv.pause()
-    .expect("Failed to pause VM");
-// get max physical address
-let max_addr = drv.get_max_physical_addr()
-                    .expect("Failed to get max physical address");
-// read physical memory
-let mut buffer: [u8; 4096] = [0; 4096];
-let result = drv.read_physical(0x804d7000, &mut buffer);
-// resume VM
-drv.resume()
-    .expect("Failed to resume VM");
 ~~~
 
 
