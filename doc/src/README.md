@@ -13,7 +13,6 @@
 
 - [Overview](#overview)
 - [Documentation](#documentation)
-- [VMI API](#vmi-api)
 - [Requirements](#requirements)
 - [Build](#build)
 - [Example](#example)
@@ -80,29 +79,6 @@ $ cargo install mdbook
 $ mdbook build doc
 $ xdg-open doc/book/index.html
 ~~~
-
-## VMI API
-
-* Query and modify the VM hardware state
-    - read/write VCPU registers
-    - read/write physical memory
-* Subscribe and listen to hardware events
-    - mov to/from CR3/CR8
-    - mov to/from DRx
-    - mov to/from MSR
-    - interrupts
-    - singlestep (MTF)
-    - hypercalls
-    - descriptors
-    - SLAT (Second Level Address Translation) events
-        - `r/w/x` event on a page
-        - dynamically switch to multiple memory _views_ using alternate SLAT pointers
-    - Intel Processor Trace packets
-- Utilities
-    - foreign mapping
-    - pagefault injection
-
-For more detailed information, please check the [Wiki](https://github.com/Wenzel/libmicrovmi/wiki)
 
 ## Requirements
 
