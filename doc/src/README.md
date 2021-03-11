@@ -13,7 +13,6 @@
 
 - [Overview](#overview)
 - [Documentation](#documentation)
-- [Requirements](#requirements)
 - [Build](#build)
 - [Example](#example)
 - [Maintainers](#maintainers)
@@ -79,12 +78,6 @@ $ cargo install mdbook
 $ mdbook build doc
 $ xdg-open doc/book/index.html
 ~~~
-
-## Requirements
-
-- `Rust` stable
-- `cargo`
-- `clang` (bindgen)
 
 ## Build
 
