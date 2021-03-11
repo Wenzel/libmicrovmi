@@ -150,7 +150,8 @@ drv.resume()
 
 ## Maintainers
 
-[@Wenzel](https://github.com/Wenzel)
+- [@Wenzel](https://github.com/Wenzel)
+- [@rageagainsthepc](https://github.com/rageagainsthepc)
 
 ## License
 
