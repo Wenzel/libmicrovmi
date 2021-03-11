@@ -15,7 +15,6 @@
 - [Build](#build)
 - [Example](#example)
 - [Maintainers](#maintainers)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Overview
@@ -152,10 +151,6 @@ drv.resume()
 ## Maintainers
 
 [@Wenzel](https://github.com/Wenzel)
-
-## Contributing
-
-PRs accepted.
 
 ## License
 
