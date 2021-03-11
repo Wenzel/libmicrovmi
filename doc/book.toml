@@ -1,0 +1,6 @@
+[book]
+authors = ["Mathieu Tarral"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Libmicrovmi Documentation"
