@@ -9,7 +9,7 @@
 # Reference
 
 - [API](./reference/api.md)
-
+- [Build Options](./reference/build_options.md)
 
 # Explanation
 
