@@ -3,6 +3,7 @@
 [![CI](https://github.com/Wenzel/libmicrovmi/workflows/CI/badge.svg)](https://github.com/Wenzel/libmicrovmi/actions?query=workflow%3ACI)
 [![Crates.io](https://img.shields.io/crates/v/microvmi.svg)](https://crates.io/crates/microvmi)
 [![docs.rs badge](https://docs.rs/microvmi/badge.svg?version=0.1.12)](https://docs.rs/microvmi)
+[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://libmicrovmi.github.io/)
 [![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/Wenzel/libmicrovmi)
 
