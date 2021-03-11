@@ -10,6 +10,7 @@
 
 - [API](./reference/api.md)
 - [Build Options](./reference/build_options.md)
+- [Integration Status](./reference/integration_status.md)
 
 # Explanation
 
