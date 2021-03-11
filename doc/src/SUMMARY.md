@@ -8,10 +8,10 @@
 
 # Reference
 
-- [API](./api.md)
+- [API](./reference/api.md)
 
 
 # Explanation
 
-- [VMI API](./vmi_api.md)
-- [Related Projects](./related_projects.md)
+- [VMI API](./explanation/vmi_api.md)
+- [Related Projects](./explanation/related_projects.md)
