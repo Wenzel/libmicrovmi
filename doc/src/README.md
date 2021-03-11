@@ -10,6 +10,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Documentation](#documentation)
 - [VMI API](#vmi-api)
 - [Requirements](#requirements)
 - [Build](#build)
@@ -64,6 +65,19 @@ be
 - [x] VirtualBox (based on [icebox](https://github.com/thalium/icebox))
 - [ ] Hyper-V (based on [LiveCloudKd](https://github.com/comaeio/LiveCloudKd))
 - [ ] QEMU (based on [TCG Plugins](https://github.com/comaeio/LiveCloudKd))
+
+## Documentation
+
+Our documentation is available in `doc/` as an [`mdbook`](https://rust-lang.github.io/mdBook/) 📖
+
+[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://libmicrovmi.github.io/)
+
+To build the docs locally:
+~~~
+$ cargo install mdbook
+$ mdbook build doc
+$ xdg-open doc/book/index.html
+~~~
 
 ## VMI API
 
@@ -156,4 +170,3 @@ drv.resume()
 ## License
 
 [GNU General Public License v3.0](https://github.com/Wenzel/pyvmidbg/blob/master/LICENSE)
-
