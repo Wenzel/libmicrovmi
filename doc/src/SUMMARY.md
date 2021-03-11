@@ -14,3 +14,4 @@
 # Explanation
 
 - [VMI API](./vmi_api.md)
+- [Related Projects](./related_projects.md)

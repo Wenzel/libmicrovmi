@@ -129,9 +129,6 @@ drv.resume()
     .expect("Failed to resume VM");
 ~~~
 
-## References
-
-- [LibVMI C library](https://github.com/libvmi/libvmi): Simplified Virtual Machine Introspection
 
 ## Maintainers
 
