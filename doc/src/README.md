@@ -13,7 +13,6 @@
 
 - [Overview](#overview)
 - [Documentation](#documentation)
-- [Build](#build)
 - [Example](#example)
 - [Maintainers](#maintainers)
 - [License](#license)
@@ -78,19 +77,6 @@ $ cargo install mdbook
 $ mdbook build doc
 $ xdg-open doc/book/index.html
 ~~~
-
-## Build
-
-To build the library, simply run
-
-    cargo build
-
-By default, only the `Dummy` driver will be available (it does nothing).
-
-To enable a driver, for example `xen`, enable the corresponding feature
-(`Cargo.toml`)
-
-    cargo build --features xen
 
 ## Example
 
