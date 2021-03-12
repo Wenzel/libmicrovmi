@@ -16,4 +16,3 @@
 
 - [VMI API](./explanation/vmi_api.md)
 - [VMI Fragmentation](./explanation/vmi_ecosystem.md)
-- [Related Projects](./explanation/related_projects.md)
