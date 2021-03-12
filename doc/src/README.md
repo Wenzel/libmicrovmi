@@ -50,7 +50,7 @@ See [Documentation: VMI Ecosystem Fragmentation](https://libmicrovmi.github.io/e
 The main objective is to provide the simplest virtual machine introspection abstraction, offering a standard API to interact with
 any VMI provider.
 
-![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
+![libmicrovmi_image](https://user-images.githubusercontent.com/964610/110927584-1dfc4500-8326-11eb-9ed5-a0732296082b.png)
 
 ### Virtual Machine Introspection Apps
 
