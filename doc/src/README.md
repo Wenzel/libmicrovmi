@@ -1,7 +1,7 @@
 # libmicrovmi
 
 <h3 align="center">
-    A cross-platform unified interface on top of hypervisor's VMI APIs
+    A cross-platform unified Virtual Machine Introspection API library
 </h3>
 
 <p align="center">
@@ -37,21 +37,18 @@
 
 ## Overview
 
-`libmicrovmi` simply aims to provide a cross-platform unified _Virtual Machine Introspection_ API and the necessary drivers to be
-compatible with the diversity of hypervisors available today.
+`libmicrovmi` aims to provide a cross-platform unified _Virtual Machine Introspection_ API.
 
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
 
-The grand goal is to be the foundation for a VMI abstraction library that will
-be
-- multi-hypervisor
-- multi-emulator
-- cross-plaform
-- high-level API
-    - OS-level semantics
-    - stealth breakpoints
-    - virtual address translation
+_Virtual Machine Introspection_ has been around since [2003](https://www.ndss-symposium.org/ndss2003/virtual-machine-introspection-based-architecture-intrusion-detection/),
+yet the ecosystem is still heavily fragmented and lacks standards as well as interoperability.
+
+See [Documentation: VMI Ecosystem Fragmentation](https://libmicrovmi.github.io/explanation/vmi_ecosystem.html)
+
+The main objective is to provide the simplest virtual machine introspection abstraction, offering a standard API to interact with
+any VMI provider.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/67619627-51036e80-f7ed-11e9-80f6-2eb15b018108.png)
 
