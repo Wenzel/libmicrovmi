@@ -1,13 +1,32 @@
 # libmicrovmi
 
-[![CI](https://github.com/Wenzel/libmicrovmi/workflows/CI/badge.svg)](https://github.com/Wenzel/libmicrovmi/actions?query=workflow%3ACI)
-[![Crates.io](https://img.shields.io/crates/v/microvmi.svg)](https://crates.io/crates/microvmi)
-[![docs.rs badge](https://docs.rs/microvmi/badge.svg?version=0.1.12)](https://docs.rs/microvmi)
-[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://libmicrovmi.github.io/)
-[![Join the chat at https://gitter.im/libmicrovmi/community](https://badges.gitter.im/libmicrovmi/community.svg)](https://gitter.im/libmicrovmi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/Wenzel/libmicrovmi)
+<h3 align="center">
+    A cross-platform unified interface on top of hypervisor's VMI APIs
+</h3>
 
-> A cross-platform unified interface on top of hypervisor's VMI APIs
+<p align="center">
+    <a href="https://github.com/Wenzel/libmicrovmi/actions?query=workflow%3ACI">
+        <img src="https://github.com/Wenzel/libmicrovmi/workflows/CI/badge.svg" al="CI"/>
+    </a>
+    <a href="https://crates.io/crates/microvmi">
+        <img src="https://img.shields.io/crates/v/microvmi.svg" alt="crates.io"/>
+    </a>
+    <a href="https://docs.rs/microvmi">
+        <img src="https://docs.rs/microvmi/badge.svg" alt="docs.rs">
+    </a>
+    <a href="https://gitter.im/libmicrovmi/community">
+        <img src="https://badges.gitter.im/libmicrovmi/community.svg" alt="gitter">
+    </a>
+    <a href="https://gitpod.io/#https://github.com/Wenzel/libmicrovmi">
+        <img src="https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod" alt="gitpod"/>
+    </a>
+</p>
+<p align="center">
+    <a href="https://libmicrovmi.github.io/">
+        <img src="https://img.shields.io/badge/Online-Documentation-green?style=for-the-badge&logo=gitbook" alt="online_docs"/>
+    </a>
+
+</p>
 
 ## Table of Contents
 
