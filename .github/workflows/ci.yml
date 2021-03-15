@@ -367,6 +367,35 @@ jobs:
           asset_name: ${{ steps.artefact.outputs.name }}
           asset_content_type: application/vnd.debian.binary-package
 
+  release_book:
+    needs: release
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-mdbook
+
+      - name: install mdbook
+        run: cargo install mdbook
+
+      - name: build book
+        run: mdbook build doc
+
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          BRANCH: gh-pages
+          # note: FOLDER doesn't care about the job's working directory
+          FOLDER: doc/book
+          SINGLE_COMMIT: true
+
   publish:
     needs: release
     runs-on: ubuntu-20.04
