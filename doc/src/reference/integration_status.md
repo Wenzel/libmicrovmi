@@ -1,20 +1,19 @@
 # Integration Status
 
-This section gives a status of libmicrovmi's integration into
-other applications, libraries, or based on _virtual machine introspection_
+This section gives a status overview of libmicrovmi's integration into
+other applications and libraries based on _virtual machine introspection_.
 
 ## LibVMI
 
 - [project](https://github.com/libvmi/libvmi)
 - [issue](https://github.com/Wenzel/libmicrovmi/issues/137)
-- [fork](https://github.com/Wenzel/libvmi/tree/libmicrovmi)
-    - Note: use the `libmicrovmi` branch
+- [fork](https://github.com/Wenzel/libvmi/tree/libmicrovmi) (Note: use the `libmicrovmi` branch)
 
 ### API Compatibility Status
 
 LibVMI driver layer could be replaced by libmicrovmi.
 
-The API is expoed in the following files:
+The API is used in the following files:
 
 - [driver_interface.c](https://github.com/libvmi/libvmi/blob/1ae39506b088d7b03cc2c6d6e0413be37f7ee8f5/libvmi/driver/driver_interface.h)
 - [driver_wrapper.h](https://github.com/libvmi/libvmi/blob/1ae39506b088d7b03cc2c6d6e0413be37f7ee8f5/libvmi/driver/driver_wrapper.h)

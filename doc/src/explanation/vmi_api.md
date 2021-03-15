@@ -15,7 +15,7 @@ This section describes what can be done with a _virtual machine introspection_ A
     - descriptors
     - SLAT (Second Level Address Translation) events
         - `r/w/x` event on a page
-        - dynamically switch to multiple memory _views_ using alternate SLAT pointers
+        - dynamically switch to multiple memory views using alternate SLAT pointers
     - Intel Processor Trace packets
 - Utilities
     - foreign mapping
