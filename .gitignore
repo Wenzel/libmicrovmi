@@ -22,4 +22,4 @@ Cargo.lock
 #**/*.rs.bk
 #
 # venvs
-/venv
+venv
