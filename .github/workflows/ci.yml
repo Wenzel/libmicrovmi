@@ -389,12 +389,12 @@ jobs:
         run: mdbook build doc
 
       - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v3
+        uses: JamesIves/github-pages-deploy-action@4.1.0
         with:
-          BRANCH: gh-pages
+          branch: gh-pages
           # note: FOLDER doesn't care about the job's working directory
-          FOLDER: doc/book
-          SINGLE_COMMIT: true
+          folder: doc/book
+          single_commit: true
 
   publish:
     needs: release

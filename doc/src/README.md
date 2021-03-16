@@ -6,7 +6,7 @@
 
 <p align="center">
     <a href="https://github.com/Wenzel/libmicrovmi/actions?query=workflow%3ACI">
-        <img src="https://github.com/Wenzel/libmicrovmi/workflows/CI/badge.svg" al="CI"/>
+        <img src="https://github.com/Wenzel/libmicrovmi/workflows/CI/badge.svg" alt="CI"/>
     </a>
     <a href="https://crates.io/crates/microvmi">
         <img src="https://img.shields.io/crates/v/microvmi.svg" alt="crates.io"/>
@@ -22,10 +22,9 @@
     </a>
 </p>
 <p align="center">
-    <a href="https://libmicrovmi.github.io/">
+    <a href="https://wenzel.github.io/libmicrovmi/">
         <img src="https://img.shields.io/badge/Online-Documentation-green?style=for-the-badge&logo=gitbook" alt="online_docs"/>
     </a>
-
 </p>
 
 ## Table of Contents
@@ -45,10 +44,12 @@ standing for `Unified` interface.
 _Virtual Machine Introspection_ has been around since [2003](https://www.ndss-symposium.org/ndss2003/virtual-machine-introspection-based-architecture-intrusion-detection/),
 yet the ecosystem is still heavily fragmented and lacks standards as well as interoperability.
 
-See [Documentation: VMI Ecosystem Fragmentation](https://libmicrovmi.github.io/explanation/vmi_ecosystem.html)
+See [Documentation: VMI Ecosystem Fragmentation](https://wenzel.github.io/libmicrovmi/explanation/vmi_ecosystem.html)
 
 The main objective is to provide the simplest virtual machine introspection abstraction, offering a standard API to interact with
 any VMI provider.
+
+The documentation keeps track of libmicrovmi's [integration status](https://wenzel.github.io/libmicrovmi/reference/integration_status.html) for each VMI apps.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/110927584-1dfc4500-8326-11eb-9ed5-a0732296082b.png)
 
@@ -56,7 +57,7 @@ any VMI provider.
 
 Our documentation is available in `doc/` as an [`mdbook`](https://rust-lang.github.io/mdBook/) 📖
 
-[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://libmicrovmi.github.io/)
+[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://wenzel.github.io/libmicrovmi/)
 
 To build the docs locally:
 ~~~
