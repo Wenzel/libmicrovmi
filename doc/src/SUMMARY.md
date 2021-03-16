@@ -5,10 +5,12 @@
 - [Introduction](./tutorial/intro.md)
 - [Memory dump example in Rust](./tutorial/rust.md)
 - [Memory dump example in C](./tutorial/c.md)
+- [Memory dump example in Python](./tutorial/python.md)
 
 # Reference
 
 - [API](./reference/api.md)
+- [Python API](./reference/python_api.md)
 - [Build Options](./reference/build_options.md)
 - [Integration Status](./reference/integration_status.md)
 
@@ -16,3 +18,7 @@
 
 - [VMI API](./explanation/vmi_api.md)
 - [VMI Fragmentation](./explanation/vmi_ecosystem.md)
+
+# Developer
+
+- [Python](./developer/python.md)
