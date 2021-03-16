@@ -47,14 +47,11 @@ def dump_mem(vm_name, output_file):
                 transient=True,
             ) as progress:
                 dump_task = progress.add_task("Dumping ", total=max_addr)
+                mem = micro.padded_memory
                 for addr in range(0, max_addr, READ_SIZE):
                     logging.debug("dumping at 0x%x", addr)
-                    buffer = bytearray(READ_SIZE)
-                    bytes_read = micro.read_physical_into(addr, buffer)
-                    f.write(buffer[:bytes_read])
-                    if bytes_read != READ_SIZE:
-                        pad = bytes(READ_SIZE - bytes_read)
-                        f.write(pad)
+                    buffer = mem.read(READ_SIZE)
+                    f.write(buffer)
                     progress.update(dump_task, advance=READ_SIZE)
 
 
@@ -70,5 +67,5 @@ def main():
         logging.critical("Cancelled by CTRL-C")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
