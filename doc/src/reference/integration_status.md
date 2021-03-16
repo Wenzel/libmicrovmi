@@ -3,11 +3,17 @@
 This section gives a status overview of libmicrovmi's integration into
 other applications and libraries based on _virtual machine introspection_.
 
+|   Project   | Supported |
+|:-----------:|:---------:|
+|    LibVMI   |     🟠    |
+| volatility3 |     ✅     |
+
 ## LibVMI
 
 - [project](https://github.com/libvmi/libvmi)
 - [issue](https://github.com/Wenzel/libmicrovmi/issues/137)
 - [fork](https://github.com/Wenzel/libvmi/tree/libmicrovmi) (Note: use the `libmicrovmi` branch)
+- compatibility: 🟠
 
 ### API Compatibility Status
 
@@ -72,3 +78,14 @@ The API is used in the following files:
 | `driver_set_access_required()`            |            |              |
 | `get_data()`                              |     ✅     |              |
 | `release_data()`                          |     ✅     |              |
+
+## volatility3
+
+volatility3 could inspect and run its forensics plugins on live memory by
+adding a new URL handler.
+
+- [project](https://github.com/volatilityfoundation/volatility3)
+- [issue](https://github.com/Wenzel/libmicrovmi/issues/161)
+- [fork](https://github.com/Wenzel/volatility3/tree/vm_introspection_handler) (Note: use the `vm_introspection_handler` branch)
+- compatibility: ✅
+
