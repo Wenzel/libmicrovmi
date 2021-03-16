@@ -21,7 +21,9 @@ class AbstractPhysicalMemoryIO(RawIOBase):
         self._cur_pos: int = 0
 
     def seek(self, offset: int, whence: int = SEEK_SET) -> int:
-        self._log.debug("seek: offset: %s, whence: %s", offset, whence)
+        self._log.debug(
+            "seek: offset: %s, whence: %s, pos: %s", offset, whence, hex(self._cur_pos)
+        )
         if whence == SEEK_SET:
             # seek from start of physical memory
             assert offset >= 0 or offset <= self._max_addr
@@ -33,9 +35,12 @@ class AbstractPhysicalMemoryIO(RawIOBase):
             self._cur_pos = self._max_addr
         elif whence == SEEK_CUR:
             # seek to the current position
-            # offset must be zero
-            assert offset == 0
-            # "no-operation": nothing to do
+            self._cur_pos += offset
+            if self._cur_pos < 0:
+                self._cur_pos = 0
+            elif self._cur_pos > self._max_addr:
+                self._cur_pos = self._max_addr
+
         else:
             raise RuntimeError(f"seek: unexpected whence value {whence}")
         return self._cur_pos
@@ -95,9 +100,10 @@ class PaddedPhysicalMemoryIO(AbstractPhysicalMemoryIO):
                 read_len = size - offset
             else:
                 read_len = PAGE_SIZE
-            pos = self._cur_pos + offset
+            pos = self.tell()
             chunk, _ = self._m.read_physical(pos, read_len)
             end_offset = offset + read_len
             data[offset:end_offset] = chunk
+            self.seek(read_len, SEEK_CUR)
         self._log.debug("read return: len: %s, content: %s", len(data), data[:100])
         return bytes(data)
