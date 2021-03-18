@@ -96,10 +96,7 @@ class PaddedPhysicalMemoryIO(AbstractPhysicalMemoryIO):
             raise NotImplementedError
         data = bytearray(size)
         for offset in range(0, size, PAGE_SIZE):
-            if size - offset < PAGE_SIZE:
-                read_len = size - offset
-            else:
-                read_len = PAGE_SIZE
+            read_len = min(PAGE_SIZE, size - offset)
             pos = self.tell()
             chunk, _ = self._m.read_physical(pos, read_len)
             end_offset = offset + read_len
