@@ -127,22 +127,26 @@ impl Introspectable for Xen {
             cur_paddr = paddr + buf_offset;
             // get the current gfn
             let gfn = cur_paddr >> PAGE_SHIFT;
-            let offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
+            let page_offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
             let page = self
                 .xen_fgn
                 .map(self.domid, PROT_READ, gfn)
                 .map_err(XenDriverError::from)?;
             // determine how much we can read
-            let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
-                u64::from(PAGE_SIZE) - offset
+            let read_len = if (page_offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+                u64::from(PAGE_SIZE) - page_offset
             } else {
                 count_mut
             };
 
+            // prepare offsets
+            let buf_start = buf_offset as usize;
+            let buf_end = (buf_offset + read_len) as usize;
+            let page_start = page_offset as usize;
+            let page_end = (page_offset + read_len) as usize;
             // do the read
-            let buf_offset_end = (buf_offset + read_len) as usize;
-            buf[buf_offset as usize..buf_offset_end].copy_from_slice(&page[..read_len as usize]);
+            buf[buf_start..buf_end].copy_from_slice(&page[page_start..page_end]);
             // update loop variables
             count_mut -= read_len;
             buf_offset += read_len;
