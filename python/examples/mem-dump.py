@@ -50,7 +50,8 @@ def dump_mem(vm_name, output_file):
                 mem = micro.padded_memory
                 for addr in range(0, max_addr, READ_SIZE):
                     logging.debug("dumping at 0x%x", addr)
-                    buffer = mem.read(READ_SIZE)
+                    current_chunk_size = min(READ_SIZE, max_addr - addr)
+                    buffer = mem.read(current_chunk_size)
                     f.write(buffer)
                     progress.update(dump_task, advance=READ_SIZE)
 
