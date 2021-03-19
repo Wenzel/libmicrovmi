@@ -1,4 +1,9 @@
+import subprocess
+from pathlib import Path
+
 import nox
+
+CUR_DIR = Path(__file__).parent
 
 # default sessions for nox
 nox.options.sessions = ["fmt", "lint", "type"]
@@ -41,3 +46,21 @@ def coverage_html(session):
     session.install("coverage==5.3")
     session.run("coverage", "html", "--dir", ".coverage_html")
     session.run("xdg-open", ".coverage_html/index.html")
+
+
+@nox.session
+def generate_wheels(session):
+    # you can pass additional argument
+    # example:
+    #   nox -r -s generate_wheels -- --features xen
+    #   nox -r -s generate_wheels -- --features xen,kvm,virtualbox --release
+    args = session.posargs
+    image_name = "manylinux2014_microvmi"
+    # ensure custom image is up to date
+    subprocess.check_call(["docker", "build", "-t", image_name, str(CUR_DIR)])
+    root_dir = CUR_DIR.parent
+    # maps libmicrovmi root dir to container /io
+    # executes /io/python/build-wheels.sh
+    subprocess.check_call(
+        ["docker", "run", "--rm", "-v", f"{str(root_dir)}:/io", image_name, "/io/python/build-wheels.sh", *args]
+    )
