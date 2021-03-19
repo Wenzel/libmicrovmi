@@ -1,9 +1,20 @@
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Type
 from urllib.parse import parse_qs, urlparse
 from urllib.request import BaseHandler, Request
 
 from microvmi import DriverInitParam, DriverType, Microvmi
+
+# to be used by volatility, the VMIHandler should inherit from VolatilityHandler
+# in order to be non cacheable
+# if we find volatility, use VolatilityHandler, otherwise use the BaseHandler from stdlib
+HANDLER_BASE_CLASS: Type[BaseHandler] = BaseHandler
+try:
+    from volatility3.framework.layers.handler import VolatilityHandler
+
+    HANDLER_BASE_CLASS = VolatilityHandler
+except ImportError:
+    pass
 
 micro: Optional[Microvmi] = None
 
@@ -11,8 +22,8 @@ micro: Optional[Microvmi] = None
 class MicrovmiHandlerError(Exception):
     pass
 
-
-class VMIHandler(BaseHandler):
+# Note: mypy: dynamic base classes are not handled
+class VMIHandler(HANDLER_BASE_CLASS):   # type: ignore
     """
     Handles the Virtual Machine Introspection URL scheme based on libmicrovmi
 
@@ -27,6 +38,10 @@ class VMIHandler(BaseHandler):
     """Map of driver initialization parameter keys to the associated DriverInitParam functions
     exposed by the pymicrovmi python extension"""
     DRIVER_INIT_PARAM_MAP = {"kvmi_unix_socket": DriverInitParam.kvmi_unix_socket}
+
+    @classmethod
+    def non_cached_schemes(cls) -> List[str]:
+        return [VMIHandler.SCHEME]
 
     @staticmethod
     def vmi_open(req: Request) -> Optional[Any]:
