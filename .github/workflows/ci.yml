@@ -467,12 +467,12 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: Build our manylinux Docker container
-        run: docker build -t manylinux2014_microvmi .
-        working-directory: python
+      - name: install nox
+        run: pip install nox
 
       - name: Build Wheels with manylinux
-        run: docker run --rm -v `pwd`:/io manylinux2014_microvmi /io/python/build-wheels.sh --features xen,kvm,virtualbox --release
+        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox --release
+        working-directory: python
 
       - name: Publish on PyPI 🚀
         uses: pypa/gh-action-pypi-publish@v1.3.1
