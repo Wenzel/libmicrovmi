@@ -239,6 +239,12 @@ jobs:
 
       - uses: actions/checkout@v1
 
+      - name: install nox and check formatting, linting and types
+        run: |
+          pip install nox
+          nox -r
+        working-directory: python
+
       - name: build Python extension
         uses: actions-rs/cargo@v1
         with:
