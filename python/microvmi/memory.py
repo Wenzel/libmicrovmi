@@ -1,6 +1,6 @@
 import logging
 from io import RawIOBase
-from os import SEEK_SET, SEEK_CUR, SEEK_END
+from os import SEEK_CUR, SEEK_END, SEEK_SET
 from typing import Optional
 
 from .pymicrovmi import MicrovmiExt

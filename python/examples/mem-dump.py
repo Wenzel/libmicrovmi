@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import logging
 import argparse
+import logging
 from contextlib import contextmanager
 
 from microvmi import Microvmi
-from rich.progress import Progress, BarColumn, TextColumn
 from rich import print
+from rich.progress import BarColumn, Progress, TextColumn
 
 READ_SIZE = 1024 * 1024
 

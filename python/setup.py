@@ -7,7 +7,6 @@ import toml
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
-
 CUR_DIR = Path(__file__).resolve().parent
 
 # check for --features

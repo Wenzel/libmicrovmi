@@ -1,10 +1,9 @@
 from enum import Enum
 from typing import Optional
 
-from microvmi.memory import PhysicalMemoryIO, PaddedPhysicalMemoryIO
+from microvmi.memory import PaddedPhysicalMemoryIO, PhysicalMemoryIO
 
-
-from .pymicrovmi import MicrovmiExt, DriverInitParam
+from .pymicrovmi import DriverInitParam, MicrovmiExt
 
 
 class DriverType(Enum):

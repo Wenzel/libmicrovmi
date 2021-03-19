@@ -1,2 +1,3 @@
+from microvmi.microvmi import DriverType, Microvmi
+
 from .pymicrovmi import *
-from microvmi.microvmi import Microvmi, DriverType
