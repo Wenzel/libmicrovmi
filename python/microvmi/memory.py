@@ -1,7 +1,9 @@
 import logging
+from array import ArrayType
 from io import RawIOBase
+from mmap import mmap
 from os import SEEK_CUR, SEEK_END, SEEK_SET
-from typing import Optional
+from typing import Optional, Union
 
 from .pymicrovmi import MicrovmiExt
 
@@ -60,7 +62,7 @@ class PhysicalMemoryIO(AbstractPhysicalMemoryIO):
     The stream is unbuffered, as we are dealing with live memory.
     Also, it allows randoms access (seeks) in memory"""
 
-    def read(self, size: int = ...) -> Optional[bytes]:
+    def read(self, size: int = ...) -> Optional[bytes]:  # type: ignore
         self._log.debug("read: size: %s", size)
         if size < 0:
             # -1: read all bytes until EOF
@@ -70,7 +72,7 @@ class PhysicalMemoryIO(AbstractPhysicalMemoryIO):
         self._log.debug("read return: len: %s, content: %s", len(data), data[:100])
         return bytes(data[:bytes_read])
 
-    def readinto(self, buffer: bytearray) -> Optional[int]:
+    def readinto(self, buffer: Union[bytearray, memoryview, ArrayType, mmap]) -> Optional[int]:
         bytes_read = self._m.read_physical_into(self._cur_pos, buffer)
         return bytes_read
 
@@ -87,7 +89,7 @@ class PaddedPhysicalMemoryIO(AbstractPhysicalMemoryIO):
     It has been designed to be used mainly by Volatility3,
     which requires padded reads."""
 
-    def read(self, size: int = ...) -> Optional[bytes]:
+    def read(self, size: int = ...) -> Optional[bytes]:  # type: ignore
         self._log.debug("read: size: %s", size)
         if size < 0:
             # -1: read all bytes until EOF
