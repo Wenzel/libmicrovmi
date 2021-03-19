@@ -54,6 +54,7 @@ enum DriverInitParamType {
 #[derive(Debug, Clone)]
 struct DriverInitParam {
     pub param_type: DriverInitParamType,
+    #[pyo3(get)]
     pub param_data_string: String,
 }
 

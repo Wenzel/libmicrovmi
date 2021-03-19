@@ -6,7 +6,7 @@ import nox
 CUR_DIR = Path(__file__).parent
 
 # default sessions for nox
-nox.options.sessions = ["fmt", "lint", "type"]
+nox.options.sessions = ["fmt", "lint", "type", "test"]
 
 
 @nox.session
@@ -35,7 +35,11 @@ def type(session):
 def test(session):
     # run unit tests
     args = session.posargs
+    # we need to compile and install the extension
     session.install("-r", "requirements.txt")
+    # can't use pip install
+    # see: https://github.com/PyO3/maturin/issues/330
+    session.run(f'{CUR_DIR / "setup.py"}', "develop")
     session.install("pytest==6.0.2", "coverage==5.3")
     session.run("coverage", "run", "-m", "pytest", "-v", *args)
     session.run("coverage", "report")
