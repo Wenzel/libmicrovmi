@@ -23,9 +23,7 @@ def pause_ctxt(micro: Microvmi):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("vm_name", help="The VM name to dump memory from")
-    parser.add_argument(
-        "-o", "--output-file", help="Dump file path", default="{vm_name}.dump"
-    )
+    parser.add_argument("-o", "--output-file", help="Dump file path", default="{vm_name}.dump")
     args = parser.parse_args()
     return args
 
@@ -35,9 +33,7 @@ def dump_mem(vm_name, output_file):
     destination = output_file.format(vm_name=vm_name)
     with pause_ctxt(micro):
         max_addr = micro.max_addr
-        print(
-            f"Dumping physical memory on {vm_name} until 0x{max_addr:X} to {destination}"
-        )
+        print(f"Dumping physical memory on {vm_name} until 0x{max_addr:X} to {destination}")
         with open(destination, "wb") as f:
             with Progress(
                 "[progress.description]{task.description}",

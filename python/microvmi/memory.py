@@ -21,9 +21,7 @@ class AbstractPhysicalMemoryIO(RawIOBase):
         self._cur_pos: int = 0
 
     def seek(self, offset: int, whence: int = SEEK_SET) -> int:
-        self._log.debug(
-            "seek: offset: %s, whence: %s, pos: %s", offset, whence, hex(self._cur_pos)
-        )
+        self._log.debug("seek: offset: %s, whence: %s, pos: %s", offset, whence, hex(self._cur_pos))
         if whence == SEEK_SET:
             # seek from start of physical memory
             assert offset >= 0 or offset <= self._max_addr

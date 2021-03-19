@@ -33,9 +33,7 @@ class Microvmi:
             driver_type (int, optional): the hypervisor driver type on which the library should be initialized
             init_param (DriverInitParam, optional): additional initialization parameters for driver initialization
         """
-        drv_type_ext: Optional[int] = (
-            driver_type.value if driver_type is not None else None
-        )
+        drv_type_ext: Optional[int] = driver_type.value if driver_type is not None else None
         self._micro = MicrovmiExt(domain_name, drv_type_ext, drv_init_param)
         self._memory = PhysicalMemoryIO(self._micro)
         self._padded_memory = PaddedPhysicalMemoryIO(self._micro)

@@ -60,11 +60,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Wenzel/libmicrovmi",
     install_requires=requirements,
-    rust_extensions=[
-        RustExtension(
-            "microvmi.pymicrovmi", binding=Binding.PyO3, features=features, debug=debug
-        )
-    ],
+    rust_extensions=[RustExtension("microvmi.pymicrovmi", binding=Binding.PyO3, features=features, debug=debug)],
     packages=["microvmi"],
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
