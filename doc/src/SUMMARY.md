@@ -1,18 +1,21 @@
 - [Introduction](./README.md)
-- [Installation](./installation.md)
+
 
 # Tutorial
 
-- [Introduction](./tutorial/intro.md)
-- [Memory dump example in Rust](./tutorial/rust.md)
-- [Memory dump example in C](./tutorial/c.md)
-- [Memory dump example in Python](./tutorial/python.md)
+- [Installation](./tutorial/installation.md)
+  - [Packaged](./tutorial/packaged.md)
+  - [Source](./tutorial/source.md)
+- [Memory dump example on Xen](./tutorial/mem-dump-example.md)
+  - [Rust](./tutorial/rust.md)
+  - [C](./tutorial/c.md)
+  - [Python](./tutorial/python.md)
 
 # Reference
 
 - [API](./reference/api.md)
 - [Python API](./reference/python_api.md)
-- [Build Options](./reference/build_options.md)
+- [Drivers](./reference/drivers.md)
 - [Integration Status](./reference/integration_status.md)
 
 # Explanation
