@@ -8,10 +8,10 @@ Combined with libmicrovmi, you can run volatility3 on top of a live virtual mach
 Thanks to volatility3's modular architecture the libmicrovmi integration doesn't require any upstream modification.
 Instead we need to indicate to volatility3 how to locate our plugin.
 
+# Setup
+
 This guide assumes you already have a working installation of libmicrovmi Python in a virtualenv.
 Please refer to the [documentation](https://wenzel.github.io/libmicrovmi/tutorial/installation.html).
-
-# Setup
 
 We need the development version of volatility3, from git:
 
@@ -21,7 +21,8 @@ We need the development version of volatility3, from git:
 (venv) $ pip install .
 ~~~
 
-The `microvmi` python package comes with a [`volatility`](https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility) directory which contains the connection plugin.
+The `microvmi` python package comes with a [`volatility`](https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility)
+directory which contains the connection plugin.
 
 We need to add this directory to volatility's search path.
 
@@ -29,12 +30,10 @@ To locate the volatility directory in your `venv`:
 
 ~~~
 (venv) $ find venv/ -type d -wholename '*microvmi/volatility*'
-venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility
+venv/lib/python3.7/site-packages/microvmi/volatility
 ~~~
 
 # Usage
-
-To run volatility3 with libmicrovmi, specify the additional plugin path with flag `-p`.
 
 ## VMI scheme URL
 
@@ -61,13 +60,17 @@ Let's put all of this together and run volatility3 combined with libmicrovmi.
 (venv) $ vol -p <plugin_dir> --single-location vmi:///vm_name <volatility plugin>
 ~~~
 
-Example listing the processes on Xen:
+### Example listing processes on Xen
 
 ~~~bash
 (venv) $ sudo -E ./venv/bin/vol \  # running volatility3 as root (required by the Xen driver)
-    -p ./venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility \  # path to the microvmi connection plugin
+    -p venv/lib/python3.7/site-packages/microvmi/volatility \  # path to the microvmi connection plugin
     --single-location vmi:///winxp \  # specify the resource location
     windows.pslist.PsList  # volatility's pslist plugin
 ~~~
 
-![demo](./volatility3-demo.png)
+🎥 [asciicast](https://asciinema.org/a/6YOXUkEwt53uYcU5rXxoWaFLq)
+
+### Example listing processes on KVM
+
+🎥 [asciicast](https://asciinema.org/a/DTyjM0rnq26RYbFX7hbS7jXvP)
