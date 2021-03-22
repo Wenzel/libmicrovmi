@@ -10,6 +10,8 @@
   - [Rust](./tutorial/rust.md)
   - [C](./tutorial/c.md)
   - [Python](./tutorial/python.md)
+- [Integration](./tutorial/integration.md)
+  - [volatility3](./tutorial/integration/volatility3.md)
 
 # Reference
 
