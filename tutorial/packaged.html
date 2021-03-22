@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Introduction - Libmicrovmi Documentation</title>
+        <title>Packaged - Libmicrovmi Documentation</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/intro.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.</strong> Memory dump example in Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">3.</strong> Memory dump example in C</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/build_options.html"><strong aria-hidden="true">5.</strong> Build Options</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">6.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">7.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">8.</strong> VMI Fragmentation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html" class="active"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">10.</strong> Python</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,42 +163,49 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
-<p>This tutorial will walk you through the steps required to compile libmicrovmi and run
-the <code>mem-dump</code> Rust example code on a Xen domain in order to dump its physical memory.</p>
-<p>This tutorial assumes the following:</p>
+                        <h1 id="packaged-installation"><a class="header" href="#packaged-installation">Packaged installation</a></h1>
+<p>This section details how to install the officially distributed version of libmicrovmi.</p>
+<p>libmicrovmi is accessible through the following languages</p>
 <ul>
-<li>you have a working installation of Rust as well as a Xen domain</li>
-<li>you have a running VM supervised by <strong>Xen 4.11.0</strong> or above.</li>
-<li>you are running on <strong>Ubuntu 20.04</strong></li>
+<li>Rust</li>
+<li>C</li>
+<li>Python</li>
 </ul>
-<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<p>It comes bundled by default with the following Linux drivers:</p>
 <ul>
-<li><code>clang</code> (bindgen)</li>
-<li>Xen development headers</li>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
 </ul>
-<p>To install the additional dependencies:</p>
-<pre><code>$ sudo apt install clang libxen-dev
-</code></pre>
-<h2 id="cloning-libmicrovmi"><a class="header" href="#cloning-libmicrovmi">Cloning libmicrovmi</a></h2>
-<p>Before beginning the tutorial, clone the <a href="https://github.com/Wenzel/libmicrovmi">repo</a>:</p>
-<pre><code>$ git clone https://github.com/Wenzel/libmicrovmi
-</code></pre>
-<p>⚠️ Note: Accessing Xen's introspection APIs will require high privileges as we are talking to <code>Dom0</code>,
-hence we have to run <code>cargo</code> as <code>root</code> when actually running and testing example code.</p>
+<h1 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h1>
+<p>The crates is available on crates.io:</p>
+<p><a href="https://crates.io/crates/microvmi"><img src="https://img.shields.io/crates/v/microvmi?logo=rust&amp;style=for-the-badge" alt="Crates.io" /></a></p>
+<h1 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h1>
+<p>A Debian package is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=yellowgreen&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></p>
+<p>It contains both the library and the headers to get started with C development</p>
+<ul>
+<li><code>/usr/lib/libmicrovmi.so</code></li>
+<li><code>/usr/include/libmicrovmi.h</code></li>
+</ul>
+<h1 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h1>
+<p>libmicrovmi is exposing a Python interface through a native extension.</p>
+<p>The package <code>microvmi</code> is available on <a href="https://pypi.org/project/microvmi/">PyPI</a>:</p>
+<p><a href="https://pypi.org/project/microvmi/"><img src="https://img.shields.io/pypi/v/microvmi?color=blue&amp;logo=pypi&amp;logoColor=white&amp;style=for-the-badge" alt="PyPI" /></a></p>
+<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system. Hence you don't have to install the debian package above.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../tutorial/installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../tutorial/rust.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../tutorial/source.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -210,13 +217,13 @@ hence we have to run <code>cargo</code> as <code>root</code> when actually runni
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../tutorial/installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="../tutorial/rust.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../tutorial/source.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

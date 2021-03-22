@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="tutorial/intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="tutorial/rust.html"><strong aria-hidden="true">2.</strong> Memory dump example in Rust</a></li><li class="chapter-item expanded "><a href="tutorial/c.html"><strong aria-hidden="true">3.</strong> Memory dump example in C</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="reference/build_options.html"><strong aria-hidden="true">5.</strong> Build Options</a></li><li class="chapter-item expanded "><a href="reference/integration_status.html"><strong aria-hidden="true">6.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="explanation/vmi_api.html"><strong aria-hidden="true">7.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="explanation/vmi_ecosystem.html"><strong aria-hidden="true">8.</strong> VMI Fragmentation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="developer/python.html"><strong aria-hidden="true">10.</strong> Python</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -224,12 +224,94 @@ $ xdg-open doc/book/index.html
 </ul>
 <h2 id="license"><a class="header" href="#license">License</a></h2>
 <p><a href="https://github.com/Wenzel/pyvmidbg/blob/master/LICENSE">GNU General Public License v3.0</a></p>
-<h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This section will teach you how to:</p>
+<ul>
+<li>install libmicrovmi either from official repositories or source code</li>
+</ul>
+<h1 id="packaged-installation"><a class="header" href="#packaged-installation">Packaged installation</a></h1>
+<p>This section details how to install the officially distributed version of libmicrovmi.</p>
+<p>libmicrovmi is accessible through the following languages</p>
+<ul>
+<li>Rust</li>
+<li>C</li>
+<li>Python</li>
+</ul>
+<p>It comes bundled by default with the following Linux drivers:</p>
+<ul>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
+</ul>
+<h1 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h1>
+<p>The crates is available on crates.io:</p>
+<p><a href="https://crates.io/crates/microvmi"><img src="https://img.shields.io/crates/v/microvmi?logo=rust&amp;style=for-the-badge" alt="Crates.io" /></a></p>
+<h1 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h1>
+<p>A Debian package is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=yellowgreen&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></p>
+<p>It contains both the library and the headers to get started with C development</p>
+<ul>
+<li><code>/usr/lib/libmicrovmi.so</code></li>
+<li><code>/usr/include/libmicrovmi.h</code></li>
+</ul>
+<h1 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h1>
+<p>libmicrovmi is exposing a Python interface through a native extension.</p>
+<p>The package <code>microvmi</code> is available on <a href="https://pypi.org/project/microvmi/">PyPI</a>:</p>
+<p><a href="https://pypi.org/project/microvmi/"><img src="https://img.shields.io/pypi/v/microvmi?color=blue&amp;logo=pypi&amp;logoColor=white&amp;style=for-the-badge" alt="PyPI" /></a></p>
+<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system. Hence you don't have to install the debian package above.</p>
+<h1 id="compilation-from-source"><a class="header" href="#compilation-from-source">Compilation from Source</a></h1>
+<p>This sections details how to compile libmicrovmi from source.</p>
+<p>You might want to dive into it if you are interested by:</p>
+<ul>
+<li>compiling a specific driver that is not available by default in the officially distributed version</li>
+<li>developing libmicrovmi
+<ul>
+<li>add a new driver</li>
+<li>extend the APIs</li>
+</ul>
+</li>
+</ul>
+<p>We assume that you have a working Cargo stable toolchain.</p>
+<p>⚠️ Note: each driver depends on development headers to be install in order
+to generate the bindings from C to Rust.</p>
+<p>For any driver, <code>clang</code> is a required dependency:</p>
+<pre><code>$ sudo apt-get install clang
+</code></pre>
+<p>Please look at the <a href="https://wenzel.github.io/libmicrovmi/reference/drivers.html">driver reference</a> section of the documentation.</p>
+<h2 id="cloning-libmicrovmi"><a class="header" href="#cloning-libmicrovmi">Cloning libmicrovmi</a></h2>
+<p>Clone the <a href="https://github.com/Wenzel/libmicrovmi">repo</a>:</p>
+<pre><code>$ git clone https://github.com/Wenzel/libmicrovmi
+</code></pre>
+<h2 id="rust"><a class="header" href="#rust">Rust</a></h2>
+<p>Compilation for a Rust crate is as simple as using cargo:</p>
+<pre><code>$ cargo build --features xen,kvm
+</code></pre>
+<h2 id="c"><a class="header" href="#c">C</a></h2>
+<p>The C library is generated by default when building the microvmi crate.</p>
+<p>The output files will be located at:
+<code>target/&lt;debug|release&gt;/libmicrovmi.so</code> : the C library
+<code>target/&lt;debug|release&gt;/capi/libmicrovmi.h</code> : the development header</p>
+<h2 id="python"><a class="header" href="#python">Python</a></h2>
+<p>To build the native Python extension, create a virtualenv and run <code>./setup.py</code>:</p>
+<pre><code>$ cd libmicrovmi/python
+$ python3 -m venv venv
+$ source venv/bin/activate
+(venv) $ python -m pip install --upgrade setuptools
+(venv) $ python -m pip install -r requirements.txt
+(venv) $ ./setup.py install --features xen,kvm
+</code></pre>
+<p>Note:</p>
+<ul>
+<li><code>./setup.py install</code> : will create a release build</li>
+<li><code>./setup.py develop</code> : will create a debug build</li>
+<li><code>pip install .</code> is <strong>NOT</strong> available due a to an issue in <a href="https://github.com/PyO3/maturin/issues/330">setuptools-rust/Maturin</a>. Do not use <code>pip</code>.</li>
+</ul>
+<h1 id="memory-dump-example-on-xen"><a class="header" href="#memory-dump-example-on-xen">Memory dump example on Xen</a></h1>
 <p>This tutorial will walk you through the steps required to compile libmicrovmi and run
 the <code>mem-dump</code> Rust example code on a Xen domain in order to dump its physical memory.</p>
 <p>This tutorial assumes the following:</p>
 <ul>
-<li>you have a working installation of Rust as well as a Xen domain</li>
+<li>you have a working cargo stable toolchain</li>
 <li>you have a running VM supervised by <strong>Xen 4.11.0</strong> or above.</li>
 <li>you are running on <strong>Ubuntu 20.04</strong></li>
 </ul>
@@ -240,10 +322,6 @@ the <code>mem-dump</code> Rust example code on a Xen domain in order to dump its
 </ul>
 <p>To install the additional dependencies:</p>
 <pre><code>$ sudo apt install clang libxen-dev
-</code></pre>
-<h2 id="cloning-libmicrovmi"><a class="header" href="#cloning-libmicrovmi">Cloning libmicrovmi</a></h2>
-<p>Before beginning the tutorial, clone the <a href="https://github.com/Wenzel/libmicrovmi">repo</a>:</p>
-<pre><code>$ git clone https://github.com/Wenzel/libmicrovmi
 </code></pre>
 <p>⚠️ Note: Accessing Xen's introspection APIs will require high privileges as we are talking to <code>Dom0</code>,
 hence we have to run <code>cargo</code> as <code>root</code> when actually running and testing example code.</p>
@@ -291,26 +369,144 @@ $ make mem-dump
 We have to set <code>LD_LIBRARY_PATH</code> so that <code>mem-dump</code> is able to find the libary.</p>
 <p>Expected output:</p>
 <p><img src="tutorial/./c_mem_dump.png" alt="mem-dump output" /></p>
+<h1 id="memory-dump-example-in-rust-1"><a class="header" href="#memory-dump-example-in-rust-1">Memory-dump example in Rust</a></h1>
+<p>In this tutorial chapter, we will run the <code>mem-dump.py</code> Python example to dump
+the physical memory of a domain, thanks to libmicrovmi Python bindings.</p>
+<p>First, let's create a virtualenv and install the bindings with the Xen driver enabled:</p>
+<pre><code>$ cd libmicrovmi/python
+$ python3 -m venv venv
+$ source venv/bin/activate
+(venv) $ python -m pip install --upgrade setuptools
+(venv) $ python -m pip install -r requirements.txt
+(venv) $ ./setup.py install --features xen
+</code></pre>
+<h2 id="running-the-example-2"><a class="header" href="#running-the-example-2">Running the example</a></h2>
+<p>The <code>examples/mem-dump.py</code> script is based on the <a href="https://github.com/willmcgugan/rich">rich</a> library for an enhanced output.
+As they are only needed for example code, the requirements are kept in a separate file.</p>
+<p>Let's install them:</p>
+<pre><code>cd libmicrovmi/python
+(venv) $ python -m pip install -r examples/requirements.txt
+</code></pre>
+<p>Now you can run the example on your domain <code>&lt;vm_name&gt;</code>:</p>
+<pre><code>$ sudo -E ./venv/bin/python examples/mem-dump.py &lt;vm_name&gt;
+</code></pre>
+<p>Expected output:</p>
+<p><img src="tutorial/./python_mem_dump.png" alt="mem-dump output" /></p>
+<h1 id="integration"><a class="header" href="#integration">Integration</a></h1>
+<p>libmicrovmi aims to be combined with a great diversity of VMI projects.</p>
+<p>In this section you will find detailed tutorials to integrate and exploit your favorite tools on top of libmicrovmi.</p>
+<p>Please refer to the <a href="https://wenzel.github.io/libmicrovmi/reference/integration_status.html">Integration Status</a> page for an overview of libmicrovmi's compatibility with existing integrations.</p>
+<h1 id="volatility3"><a class="header" href="#volatility3">volatility3</a></h1>
+<p><a href="https://github.com/volatilityfoundation/volatility3">volatility3</a> is a framework for extracting digital artifacts and performing forensic investigation
+on RAM samples.</p>
+<p>Combined with libmicrovmi, you can run volatility3 on top of a live virtual machine's physical memory.</p>
+<p>Thanks to volatility3's modular architecture the libmicrovmi integration doesn't require any upstream modification.
+Instead we need to indicate to volatility3 how to locate our plugin.</p>
+<p>This guide assumes you already have a working installation of libmicrovmi Python in a virtualenv.
+Please refer to the <a href="https://wenzel.github.io/libmicrovmi/tutorial/installation.html">documentation</a>.</p>
+<h1 id="setup"><a class="header" href="#setup">Setup</a></h1>
+<p>We need the development version of volatility3, from git:</p>
+<pre><code>(venv) $ git clone https://github.com/volatilityfoundation/volatility3
+(venv) $ cd volatility3
+(venv) $ pip install .
+</code></pre>
+<p>The <code>microvmi</code> python package comes with a <a href="https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility"><code>volatility</code></a> directory which contains the connection plugin.</p>
+<p>We need to add this directory to volatility's search path.</p>
+<p>To locate the volatility directory in your <code>venv</code>:</p>
+<pre><code>(venv) $ find venv/ -type d -wholename '*microvmi/volatility*'
+venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility
+</code></pre>
+<h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
+<p>To run volatility3 with libmicrovmi, specify the additional plugin path with flag <code>-p</code>.</p>
+<h2 id="vmi-scheme-url"><a class="header" href="#vmi-scheme-url">VMI scheme URL</a></h2>
+<p>The libmicrovmi handler for volatility is a URL handler with the following syntax:</p>
+<pre><code>vmi://[hypervisor]/vm_name
+</code></pre>
+<p>The hypervisor part is optional. If not specified, it will default to try every builtin driver available.</p>
+<p>Additional driver parameters can be specified.</p>
+<p>To pass the KVMi socket:</p>
+<pre><code>vmi:///vm_name?kvmi_unix_socket=/tmp/introspector
+</code></pre>
+<h2 id="running-volatility3"><a class="header" href="#running-volatility3">Running volatility3</a></h2>
+<p>Let's put all of this together and run volatility3 combined with libmicrovmi.</p>
+<ul>
+<li><code>-p &lt;plugin_dir&gt;</code></li>
+<li><code>--single-location vmi://</code> url</li>
+</ul>
+<pre><code>(venv) $ vol -p &lt;plugin_dir&gt; --single-location vmi:///vm_name &lt;volatility plugin&gt;
+</code></pre>
+<p>Example listing the processes on Xen:</p>
+<pre><code class="language-bash">(venv) $ sudo -E ./venv/bin/vol \  # running volatility3 as root (required by the Xen driver)
+    -p ./venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility \  # path to the microvmi connection plugin
+    --single-location vmi:///winxp \  # specify the resource location
+    windows.pslist.PsList  # volatility's pslist plugin
+</code></pre>
+<p><img src="tutorial/integration/./volatility3-demo.png" alt="demo" /></p>
 <h1 id="api"><a class="header" href="#api">API</a></h1>
 <p><a href="https://docs.rs/microvmi"><img src="https://docs.rs/microvmi/badge.svg?version=0.1.12" alt="docs.rs badge" /></a></p>
-<h1 id="build-options"><a class="header" href="#build-options">Build Options</a></h1>
-<table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
-<tr><td>xen</td><td>Build the Xen driver</td></tr>
-<tr><td>kvm</td><td>Build the KVM driver</td></tr>
-<tr><td>virtualbox</td><td>Build the VirtualBox driver</td></tr>
-<tr><td>hyper-v</td><td>Build the Hyper-V driver</td></tr>
+<h1 id="python-api"><a class="header" href="#python-api">Python API</a></h1>
+<h3 id="initializing-libmicrovmi"><a class="header" href="#initializing-libmicrovmi">Initializing libmicrovmi</a></h3>
+<pre><code class="language-Python">from microvmi import Microvmi
+
+micro = Microvmi(&quot;Windows10&quot;)
+</code></pre>
+<h3 id="specifying-the-hypervisor"><a class="header" href="#specifying-the-hypervisor">Specifying the hypervisor</a></h3>
+<pre><code class="language-Python">from microvmi import Microvmi, DriverType
+
+micro = Microvmi(&quot;Windows10&quot;, DriverType.XEN)
+</code></pre>
+<h3 id="adding-driver-initialization-parameters"><a class="header" href="#adding-driver-initialization-parameters">Adding driver initialization parameters</a></h3>
+<pre><code class="language-Python">from microvmi import Microvmi, DriverType, DriverInitParam
+
+init_param = DriverInitParam.kvmi_unix_socket(&quot;/tmp/introspector&quot;)
+micro = Microvmi(&quot;Windows10&quot;, DriverType.KVM, init_param)
+</code></pre>
+<h1 id="drivers"><a class="header" href="#drivers">Drivers</a></h1>
+<p>This section documents the drivers available and the requirements to compile them.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<table><thead><tr><th>Feature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>xen</code></td><td>Build the Xen driver</td></tr>
+<tr><td><code>kvm</code></td><td>Build the KVM driver</td></tr>
+<tr><td><code>virtualbox</code></td><td>Build the VirtualBox driver</td></tr>
 </tbody></table>
-<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<p>Example</p>
 <pre><code>$ cargo build --features xen,kvm
+</code></pre>
+<h2 id="xen"><a class="header" href="#xen">Xen</a></h2>
+<pre><code>$ sudo apt install clang libxen-dev
+</code></pre>
+<p>Compatibility: Xen &gt;= 4.11.0</p>
+<h2 id="kvm"><a class="header" href="#kvm">KVM</a></h2>
+<p>The KVM driver depends on <a href="https://github.com/bitdefender/libkvmi">libkvmi</a></p>
+<pre><code>$ git clone https://github.com/bitdefender/libkvmi.git
+$ cd libkvmi
+$ git checkout bf5776319e1801b59125c994c459446f0ed6837e
+$ ./bootstrap
+$ ./configure
+$ make
+$ sudo make install
+</code></pre>
+<h2 id="virtualbox"><a class="header" href="#virtualbox">VirtualBox</a></h2>
+<p>The VirtualBox driver depends on <a href="https://github.com/thalium/icebox/tree/master/src/FDP">libFDP</a></p>
+<pre><code>$ git clone --depth 1 https://github.com/thalium/icebox
+$ cd icebox/src/FDP
+$ g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
+$ sudo mv include/* /usr/local/include/
+$ sudo mv libFDP.so /usr/local/lib/
 </code></pre>
 <h1 id="integration-status"><a class="header" href="#integration-status">Integration Status</a></h1>
 <p>This section gives a status overview of libmicrovmi's integration into
 other applications and libraries based on <em>virtual machine introspection</em>.</p>
+<table><thead><tr><th align="center">Project</th><th align="center">Supported</th></tr></thead><tbody>
+<tr><td align="center">LibVMI</td><td align="center">🟠</td></tr>
+<tr><td align="center">volatility3</td><td align="center">✅</td></tr>
+</tbody></table>
 <h2 id="libvmi"><a class="header" href="#libvmi">LibVMI</a></h2>
 <ul>
 <li><a href="https://github.com/libvmi/libvmi">project</a></li>
 <li><a href="https://github.com/Wenzel/libmicrovmi/issues/137">issue</a></li>
 <li><a href="https://github.com/Wenzel/libvmi/tree/libmicrovmi">fork</a> (Note: use the <code>libmicrovmi</code> branch)</li>
+<li>compatibility: 🟠</li>
 </ul>
 <h3 id="api-compatibility-status"><a class="header" href="#api-compatibility-status">API Compatibility Status</a></h3>
 <p>LibVMI driver layer could be replaced by libmicrovmi.</p>
@@ -373,6 +569,15 @@ other applications and libraries based on <em>virtual machine introspection</em>
 <tr><td><code>get_data()</code></td><td align="center">✅</td><td></td></tr>
 <tr><td><code>release_data()</code></td><td align="center">✅</td><td></td></tr>
 </tbody></table>
+<h2 id="volatility3-1"><a class="header" href="#volatility3-1">volatility3</a></h2>
+<p>volatility3 could inspect and run its forensics plugins on live memory by
+adding a new URL handler.</p>
+<ul>
+<li><a href="https://github.com/volatilityfoundation/volatility3">project</a></li>
+<li><a href="https://github.com/Wenzel/libmicrovmi/issues/161">issue</a></li>
+<li><a href="https://github.com/Wenzel/volatility3/tree/vm_introspection_handler">fork</a> (Note: use the <code>vm_introspection_handler</code> branch)</li>
+<li>compatibility: ✅</li>
+</ul>
 <h1 id="vmi-api"><a class="header" href="#vmi-api">VMI API</a></h1>
 <p>This section describes what can be done with a <em>virtual machine introspection</em> API</p>
 <ul>
@@ -409,7 +614,7 @@ other applications and libraries based on <em>virtual machine introspection</em>
 </ul>
 </li>
 </ul>
-<h1 id="xen"><a class="header" href="#xen">Xen</a></h1>
+<h1 id="xen-1"><a class="header" href="#xen-1">Xen</a></h1>
 <p>VMI APIs are available upstream since Xen 4.1</p>
 <ul>
 <li>
@@ -453,7 +658,7 @@ other applications and libraries based on <em>virtual machine introspection</em>
 </ul>
 </li>
 </ul>
-<h1 id="kvm"><a class="header" href="#kvm">KVM</a></h1>
+<h1 id="kvm-1"><a class="header" href="#kvm-1">KVM</a></h1>
 <p>VMI APIs are currently being developed by <code>BitDefender</code>, and in review on the mailing list.</p>
 <ul>
 <li>
@@ -543,6 +748,28 @@ yet the ecosystem is still heavily fragmented and lacks standards as well as int
 <li><a href="https://github.com/libvmi/libvmi">LibVMI C library</a></li>
 <li><a href="https://github.com/KVM-VMI/kvm-vmi/">KVM-VMI</a></li>
 </ul>
+<h1 id="python-bindings"><a class="header" href="#python-bindings">Python Bindings</a></h1>
+<h2 id="nox"><a class="header" href="#nox">Nox</a></h2>
+<p>The project uses <a href="https://nox.thea.codes/en/stable/">Nox</a> to facilite and automate the developer workflow.
+Please install this tool before you start</p>
+<p>Running <code>nox</code> without any argument will run the default sessions.</p>
+<h2 id="generating-the-wheels"><a class="header" href="#generating-the-wheels">Generating the Wheels</a></h2>
+<p>Distributing a Python native extension compatible with many systems and a large set of Python interpreters is a challenging task.</p>
+<p>The <a href="https://github.com/pypa/manylinux">manylinux</a> project comes to the rescue here.</p>
+<p>The extension is built based on the <a href="https://www.python.org/dev/peps/pep-0599/"><code>manylinux2014</code></a> platform tag.</p>
+<p>Generation of the wheels is managed by <code>nox</code> and requires <a href="https://www.docker.com/"><code>Docker</code></a> to build a custom manylinux2014 CentOS image, and
+execute the script inside it.</p>
+<p>To start the generation:</p>
+<pre><code>$ cd libmicrovmi/python
+$ nox -r -s generate_wheels -- --features xen
+</code></pre>
+<p>you can activate more drivers</p>
+<pre><code>$ nox -r -s generate_wheels -- --features xen,kvm,virtualbox
+</code></pre>
+<p>and enable the release mode as well</p>
+<pre><code>nox -r -s generate_wheels -- --features xen --release
+</code></pre>
+<p>After the execution, the wheels will be available in <code>libmicrovmi/python/dist/manylinux</code>.</p>
 
                     </main>
 

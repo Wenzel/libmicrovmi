@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>VMI API - Libmicrovmi Documentation</title>
+        <title>Python - Libmicrovmi Documentation</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html" class="active"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">10.</strong> Python</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html" class="active"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">10.</strong> Python</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,150 +163,42 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="vmi-api"><a class="header" href="#vmi-api">VMI API</a></h1>
-<p>This section describes what can be done with a <em>virtual machine introspection</em> API</p>
-<ul>
-<li>Query and modify the VM hardware state
-<ul>
-<li>read/write VCPU registers</li>
-<li>read/write physical memory</li>
-</ul>
-</li>
-<li>Subscribe and listen to hardware events
-<ul>
-<li>mov to/from CR3/CR8</li>
-<li>mov to/from DRx</li>
-<li>mov to/from MSR</li>
-<li>interrupts</li>
-<li>singlestep (MTF)</li>
-<li>hypercalls</li>
-<li>descriptors</li>
-<li>SLAT (Second Level Address Translation) events
-<ul>
-<li><code>r/w/x</code> event on a page</li>
-<li>dynamically switch to multiple memory views using alternate SLAT pointers</li>
-</ul>
-</li>
-<li>Intel Processor Trace packets</li>
-</ul>
-</li>
-</ul>
-<ul>
-<li>Utilities
-<ul>
-<li>foreign mapping</li>
-<li>pagefault injection</li>
-</ul>
-</li>
-</ul>
-<h1 id="xen"><a class="header" href="#xen">Xen</a></h1>
-<p>VMI APIs are available upstream since Xen 4.1</p>
-<ul>
-<li>
-<p><a href="https://wiki.xenproject.org/wiki/Virtual_Machine_Introspection">Xen Wiki on Virtual Machine Introspection</a></p>
-</li>
-<li>
-<p><a href="https://github.com/xen-project/xen/blob/RELEASE-4.12.0/tools/libxc/include/xenctrl.h">VMI APIs can be found in <code>xenctrl.h</code></a></p>
-</li>
-<li>
-<p>Accessing the VM's hardware state</p>
-<ul>
-<li>get number of VCPUs: ✅</li>
-<li>get maximum gfn: ✅</li>
-<li>pause/resume: ✅</li>
-<li>r/w physical memory: ✅</li>
-<li>r/w virtual memory: ✅</li>
-<li>r/w VCPU registers: ✅</li>
-</ul>
-</li>
-<li>
-<p>Intercept VM's hardware events</p>
-<ul>
-<li>control registers: ✅</li>
-<li>extended control registers: ✅</li>
-<li>debug registers: ✅</li>
-<li>MSR: ✅</li>
-<li>singlesteps: ✅</li>
-<li>interrupts: ✅</li>
-<li>descriptors: ✅</li>
-<li>hypercalls: ✅</li>
-<li>CPUID: ✅</li>
-<li>memory: ✅</li>
-<li>alternate SLAT: ✅</li>
-</ul>
-</li>
-<li>
-<p>Utilities:</p>
-<ul>
-<li>foreign mapping: ✅</li>
-<li>exception injection: ✅</li>
-</ul>
-</li>
-</ul>
-<h1 id="kvm"><a class="header" href="#kvm">KVM</a></h1>
-<p>VMI APIs are currently being developed by <code>BitDefender</code>, and in review on the mailing list.</p>
-<ul>
-<li>
-<p><a href="https://github.com/KVM-VMI/kvm-vmi">KVM-VMI project</a></p>
-</li>
-<li>
-<p><a href="https://github.com/KVM-VMI/kvm/blob/528c2680bec46e9603126eec6506bc5da71d297b/tools/kvm/kvmi/include/kvmi/libkvmi.h"><code>libkvmi.h</code></a></p>
-</li>
-<li>
-<p><a href="https://github.com/KVM-VMI/kvm/blob/528c2680bec46e9603126eec6506bc5da71d297b/arch/x86/include/uapi/asm/kvmi.h"><code>kvmi.h</code></a></p>
-</li>
-<li>
-<p>Accessing the VM's hardware state</p>
-<ul>
-<li>get number of VCPUs: ✅</li>
-<li>get maximum gfn: ❌</li>
-<li>pause/resume: ✅</li>
-<li>r/w physical memory: ✅</li>
-<li>r/w virtual memory: ❌</li>
-<li>r/w VCPU registers: ✅</li>
-</ul>
-</li>
-<li>
-<p>Intercept VM's hardware events</p>
-<ul>
-<li>control registers: ✅</li>
-<li>extended control registers: ❌</li>
-<li>debug registers: ✅</li>
-<li>MSR: ✅</li>
-<li>singlesteps: ❌</li>
-<li>interrupts: ✅</li>
-<li>descriptors: ✅</li>
-<li>hypercalls: ✅</li>
-<li>CPUID: ❌</li>
-<li>memory: ✅</li>
-<li>alternate SLAT: ❌</li>
-</ul>
-</li>
-<li>
-<p>Utilities:</p>
-<ul>
-<li>foreign mapping: ✅</li>
-<li>exception injection: ✅</li>
-</ul>
-</li>
-</ul>
-<p>Note:</p>
-<ul>
-<li><code>SLAT</code>: <em>Second Level Address Translation</em></li>
-</ul>
+                        <h1 id="memory-dump-example-in-rust"><a class="header" href="#memory-dump-example-in-rust">Memory-dump example in Rust</a></h1>
+<p>In this tutorial chapter, we will run the <code>mem-dump.py</code> Python example to dump
+the physical memory of a domain, thanks to libmicrovmi Python bindings.</p>
+<p>First, let's create a virtualenv and install the bindings with the Xen driver enabled:</p>
+<pre><code>$ cd libmicrovmi/python
+$ python3 -m venv venv
+$ source venv/bin/activate
+(venv) $ python -m pip install --upgrade setuptools
+(venv) $ python -m pip install -r requirements.txt
+(venv) $ ./setup.py install --features xen
+</code></pre>
+<h2 id="running-the-example"><a class="header" href="#running-the-example">Running the example</a></h2>
+<p>The <code>examples/mem-dump.py</code> script is based on the <a href="https://github.com/willmcgugan/rich">rich</a> library for an enhanced output.
+As they are only needed for example code, the requirements are kept in a separate file.</p>
+<p>Let's install them:</p>
+<pre><code>cd libmicrovmi/python
+(venv) $ python -m pip install -r examples/requirements.txt
+</code></pre>
+<p>Now you can run the example on your domain <code>&lt;vm_name&gt;</code>:</p>
+<pre><code>$ sudo -E ./venv/bin/python examples/mem-dump.py &lt;vm_name&gt;
+</code></pre>
+<p>Expected output:</p>
+<p><img src="./python_mem_dump.png" alt="mem-dump output" /></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../reference/integration_status.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../tutorial/c.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../explanation/vmi_ecosystem.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../tutorial/integration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -318,13 +210,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="../reference/integration_status.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../tutorial/c.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="../explanation/vmi_ecosystem.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../tutorial/integration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
