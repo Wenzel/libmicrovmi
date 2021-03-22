@@ -156,31 +156,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features virtualbox -- -D warnings
 
-  hyper-v:
-    runs-on: windows-latest
-
-    steps:
-      - name: install LLVM
-        run: choco install llvm
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy
-      - uses: actions/checkout@v1
-      - name: build Hyper-V driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features hyper-v
-      #- name: annotate commit with clippy warnings
-      #  uses: actions-rs/clippy-check@v1
-      #  with:
-      #    name: clippy hyper-v
-      #    token: ${{ secrets.GITHUB_TOKEN }}
-      #    args: --features hyper-v -- -D warnings
-
   c_api:
     runs-on: ubuntu-20.04
 
@@ -269,7 +244,7 @@ jobs:
 
   debian_package:
     # create a Debian package with cargo deb
-    needs: [xen, kvm, virtualbox, hyper-v]
+    needs: [xen, kvm, virtualbox]
     runs-on: ubuntu-20.04
 
     steps:
@@ -335,7 +310,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, hyper-v, c_api, examples, python]
+    needs: [format, xen, kvm, virtualbox, c_api, examples, python]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:

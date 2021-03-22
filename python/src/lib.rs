@@ -30,13 +30,11 @@ struct DriverType {}
 #[pymethods]
 impl DriverType {
     #[classattr]
-    const HYPERV: u32 = 0;
+    const KVM: u32 = 0;
     #[classattr]
-    const KVM: u32 = 1;
+    const VIRTUALBOX: u32 = 1;
     #[classattr]
-    const VIRTUALBOX: u32 = 2;
-    #[classattr]
-    const XEN: u32 = 3;
+    const XEN: u32 = 2;
 }
 
 // this will not be exported to Python
@@ -106,7 +104,6 @@ impl MicrovmiExt {
         );
         let rust_driver_type = driver_type
             .map(|drv_type| match drv_type {
-                DriverType::HYPERV => Ok(rapi::DriverType::HyperV),
                 DriverType::KVM => Ok(rapi::DriverType::KVM),
                 DriverType::VIRTUALBOX => Ok(rapi::DriverType::VirtualBox),
                 DriverType::XEN => Ok(rapi::DriverType::Xen),

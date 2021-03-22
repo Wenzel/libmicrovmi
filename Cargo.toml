@@ -20,8 +20,6 @@ xen = ["xenctrl", "xenstore-rs", "xenforeignmemory", "xenevtchn", "xenvmevent-sy
 kvm = ["kvmi"]
 # VirtualBox driver
 virtualbox = ["fdp"]
-# Hyper-v driver
-hyper-v = ["winapi", "widestring", "ntapi", "vid-sys"]
 
 
 [dependencies]

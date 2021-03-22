@@ -23,8 +23,6 @@ xen = ["microvmi/xen"]
 kvm = ["microvmi/kvm"]
 # VirtualBox driver
 virtualbox = ["microvmi/virtualbox"]
-# Hyper-v driver
-hyper-v = ["microvmi/hyper-v"]
 
 [dependencies]
 log = "0.4"

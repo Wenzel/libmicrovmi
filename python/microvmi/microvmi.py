@@ -9,10 +9,9 @@ from .pymicrovmi import DriverInitParam, MicrovmiExt
 class DriverType(Enum):
     """Types of hypervisors supported by libmicrovmi"""
 
-    HyperV = 0
-    KVM = 1
-    VirtualBox = 2
-    Xen = 3
+    KVM = 0
+    VirtualBox = 1
+    Xen = 2
 
 
 class Microvmi:

@@ -23,7 +23,6 @@ bitflags! {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, IntoEnumIterator)]
 pub enum DriverType {
-    HyperV,
     KVM,
     VirtualBox,
     Xen,
