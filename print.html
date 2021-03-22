@@ -402,22 +402,22 @@ on RAM samples.</p>
 <p>Combined with libmicrovmi, you can run volatility3 on top of a live virtual machine's physical memory.</p>
 <p>Thanks to volatility3's modular architecture the libmicrovmi integration doesn't require any upstream modification.
 Instead we need to indicate to volatility3 how to locate our plugin.</p>
+<h1 id="setup"><a class="header" href="#setup">Setup</a></h1>
 <p>This guide assumes you already have a working installation of libmicrovmi Python in a virtualenv.
 Please refer to the <a href="https://wenzel.github.io/libmicrovmi/tutorial/installation.html">documentation</a>.</p>
-<h1 id="setup"><a class="header" href="#setup">Setup</a></h1>
 <p>We need the development version of volatility3, from git:</p>
 <pre><code>(venv) $ git clone https://github.com/volatilityfoundation/volatility3
 (venv) $ cd volatility3
 (venv) $ pip install .
 </code></pre>
-<p>The <code>microvmi</code> python package comes with a <a href="https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility"><code>volatility</code></a> directory which contains the connection plugin.</p>
+<p>The <code>microvmi</code> python package comes with a <a href="https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility"><code>volatility</code></a>
+directory which contains the connection plugin.</p>
 <p>We need to add this directory to volatility's search path.</p>
 <p>To locate the volatility directory in your <code>venv</code>:</p>
 <pre><code>(venv) $ find venv/ -type d -wholename '*microvmi/volatility*'
-venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility
+venv/lib/python3.7/site-packages/microvmi/volatility
 </code></pre>
 <h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
-<p>To run volatility3 with libmicrovmi, specify the additional plugin path with flag <code>-p</code>.</p>
 <h2 id="vmi-scheme-url"><a class="header" href="#vmi-scheme-url">VMI scheme URL</a></h2>
 <p>The libmicrovmi handler for volatility is a URL handler with the following syntax:</p>
 <pre><code>vmi://[hypervisor]/vm_name
@@ -435,13 +435,15 @@ venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/
 </ul>
 <pre><code>(venv) $ vol -p &lt;plugin_dir&gt; --single-location vmi:///vm_name &lt;volatility plugin&gt;
 </code></pre>
-<p>Example listing the processes on Xen:</p>
+<h3 id="example-listing-processes-on-xen"><a class="header" href="#example-listing-processes-on-xen">Example listing processes on Xen</a></h3>
 <pre><code class="language-bash">(venv) $ sudo -E ./venv/bin/vol \  # running volatility3 as root (required by the Xen driver)
-    -p ./venv/lib/python3.8/site-packages/microvmi-0.0.2-py3.8-linux-x86_64.egg/microvmi/volatility \  # path to the microvmi connection plugin
+    -p venv/lib/python3.7/site-packages/microvmi/volatility \  # path to the microvmi connection plugin
     --single-location vmi:///winxp \  # specify the resource location
     windows.pslist.PsList  # volatility's pslist plugin
 </code></pre>
-<p><img src="tutorial/integration/./volatility3-demo.png" alt="demo" /></p>
+<p>🎥 <a href="https://asciinema.org/a/6YOXUkEwt53uYcU5rXxoWaFLq">asciicast</a></p>
+<h3 id="example-listing-processes-on-kvm"><a class="header" href="#example-listing-processes-on-kvm">Example listing processes on KVM</a></h3>
+<p>🎥 <a href="https://asciinema.org/a/DTyjM0rnq26RYbFX7hbS7jXvP">asciicast</a></p>
 <h1 id="api"><a class="header" href="#api">API</a></h1>
 <p><a href="https://docs.rs/microvmi"><img src="https://docs.rs/microvmi/badge.svg?version=0.1.12" alt="docs.rs badge" /></a></p>
 <h1 id="python-api"><a class="header" href="#python-api">Python API</a></h1>
