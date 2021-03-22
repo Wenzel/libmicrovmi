@@ -16,8 +16,6 @@ use enum_iterator::IntoEnumIterator;
 
 use api::Introspectable;
 use api::{DriverInitParam, DriverType};
-#[cfg(feature = "hyper-v")]
-use driver::hyperv::HyperV;
 #[cfg(feature = "kvm")]
 use driver::kvm::Kvm;
 #[cfg(feature = "virtualbox")]
@@ -64,8 +62,6 @@ fn init_driver(
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     #[allow(clippy::match_single_binding)]
     match driver_type {
-        #[cfg(feature = "hyper-v")]
-        DriverType::HyperV => Ok(Box::new(HyperV::new(_domain_name, _init_option)?)),
         #[cfg(feature = "kvm")]
         DriverType::KVM => Ok(Box::new(Kvm::new(
             _domain_name,
