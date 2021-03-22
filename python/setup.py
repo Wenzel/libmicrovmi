@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import toml
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools_rust import Binding, RustExtension
 
 CUR_DIR = Path(__file__).resolve().parent
@@ -60,7 +60,7 @@ setup(
     url="https://github.com/Wenzel/libmicrovmi",
     install_requires=requirements,
     rust_extensions=[RustExtension("microvmi.pymicrovmi", binding=Binding.PyO3, features=features, debug=debug)],
-    packages=["microvmi"],
+    packages=find_packages(),
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
     classifiers=[
