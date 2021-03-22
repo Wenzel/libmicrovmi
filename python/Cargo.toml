@@ -1,0 +1,37 @@
+[package]
+name = "pymicrovmi"
+# note "pymicrovmi" is just a conflict free name for Cargo
+# the Python package is named "microvmi" (setup.py)
+version = "0.0.2"
+authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
+edition = "2018"
+description = "Python bindings for libmicrovmi"
+readme = "README.md"
+homepage = "https://github.com/Wenzel/libmicrovmi"
+repository = "https://github.com/Wenzel/libmicrovmi"
+license = "GPL-3.0-only"
+keywords = ["introspection", "VMI"]
+
+[lib]
+name = "pymicrovmi"
+crate-type = ["cdylib"]
+
+[features]
+# Xen driver
+xen = ["microvmi/xen"]
+# KVM driver
+kvm = ["microvmi/kvm"]
+# VirtualBox driver
+virtualbox = ["microvmi/virtualbox"]
+# Hyper-v driver
+hyper-v = ["microvmi/hyper-v"]
+
+[dependencies]
+log = "0.4"
+env_logger = "0.8"
+thiserror = "1.0"
+microvmi = { path = "../" }
+
+[dependencies.pyo3]
+version = "0.13.1"
+features = ["extension-module"]

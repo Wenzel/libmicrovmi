@@ -147,13 +147,20 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(self.kvmi.get_vcpu_count()?.try_into()?)
     }
 
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn read_physical(
+        &self,
+        paddr: u64,
+        buf: &mut [u8],
+        bytes_read: &mut u64,
+    ) -> Result<(), Box<dyn Error>> {
         // kvmi read_physical can only handle a 4K buf request
         // any buffer bigger than that will result in an IOError (KVM_EINVAL)
         // need to chunk the read in 4K
         for (i, chunk) in buf.chunks_mut(PAGE_SIZE).enumerate() {
-            let cur_paddr = paddr + (i * PAGE_SIZE) as u64;
+            let offset = i * PAGE_SIZE;
+            let cur_paddr = paddr + offset as u64;
             self.kvmi.read_physical(cur_paddr, chunk)?;
+            *bytes_read = offset as u64;
         }
         Ok(())
     }

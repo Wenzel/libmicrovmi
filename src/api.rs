@@ -186,8 +186,14 @@ pub trait Introspectable {
     ///
     /// * 'paddr' - the physical address to read from
     /// * 'buf' - the data read from memory
+    /// * 'bytes_read' - the number of bytes read
     ///
-    fn read_physical(&self, _paddr: u64, _buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn read_physical(
+        &self,
+        _paddr: u64,
+        _buf: &mut [u8],
+        _bytes_read: &mut u64,
+    ) -> Result<(), Box<dyn Error>> {
         unimplemented!();
     }
 

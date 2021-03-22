@@ -84,7 +84,8 @@ fn main() {
         );
         // reset buffer each loop
         let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
-        drv.read_physical(cur_addr, &mut buffer)
+        let mut _bytes_read = 0;
+        drv.read_physical(cur_addr, &mut buffer, &mut _bytes_read)
             .unwrap_or_else(|_| debug!("failed to read memory at {:#X}", cur_addr));
         dump_file
             .write_all(&buffer)

@@ -30,8 +30,15 @@ impl Introspectable for VBox {
         Ok(1)
     }
 
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
-        self.fdp.read_physical_memory(paddr, buf)
+    fn read_physical(
+        &self,
+        paddr: u64,
+        buf: &mut [u8],
+        bytes_read: &mut u64,
+    ) -> Result<(), Box<dyn Error>> {
+        self.fdp.read_physical_memory(paddr, buf)?;
+        *bytes_read = buf.len() as u64;
+        Ok(())
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {

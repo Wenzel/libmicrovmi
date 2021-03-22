@@ -95,11 +95,23 @@ pub unsafe extern "C" fn microvmi_read_physical(
     physical_address: uint64_t,
     buffer: *mut uint8_t,
     size: size_t,
+    bytes_read: *mut uint64_t,
 ) -> bool {
     let driver = get_driver_mut_ptr(context);
-    (*driver)
-        .read_physical(physical_address, slice::from_raw_parts_mut(buffer, size))
-        .is_ok()
+
+    let mut bytes_read_local = 0;
+    let res = (*driver)
+        .read_physical(
+            physical_address,
+            slice::from_raw_parts_mut(buffer, size),
+            &mut bytes_read_local,
+        )
+        .is_ok();
+    // update bytes_read if not NULL
+    if !bytes_read.is_null() {
+        bytes_read.write(bytes_read_local);
+    }
+    res
 }
 
 #[allow(clippy::missing_safety_doc)]

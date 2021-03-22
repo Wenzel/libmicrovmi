@@ -1,0 +1,4 @@
+setuptools-rust
+setuptools==46.1
+wheel
+toml==0.10.2

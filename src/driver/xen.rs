@@ -112,34 +112,45 @@ impl Xen {
 }
 
 impl Introspectable for Xen {
-    fn read_physical(&self, paddr: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>> {
+    fn read_physical(
+        &self,
+        paddr: u64,
+        buf: &mut [u8],
+        bytes_read: &mut u64,
+    ) -> Result<(), Box<dyn Error>> {
         let mut cur_paddr: u64;
-        let mut offset: u64 = 0;
         let mut count_mut: u64 = buf.len() as u64;
         let mut buf_offset: u64 = 0;
+        *bytes_read = 0;
         while count_mut > 0 {
             // compute new paddr
-            cur_paddr = paddr + offset;
+            cur_paddr = paddr + buf_offset;
             // get the current gfn
             let gfn = cur_paddr >> PAGE_SHIFT;
-            offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
+            let page_offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
             // map gfn
             let page = self
                 .xen_fgn
                 .map(self.domid, PROT_READ, gfn)
                 .map_err(XenDriverError::from)?;
             // determine how much we can read
-            let read_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
-                u64::from(PAGE_SIZE) - offset
+            let read_len = if (page_offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+                u64::from(PAGE_SIZE) - page_offset
             } else {
-                buf.len() as u64
+                count_mut
             };
 
+            // prepare offsets
+            let buf_start = buf_offset as usize;
+            let buf_end = (buf_offset + read_len) as usize;
+            let page_start = page_offset as usize;
+            let page_end = (page_offset + read_len) as usize;
             // do the read
-            buf[buf_offset as usize..].copy_from_slice(&page[..read_len as usize]);
+            buf[buf_start..buf_end].copy_from_slice(&page[page_start..page_end]);
             // update loop variables
             count_mut -= read_len;
             buf_offset += read_len;
+            *bytes_read += read_len;
             // unmap page
             self.xen_fgn.unmap(page).map_err(XenDriverError::from)?;
         }

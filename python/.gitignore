@@ -1,0 +1,12 @@
+*.egg-info
+__pycache__/
+*.so
+build/
+dist/
+
+# nox
+.nox/
+
+# coverage
+.coverage
+.coverage_html/

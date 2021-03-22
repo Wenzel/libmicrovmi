@@ -24,7 +24,7 @@ void dump_memory(void* driver, const char* vm_name) {
     uint8_t buffer[PAGE_SIZE];
     for (int i = 0; i <= max_address / PAGE_SIZE; i++) {
         memset(buffer, 0, PAGE_SIZE);
-        if (microvmi_read_physical(driver, i * PAGE_SIZE, buffer, PAGE_SIZE)) {
+        if (microvmi_read_physical(driver, i * PAGE_SIZE, buffer, PAGE_SIZE, NULL)) {
             fwrite(buffer, sizeof(uint8_t), PAGE_SIZE, dump_file);
         }
     }

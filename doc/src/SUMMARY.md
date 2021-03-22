@@ -1,18 +1,30 @@
 - [Introduction](./README.md)
 
+
 # Tutorial
 
-- [Introduction](./tutorial/intro.md)
-- [Memory dump example in Rust](./tutorial/rust.md)
-- [Memory dump example in C](./tutorial/c.md)
+- [Installation](./tutorial/installation.md)
+  - [Packaged](./tutorial/packaged.md)
+  - [Source](./tutorial/source.md)
+- [Memory dump example on Xen](./tutorial/mem-dump-example.md)
+  - [Rust](./tutorial/rust.md)
+  - [C](./tutorial/c.md)
+  - [Python](./tutorial/python.md)
+- [Integration](./tutorial/integration.md)
+  - [volatility3](./tutorial/integration/volatility3.md)
 
 # Reference
 
 - [API](./reference/api.md)
-- [Build Options](./reference/build_options.md)
+- [Python API](./reference/python_api.md)
+- [Drivers](./reference/drivers.md)
 - [Integration Status](./reference/integration_status.md)
 
 # Explanation
 
 - [VMI API](./explanation/vmi_api.md)
 - [VMI Fragmentation](./explanation/vmi_ecosystem.md)
+
+# Developer
+
+- [Python](./developer/python.md)
