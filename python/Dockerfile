@@ -11,7 +11,7 @@ RUN git clone -b RELEASE-4.11.0 --depth 1 https://github.com/xen-project/xen \
         && cd xen \
         && yum install -y dev86 xz-devel python-devel gettext-devel iasl \
                 ncurses-devel pixman-devel wget yajl-devel zlib-devel \
-                glibc-devel.i686 \
+                glibc-devel.i686 libuuid-devel \
         && ./configure --disable-xen --disable-docs --disable-stubdom \
                 --enable-tools --disable-rombios \
         && sed -i '/$(call cc-option-add,CFLAGS,CC,-Wno-unused-local-typedefs)/a $(call cc-option-add,CFLAGS,CC,-Wno-address-of-packed-member)' Config.mk \
