@@ -71,6 +71,12 @@ assets = [
     ["target/release/capi/libmicrovmi.h", "usr/include/libmicrovmi.h", "644"],
 ]
 
+[package.metadata.release]
+# releases are managed by cargo release, but publication is done on the CI
+# this metadata prevents a misuse when --skip-publish flag is missing from cargo
+# release command line
+disable-publish = true
+
 [workspace]
 members = [
     "python"
