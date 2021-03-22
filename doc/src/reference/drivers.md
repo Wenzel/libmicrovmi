@@ -9,7 +9,6 @@ This section documents the drivers available and the requirements to compile the
 | `xen`        | Build the Xen driver        |
 | `kvm`        | Build the KVM driver        |
 | `virtualbox` | Build the VirtualBox driver |
-| `hyper-v`    | Build the Hyper-V driver    |
 
 Example
 ~~~
