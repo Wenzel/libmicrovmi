@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 from urllib.request import BaseHandler, Request
 
@@ -8,13 +8,14 @@ from microvmi import DriverInitParam, DriverType, Microvmi
 # to be used by volatility, the VMIHandler should inherit from VolatilityHandler
 # in order to be non cacheable
 # if we find volatility, use VolatilityHandler, otherwise use the BaseHandler from stdlib
-HANDLER_BASE_CLASS: Type[BaseHandler] = BaseHandler
 try:
-    from volatility3.framework.layers.handler import VolatilityHandler
-
-    HANDLER_BASE_CLASS = VolatilityHandler
+    from volatility3.framework.layers.resources import VolatilityHandler
 except ImportError:
-    pass
+    # define dummy class
+    # mypy checking: ignore name already defined
+    class VolatilityHandler(BaseHandler):  # type: ignore
+        pass
+
 
 micro: Optional[Microvmi] = None
 
@@ -22,8 +23,8 @@ micro: Optional[Microvmi] = None
 class MicrovmiHandlerError(Exception):
     pass
 
-# Note: mypy: dynamic base classes are not handled
-class VMIHandler(HANDLER_BASE_CLASS):   # type: ignore
+
+class VMIHandler(VolatilityHandler):
     """
     Handles the Virtual Machine Introspection URL scheme based on libmicrovmi
 

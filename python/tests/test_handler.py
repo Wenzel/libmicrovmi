@@ -1,6 +1,6 @@
 import pytest
 from microvmi import DriverType
-from microvmi.handler import MicrovmiHandlerError, url_to_driver_parameters
+from microvmi.volatility.vmi_handler import MicrovmiHandlerError, url_to_driver_parameters
 
 
 def test_valid_scheme():
