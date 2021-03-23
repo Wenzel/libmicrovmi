@@ -255,7 +255,6 @@ jobs:
 
   debian_package:
     # create a Debian package with cargo deb
-    needs: [xen, kvm, virtualbox]
     runs-on: ubuntu-20.04
 
     steps:
@@ -321,7 +320,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, c_api, examples, python]
+    needs: [format, xen, kvm, virtualbox, c_api, examples, python, debian_package]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
@@ -365,7 +364,7 @@ jobs:
 
   release_debian:
     # add the debian package in the Github release
-    needs: [release, debian_package]
+    needs: release
     runs-on: ubuntu-20.04
 
     steps:
