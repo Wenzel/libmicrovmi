@@ -242,9 +242,23 @@ jobs:
       - name: smoke test
         run: python3 -c 'from microvmi import Microvmi, DriverType, DriverInitParam'
 
+      # setup docker cache to speedup rest of the job
+      - name: Docker Layer Caching
+        uses: satackey/action-docker-layer-caching@v0.0.11
+
+      - name: Build Wheels with manylinux
+        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox --release
+        working-directory: python
+
+      # upload all generated wheels *.whl
+      - name: upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: python_wheels
+          path: python/dist/manylinux/*
+
   debian_package:
     # create a Debian package with cargo deb
-    needs: [xen, kvm, virtualbox]
     runs-on: ubuntu-20.04
 
     steps:
@@ -310,7 +324,7 @@ jobs:
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, c_api, examples, python]
+    needs: [format, xen, kvm, virtualbox, c_api, examples, python, debian_package]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
@@ -354,7 +368,7 @@ jobs:
 
   release_debian:
     # add the debian package in the Github release
-    needs: [release, debian_package]
+    needs: release
     runs-on: ubuntu-20.04
 
     steps:
@@ -440,18 +454,18 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
-      - name: install nox
-        run: pip install nox
-
-      - name: Build Wheels with manylinux
-        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox --release
-        working-directory: python
+      # download all wheels into a new manylinux directory
+      - uses: actions/download-artifact@v2
+        id: download
+        with:
+          name: python_wheels
+          path: manylinux
 
       - name: Publish on PyPI 🚀
         uses: pypa/gh-action-pypi-publish@v1.3.1
         with:
           user: __token__
           password: ${{ secrets.PYPI_ACCESS_TOKEN }}
-          packages_dir: python/dist/manylinux
+          packages_dir: manylinux

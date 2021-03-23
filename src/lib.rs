@@ -72,6 +72,7 @@ fn init_driver(
         DriverType::VirtualBox => Ok(Box::new(VBox::new(_domain_name, _init_option)?)),
         #[cfg(feature = "xen")]
         DriverType::Xen => Ok(Box::new(Xen::new(_domain_name, _init_option)?)),
+        #[allow(unreachable_patterns)]
         _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
     }
 }
