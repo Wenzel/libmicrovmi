@@ -1,3 +1,5 @@
+#[cfg(test)]
+use mockall::*;
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
@@ -172,6 +174,7 @@ pub enum Registers {
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
+#[cfg_attr(test, automock)]
 pub trait Introspectable {
     /// Retrieve the number of VCPUs.
     ///
