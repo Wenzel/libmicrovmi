@@ -1,5 +1,5 @@
 use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
-use crate::init;
+use crate::microvmi::Microvmi;
 use bitflags::_core::ptr::null_mut;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 use std::convert::TryInto;
@@ -55,8 +55,9 @@ pub unsafe extern "C" fn microvmi_init(
                 .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
         )
     };
-    match init(&safe_domain_name, optional_driver_type, init_option) {
-        Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
+
+    match Microvmi::new(&safe_domain_name, optional_driver_type, init_option) {
+        Ok(m) => Box::into_raw(Box::new(m)) as *mut c_void,
         Err(err) => {
             if !init_error.is_null() {
                 (*init_error) = CString::new(format!("{}", err))
