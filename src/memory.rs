@@ -3,7 +3,6 @@
 use crate::api::Introspectable;
 #[cfg(test)]
 use crate::api::MockIntrospectable;
-use crate::microvmi::Microvmi;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
