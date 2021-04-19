@@ -21,8 +21,6 @@ pub struct Microvmi {
     pub(crate) drv: Box<dyn Introspectable>,
     // position in the physical memory (seek)
     pub(crate) pos: u64,
-    // maximum physical address
-    pub(crate) max_addr: u64,
 }
 
 impl Microvmi {
@@ -55,16 +53,7 @@ impl Microvmi {
                 for drv_type in DriverType::into_enum_iter() {
                     // try to init
                     match init_driver(domain_name, drv_type, init_option.clone()) {
-                        Ok(drv) => {
-                            return {
-                                let max_addr = drv.get_max_physical_addr()?;
-                                Ok(Microvmi {
-                                    drv,
-                                    pos: 0,
-                                    max_addr,
-                                })
-                            }
-                        }
+                        Ok(drv) => return { Ok(Microvmi { drv, pos: 0 }) },
                         Err(e) => {
                             debug!("{:?} driver initialization failed: {}", drv_type, e);
                             continue;
@@ -75,14 +64,7 @@ impl Microvmi {
             }
             Some(drv_type) => {
                 let drv = init_driver(domain_name, drv_type, init_option)?;
-                return {
-                    let max_addr = drv.get_max_physical_addr()?;
-                    Ok(Microvmi {
-                        drv,
-                        pos: 0,
-                        max_addr,
-                    })
-                };
+                return { Ok(Microvmi { drv, pos: 0 }) };
             }
         }
     }

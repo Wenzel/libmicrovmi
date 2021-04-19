@@ -72,7 +72,9 @@ impl Seek for Microvmi {
                 self.seek(SeekFrom::Current(i64::try_from(p).unwrap_or(i64::MAX)))?;
             }
             SeekFrom::End(p) => {
-                self.pos = self.max_addr;
+                self.pos = self.drv.get_max_physical_addr().map_err(|_| {
+                    Error::new(ErrorKind::Other, "Failed to get maximum physical address")
+                })?;
                 self.seek(SeekFrom::Current(p))?;
             }
             SeekFrom::Current(p) => {
@@ -81,8 +83,11 @@ impl Seek for Microvmi {
                 } else {
                     self.pos = self.pos.saturating_sub(p.unsigned_abs());
                 }
-                if self.pos > self.max_addr {
-                    self.pos = self.max_addr;
+                let max_addr = self.drv.get_max_physical_addr().map_err(|_| {
+                    Error::new(ErrorKind::Other, "Failed to get maximum physical address")
+                })?;
+                if self.pos > max_addr {
+                    self.pos = max_addr;
                 }
             }
         };
