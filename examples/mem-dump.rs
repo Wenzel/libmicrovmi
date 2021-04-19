@@ -8,6 +8,7 @@ use log::trace;
 
 use microvmi::api::DriverInitParam;
 use microvmi::Microvmi;
+use std::io;
 
 const BUFFER_SIZE: usize = 64535; // 64K
 
@@ -85,8 +86,8 @@ fn main() {
         );
         // reset buffer each loop
         let mut buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
-        let mut _bytes_read = 0;
-        drv.read_exact(&mut buffer)
+        drv.padded_memory
+            .read(&mut buffer)
             .expect(&*format!("Failed to read memory at {:#X}", cur_addr));
         dump_file
             .write_all(&buffer)

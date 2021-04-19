@@ -98,6 +98,65 @@ impl Seek for Memory {
     }
 }
 
+pub struct PaddedMemory {
+    drv: Rc<RefCell<Box<dyn Introspectable>>>,
+    pos: u64,
+    max_addr: u64,
+}
+
+impl PaddedMemory {
+    pub fn new(drv: Rc<RefCell<Box<dyn Introspectable>>>) -> StdResult<Self, Box<dyn StdError>> {
+        Ok(PaddedMemory {
+            drv: drv.clone(),
+            pos: 0,
+            max_addr: drv.borrow().get_max_physical_addr()?,
+        })
+    }
+}
+
+impl Read for PaddedMemory {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        for chunk in buf.chunks_mut(PAGE_SIZE) {
+            let mut bytes_read: u64 = 0;
+            let paddr = self.stream_position()?;
+            self.drv
+                .borrow()
+                .read_physical(paddr, chunk, &mut bytes_read)
+                .unwrap_or_else(|_| chunk.fill(0));
+            // advance pos
+            self.seek(SeekFrom::Current(chunk.len() as i64))?;
+        }
+        Ok(buf.len())
+    }
+}
+
+impl Seek for PaddedMemory {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        match pos {
+            SeekFrom::Start(p) => {
+                self.pos = 0;
+                // force cast from u64 to i64, default to i64 MAX if conversion fail
+                self.seek(SeekFrom::Current(i64::try_from(p).unwrap_or(i64::MAX)))?;
+            }
+            SeekFrom::End(p) => {
+                self.pos = self.max_addr;
+                self.seek(SeekFrom::Current(p))?;
+            }
+            SeekFrom::Current(p) => {
+                if p > 0 {
+                    self.pos = self.pos.saturating_add(p.unsigned_abs());
+                } else {
+                    self.pos = self.pos.saturating_sub(p.unsigned_abs());
+                }
+                if self.pos > self.max_addr {
+                    self.pos = self.max_addr;
+                }
+            }
+        };
+        Ok(self.pos)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

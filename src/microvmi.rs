@@ -14,6 +14,7 @@ use crate::driver::virtualbox::VBox;
 use crate::driver::xen::Xen;
 use crate::errors::MicrovmiError;
 use crate::memory::Memory;
+use crate::memory::PaddedMemory;
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
@@ -23,6 +24,7 @@ pub struct Microvmi {
     // runtime VMI driver
     pub(crate) drv: Rc<RefCell<Box<dyn Introspectable>>>,
     pub memory: Memory,
+    pub padded_memory: PaddedMemory,
 }
 
 impl Microvmi {
@@ -74,6 +76,7 @@ impl Microvmi {
         Ok(Microvmi {
             drv: ref_drv.clone(),
             memory: Memory::new(ref_drv.clone())?,
+            padded_memory: PaddedMemory::new(ref_drv.clone())?,
         })
     }
 
