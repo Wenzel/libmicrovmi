@@ -166,15 +166,12 @@ mod tests {
         // create microvmi with mock driver
         let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let mut microvmi = Microvmi {
-            drv: Box::new(mock_introspectable),
-            pos: 0,
-            max_addr,
-        };
+        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
+        let mut memory = Memory::new(drv).unwrap();
         // seek 0 doesn't move position
-        assert_eq!(0, microvmi.seek(SeekFrom::Start(0))?);
+        assert_eq!(0, memory.seek(SeekFrom::Start(0))?);
         // seek beyond max_addr saturates at max_addr
-        assert_eq!(max_addr, microvmi.seek(SeekFrom::Start(max_addr + 1))?);
+        assert_eq!(max_addr, memory.seek(SeekFrom::Start(max_addr + 1))?);
         Ok(())
     }
 
@@ -183,19 +180,16 @@ mod tests {
         // create microvmi with mock driver
         let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let mut microvmi = Microvmi {
-            drv: Box::new(mock_introspectable),
-            pos: 0,
-            max_addr,
-        };
+        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
+        let mut memory = Memory::new(drv).unwrap();
         // seek end should move to max_addr
-        assert_eq!(max_addr, microvmi.seek(SeekFrom::End(0))?);
+        assert_eq!(max_addr, memory.seek(SeekFrom::End(0))?);
         // seek end beyond should saturates to max_addr
-        assert_eq!(max_addr, microvmi.seek(SeekFrom::End(50))?);
+        assert_eq!(max_addr, memory.seek(SeekFrom::End(50))?);
         // seek end with a negative number should update the position
-        assert_eq!(max_addr - 50, microvmi.seek(SeekFrom::End(-50))?);
+        assert_eq!(max_addr - 50, memory.seek(SeekFrom::End(-50))?);
         // seek below 0 should saturate at 0
-        assert_eq!(0, microvmi.seek(SeekFrom::End(i64::MIN))?);
+        assert_eq!(0, memory.seek(SeekFrom::End(i64::MIN))?);
         Ok(())
     }
 
@@ -204,19 +198,16 @@ mod tests {
         // create microvmi with mock driver
         let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let mut microvmi = Microvmi {
-            drv: Box::new(mock_introspectable),
-            pos: 0,
-            max_addr,
-        };
+        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
+        let mut memory = Memory::new(drv).unwrap();
         // seek current below 0 should saturate at 0
-        assert_eq!(0, microvmi.seek(SeekFrom::Current(-5))?);
+        assert_eq!(0, memory.seek(SeekFrom::Current(-5))?);
         // seek current should move the cursor
-        assert_eq!(50, microvmi.seek(SeekFrom::Current(50))?);
-        assert_eq!(49, microvmi.seek(SeekFrom::Current(-1))?);
-        assert_eq!(59, microvmi.seek(SeekFrom::Current(10))?);
+        assert_eq!(50, memory.seek(SeekFrom::Current(50))?);
+        assert_eq!(49, memory.seek(SeekFrom::Current(-1))?);
+        assert_eq!(59, memory.seek(SeekFrom::Current(10))?);
         // seek current beyond max_addr should saturate at max_addr
-        assert_eq!(max_addr, microvmi.seek(SeekFrom::Current(i64::MAX))?);
+        assert_eq!(max_addr, memory.seek(SeekFrom::Current(i64::MAX))?);
         Ok(())
     }
 }
