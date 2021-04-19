@@ -21,6 +21,8 @@ pub struct Microvmi {
     pub(crate) drv: Box<dyn Introspectable>,
     // position in the physical memory (seek)
     pub(crate) pos: u64,
+    // maximum physical address
+    pub(crate) max_addr: u64,
 }
 
 impl Microvmi {
@@ -47,30 +49,37 @@ impl Microvmi {
         init_option: Option<DriverInitParam>,
     ) -> Result<Microvmi, MicrovmiError> {
         info!("Microvmi init");
-        match driver_type {
+        let drv = match driver_type {
             None => {
                 // for each possible DriverType
+                let mut driver: Option<Box<dyn Introspectable>> = None;
                 for drv_type in DriverType::into_enum_iter() {
                     // try to init
                     match init_driver(domain_name, drv_type, init_option.clone()) {
-                        Ok(drv) => return Ok(Microvmi { drv, pos: 0 }),
+                        Ok(drv) => {
+                            driver = Some(drv);
+                            break;
+                        }
                         Err(e) => {
                             debug!("{:?} driver initialization failed: {}", drv_type, e);
                             continue;
                         }
                     }
                 }
-                Err(MicrovmiError::NoDriverAvailable)
+                driver.ok_or(MicrovmiError::NoDriverAvailable)?
             }
-            Some(drv_type) => {
-                let drv = init_driver(domain_name, drv_type, init_option)?;
-                Ok(Microvmi { drv, pos: 0 })
-            }
-        }
+            Some(drv_type) => init_driver(domain_name, drv_type, init_option)?,
+        };
+        let max_addr = drv.get_max_physical_addr()?;
+        Ok(Microvmi {
+            drv,
+            pos: 0,
+            max_addr,
+        })
     }
 
     pub fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        self.drv.get_max_physical_addr()
+        Ok(self.max_addr)
     }
 
     pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
