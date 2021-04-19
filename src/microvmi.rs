@@ -53,7 +53,7 @@ impl Microvmi {
                 for drv_type in DriverType::into_enum_iter() {
                     // try to init
                     match init_driver(domain_name, drv_type, init_option.clone()) {
-                        Ok(drv) => return { Ok(Microvmi { drv, pos: 0 }) },
+                        Ok(drv) => return Ok(Microvmi { drv, pos: 0 }),
                         Err(e) => {
                             debug!("{:?} driver initialization failed: {}", drv_type, e);
                             continue;
@@ -64,21 +64,21 @@ impl Microvmi {
             }
             Some(drv_type) => {
                 let drv = init_driver(domain_name, drv_type, init_option)?;
-                return { Ok(Microvmi { drv, pos: 0 }) };
+                Ok(Microvmi { drv, pos: 0 })
             }
         }
     }
 
     pub fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        Ok(self.drv.get_max_physical_addr()?)
+        self.drv.get_max_physical_addr()
     }
 
     pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(self.drv.pause()?)
+        self.drv.pause()
     }
 
     pub fn resume(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(self.drv.resume()?)
+        self.drv.resume()
     }
 }
 
