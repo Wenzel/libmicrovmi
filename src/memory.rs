@@ -1,22 +1,44 @@
 //! This module defines a physical memory implementation behaving like a File-IO
 
+use crate::api::Introspectable;
 #[cfg(test)]
 use crate::api::MockIntrospectable;
 use crate::microvmi::Microvmi;
+use std::cell::RefCell;
 use std::convert::TryFrom;
+use std::error::Error as StdError;
 use std::io::Error;
 use std::io::{ErrorKind, Result};
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::rc::Rc;
+use std::result::Result as StdResult;
 
 const PAGE_SIZE: usize = 4096;
 
-impl Read for Microvmi {
+pub struct Memory {
+    drv: Rc<RefCell<Box<dyn Introspectable>>>,
+    pos: u64,
+    max_addr: u64,
+}
+
+impl Memory {
+    pub fn new(drv: Rc<RefCell<Box<dyn Introspectable>>>) -> StdResult<Self, Box<dyn StdError>> {
+        Ok(Memory {
+            drv: drv.clone(),
+            pos: 0,
+            max_addr: drv.borrow().get_max_physical_addr()?,
+        })
+    }
+}
+
+impl Read for Memory {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut total_bytes_read: usize = 0;
         for chunk in buf.chunks_mut(PAGE_SIZE) {
             let mut bytes_read: u64 = 0;
             let paddr = self.stream_position()?;
             self.drv
+                .borrow()
                 .read_physical(paddr, chunk, &mut bytes_read)
                 .map_err(|_| Error::new(ErrorKind::Other, "driver read failure"))?;
             // advance pos from bytes_read
@@ -26,29 +48,15 @@ impl Read for Microvmi {
         }
         Ok(total_bytes_read)
     }
-
-    /// Read the exact number of bytes required to fill buf.
-    ///
-    /// Read the physical memory and add padding to fill the blanks
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
-        let mut bytes_read: u64 = 0;
-        for chunk in buf.chunks_mut(PAGE_SIZE) {
-            let paddr = self.stream_position()?;
-            self.drv
-                .read_physical(paddr, chunk, &mut bytes_read)
-                .unwrap_or_else(|_| chunk.fill(0));
-            self.seek(SeekFrom::Current(chunk.len() as i64))?;
-        }
-        Ok(())
-    }
 }
 
-impl Write for Microvmi {
+impl Write for Memory {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let mut total_bytes_written: usize = 0;
         for chunk in buf.chunks(PAGE_SIZE) {
             let paddr = self.stream_position()?;
             self.drv
+                .borrow()
                 .write_physical(paddr, chunk)
                 .map_err(|_| Error::new(ErrorKind::Other, "driver write failure"))?;
             self.seek(SeekFrom::Current(chunk.len() as i64))?;
@@ -63,7 +71,7 @@ impl Write for Microvmi {
     }
 }
 
-impl Seek for Microvmi {
+impl Seek for Memory {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         match pos {
             SeekFrom::Start(p) => {

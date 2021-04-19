@@ -13,16 +13,16 @@ use crate::driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use crate::driver::xen::Xen;
 use crate::errors::MicrovmiError;
+use crate::memory::Memory;
+use std::cell::RefCell;
 use std::error::Error;
+use std::rc::Rc;
 
 /// Main struct to interact with the library
 pub struct Microvmi {
     // runtime VMI driver
-    pub(crate) drv: Box<dyn Introspectable>,
-    // position in the physical memory (seek)
-    pub(crate) pos: u64,
-    // maximum physical address
-    pub(crate) max_addr: u64,
+    pub(crate) drv: Rc<RefCell<Box<dyn Introspectable>>>,
+    pub memory: Memory,
 }
 
 impl Microvmi {
@@ -70,24 +70,23 @@ impl Microvmi {
             }
             Some(drv_type) => init_driver(domain_name, drv_type, init_option)?,
         };
-        let max_addr = drv.get_max_physical_addr()?;
+        let ref_drv = Rc::new(RefCell::new(drv));
         Ok(Microvmi {
-            drv,
-            pos: 0,
-            max_addr,
+            drv: ref_drv.clone(),
+            memory: Memory::new(ref_drv.clone())?,
         })
     }
 
     pub fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        Ok(self.max_addr)
+        self.drv.borrow().get_max_physical_addr()
     }
 
     pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
-        self.drv.pause()
+        self.drv.borrow_mut().resume()
     }
 
     pub fn resume(&mut self) -> Result<(), Box<dyn Error>> {
-        self.drv.resume()
+        self.drv.borrow_mut().resume()
     }
 }
 
