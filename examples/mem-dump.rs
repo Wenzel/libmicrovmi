@@ -1,12 +1,13 @@
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 
 use clap::{App, Arg, ArgMatches};
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, trace};
+use log::trace;
 
-use microvmi::api::{DriverInitParam, Introspectable};
+use microvmi::api::DriverInitParam;
+use microvmi::Microvmi;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -55,8 +56,8 @@ fn main() {
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(200);
     spinner.set_message("Initializing libmicrovmi...");
-    let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+    let mut drv =
+        Microvmi::new(domain_name, None, init_option).expect("Failed to init libmicrovmi");
     spinner.finish_and_clear();
 
     println!("pausing the VM");
@@ -85,8 +86,8 @@ fn main() {
         // reset buffer each loop
         let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
         let mut _bytes_read = 0;
-        drv.read_physical(cur_addr, &mut buffer, &mut _bytes_read)
-            .unwrap_or_else(|_| debug!("failed to read memory at {:#X}", cur_addr));
+        drv.read_exact(&mut buffer)
+            .expect(&*format!("Failed to read memory at {:#X}", cur_addr));
         dump_file
             .write_all(&buffer)
             .expect("failed to write to file");

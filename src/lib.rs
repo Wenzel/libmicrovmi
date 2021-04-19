@@ -8,6 +8,7 @@ mod driver;
 pub mod errors;
 mod memory;
 pub mod microvmi;
+pub use microvmi::Microvmi;
 
 #[macro_use]
 extern crate log;

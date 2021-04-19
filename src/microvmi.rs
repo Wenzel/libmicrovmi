@@ -13,6 +13,7 @@ use driver::kvm::Kvm;
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
+use std::error::Error;
 
 /// Main struct to interact with the library
 pub struct Microvmi {
@@ -84,6 +85,18 @@ impl Microvmi {
                 };
             }
         }
+    }
+
+    pub fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
+        Ok(self.drv.get_max_physical_addr()?)
+    }
+
+    pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(self.drv.pause()?)
+    }
+
+    pub fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(self.drv.resume()?)
     }
 }
 
