@@ -4,8 +4,8 @@ use enum_iterator::IntoEnumIterator;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
-use crate::api::Introspectable;
 use crate::api::{DriverInitParam, DriverType};
+use crate::api::{Introspectable, Registers};
 #[cfg(feature = "kvm")]
 use crate::driver::kvm::Kvm;
 #[cfg(feature = "virtualbox")]
@@ -84,12 +84,20 @@ impl Microvmi {
         self.drv.borrow().get_max_physical_addr()
     }
 
+    pub fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
+        self.drv.borrow().read_registers(vcpu)
+    }
+
     pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         self.drv.borrow_mut().resume()
     }
 
     pub fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         self.drv.borrow_mut().resume()
+    }
+
+    pub fn get_driver_type(&self) -> DriverType {
+        self.drv.borrow().get_driver_type()
     }
 }
 
