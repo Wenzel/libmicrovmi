@@ -6,13 +6,13 @@ use kvmi::create_kvmi;
 
 use crate::api::Introspectable;
 use crate::api::{DriverInitParam, DriverType};
-use crate::errors::MicrovmiError;
 #[cfg(feature = "kvm")]
-use driver::kvm::Kvm;
+use crate::driver::kvm::Kvm;
 #[cfg(feature = "virtualbox")]
-use driver::virtualbox::VBox;
+use crate::driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
-use driver::xen::Xen;
+use crate::driver::xen::Xen;
+use crate::errors::MicrovmiError;
 use std::error::Error;
 
 /// Main struct to interact with the library
