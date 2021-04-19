@@ -9,7 +9,7 @@ use log::trace;
 use microvmi::api::DriverInitParam;
 use microvmi::Microvmi;
 
-const PAGE_SIZE: usize = 4096;
+const BUFFER_SIZE: usize = 64535; // 64K
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -77,14 +77,14 @@ fn main() {
     // redraw every 0.1% change, otherwise it becomes the bottleneck
     bar.set_draw_delta(max_addr / 1000);
 
-    for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
+    for cur_addr in (0..max_addr).step_by(BUFFER_SIZE) {
         trace!(
             "reading {:#X} bytes of memory at {:#X}",
-            PAGE_SIZE,
+            BUFFER_SIZE,
             cur_addr
         );
         // reset buffer each loop
-        let mut buffer: [u8; PAGE_SIZE] = [0; PAGE_SIZE];
+        let mut buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
         let mut _bytes_read = 0;
         drv.read_exact(&mut buffer)
             .expect(&*format!("Failed to read memory at {:#X}", cur_addr));
@@ -93,7 +93,7 @@ fn main() {
             .expect("failed to write to file");
         // update bar
         bar.set_prefix(&*format!("{:#X}", cur_addr));
-        bar.inc(PAGE_SIZE as u64);
+        bar.inc(BUFFER_SIZE as u64);
     }
     bar.finish();
     println!(
