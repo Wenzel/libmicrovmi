@@ -160,13 +160,15 @@ impl Seek for PaddedMemory {
 mod tests {
     use super::*;
 
+    // Seek
     #[test]
     fn test_seek_start() -> Result<()> {
-        // create microvmi with mock driver
-        let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
-        let mut memory = Memory::new(drv).unwrap();
+        let mut mock_introspectable = MockIntrospectable::new();
+        mock_introspectable
+            .expect_get_max_physical_addr()
+            .returning(move || Ok(max_addr));
+        let mut memory = Memory::new(Rc::new(RefCell::new(Box::new(mock_introspectable)))).unwrap();
         // seek 0 doesn't move position
         assert_eq!(0, memory.seek(SeekFrom::Start(0))?);
         // seek beyond max_addr saturates at max_addr
@@ -176,11 +178,12 @@ mod tests {
 
     #[test]
     fn test_seek_end() -> Result<()> {
-        // create microvmi with mock driver
-        let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
-        let mut memory = Memory::new(drv).unwrap();
+        let mut mock_introspectable = MockIntrospectable::new();
+        mock_introspectable
+            .expect_get_max_physical_addr()
+            .returning(move || Ok(max_addr));
+        let mut memory = Memory::new(Rc::new(RefCell::new(Box::new(mock_introspectable)))).unwrap();
         // seek end should move to max_addr
         assert_eq!(max_addr, memory.seek(SeekFrom::End(0))?);
         // seek end beyond should saturates to max_addr
@@ -194,11 +197,12 @@ mod tests {
 
     #[test]
     fn test_seek_current() -> Result<()> {
-        // create microvmi with mock driver
-        let mock_introspectable = MockIntrospectable::new();
         let max_addr: u64 = 1000;
-        let drv = Rc::new(RefCell::new(Box::new(mock_introspectable)));
-        let mut memory = Memory::new(drv).unwrap();
+        let mut mock_introspectable = MockIntrospectable::new();
+        mock_introspectable
+            .expect_get_max_physical_addr()
+            .returning(move || Ok(max_addr));
+        let mut memory = Memory::new(Rc::new(RefCell::new(Box::new(mock_introspectable)))).unwrap();
         // seek current below 0 should saturate at 0
         assert_eq!(0, memory.seek(SeekFrom::Current(-5))?);
         // seek current should move the cursor
