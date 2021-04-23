@@ -23,7 +23,9 @@ use std::rc::Rc;
 pub struct Microvmi {
     // runtime VMI driver
     pub(crate) drv: Rc<RefCell<Box<dyn Introspectable>>>,
+    /// Exposes the physical memory as a file-like interface
     pub memory: Memory,
+    /// Exposes the physical memory as a file-like interface, with padding
     pub padded_memory: PaddedMemory,
 }
 
@@ -39,8 +41,8 @@ impl Microvmi {
     /// # Example
     ///
     /// ```
-    /// use self::microvmi::Microvmi;
-    /// use crate::api::{DriverType, DriverInitParam};
+    /// use crate::microvmi::microvmi::Microvmi;
+    /// use crate::microvmi::api::{DriverType, DriverInitParam};
     /// Microvmi::new("win10", None, None);
     /// Microvmi::new("win10", Some(DriverType::Xen), None);
     /// Microvmi::new("win10", Some(DriverType::KVM), Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())));

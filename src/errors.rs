@@ -1,3 +1,5 @@
+//! This module defines the library error types
+
 use crate::api::DriverType;
 use std::error::Error;
 

@@ -1,3 +1,5 @@
+//! This module defines the C API
+
 use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
 use crate::microvmi::Microvmi;
 use bitflags::_core::ptr::null_mut;
