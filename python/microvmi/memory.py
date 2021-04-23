@@ -94,13 +94,8 @@ class PaddedPhysicalMemoryIO(AbstractPhysicalMemoryIO):
         if size < 0:
             # -1: read all bytes until EOF
             raise NotImplementedError
-        data = bytearray(size)
-        for offset in range(0, size, PAGE_SIZE):
-            read_len = min(PAGE_SIZE, size - offset)
-            pos = self.tell()
-            chunk, _ = self._m.read_physical(pos, read_len)
-            end_offset = offset + read_len
-            data[offset:end_offset] = chunk
-            self.seek(read_len, SEEK_CUR)
-        self._log.debug("read return: len: %s, content: %s", len(data), data[:100])
-        return bytes(data)
+        pos = self.tell()
+        buffer, bytes_read = self._m.read_physical_padded(pos, size)
+        self.seek(size, SEEK_CUR)
+        self._log.debug("read return: len: %s, content: %s", len(buffer), buffer[:100])
+        return buffer

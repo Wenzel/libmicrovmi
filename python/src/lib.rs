@@ -163,6 +163,43 @@ impl MicrovmiExt {
         Ok(bytes_read)
     }
 
+    /// read VM physical memory starting from paddr, of a given size, adding padding if necessary
+    ///
+    /// Args:
+    ///     paddr: (int) physical address from where the read operation should start
+    ///     size: (int) size of the read operation
+    ///
+    /// Returns:
+    ///     Tuple[bytes, int]: the read operation result and the amount bytes read
+    fn read_physical_padded<'p>(
+        &mut self,
+        py: Python<'p>,
+        paddr: u64,
+        size: usize,
+    ) -> PyResult<(&'p PyBytes, u64)> {
+        let mut bytes_read: u64 = 0;
+        self.microvmi.padded_memory.seek(SeekFrom::Start(paddr))?;
+        let pybuffer: &PyBytes = PyBytes::new_with(py, size, |mut buffer| {
+            bytes_read = self.microvmi.padded_memory.read(&mut buffer).unwrap_or(0) as u64;
+            Ok(())
+        })?;
+
+        Ok((pybuffer, bytes_read))
+    }
+
+    /// read VM physical memory starting from paddr into the given buffer, adding padding if necessary
+    ///
+    /// Args:
+    ///     paddr (int): the physical address to start reading from
+    ///     buffer (bytearray): the buffer to read into
+    fn read_physical_padded_into(&mut self, paddr: u64, buffer: &PyByteArray) -> PyResult<u64> {
+        let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
+        // ignore read error
+        self.microvmi.padded_memory.seek(SeekFrom::Start(paddr))?;
+        let bytes_read = self.microvmi.padded_memory.read(mut_buf).unwrap_or(0) as u64;
+        Ok(bytes_read)
+    }
+
     /// pause the VM
     fn pause(&mut self) -> PyResult<()> {
         Ok(self.microvmi.pause().map_err(PyMicrovmiError::from)?)
