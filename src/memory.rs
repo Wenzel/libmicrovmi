@@ -113,6 +113,7 @@ impl PaddedMemory {
     }
 }
 
+// TODO: slight duplication
 impl Read for PaddedMemory {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         for chunk in buf.chunks_mut(PAGE_SIZE) {
@@ -129,6 +130,7 @@ impl Read for PaddedMemory {
     }
 }
 
+// TODO: duplicated implementation
 impl Seek for PaddedMemory {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         match pos {
