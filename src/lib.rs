@@ -2,13 +2,18 @@
 //!
 //! Click on this [book 📖](https://libmicrovmi.github.io/) to find our project documentation.
 
+
+
+
+mod memory;
+mod driver;
+
 pub mod api;
 pub mod capi;
-mod driver;
 pub mod errors;
-mod memory;
 pub mod microvmi;
-pub use microvmi::Microvmi;
+// reexport
+pub use crate::microvmi::Microvmi;
 
 #[macro_use]
 extern crate log;
