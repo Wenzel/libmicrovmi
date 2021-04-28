@@ -86,7 +86,7 @@ fn main() {
         // reset buffer each loop
         let mut buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
         drv.padded_memory
-            .read(&mut buffer)
+            .read_exact(&mut buffer)
             .expect(&*format!("Failed to read memory at {:#X}", cur_addr));
         dump_file
             .write_all(&buffer)
