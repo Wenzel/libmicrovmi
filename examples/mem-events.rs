@@ -4,9 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use microvmi::api::{
-    Access, DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable,
-};
+use microvmi::api::{Access, DriverInitParam, EventReplyType, EventType, InterceptType};
+use microvmi::Microvmi;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -18,7 +17,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn toggle_pf_intercept(drv: &mut Box<dyn Introspectable>, enabled: bool) {
+fn toggle_pf_intercept(drv: &mut Microvmi, enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
     let intercept = InterceptType::Pagefault;
@@ -51,8 +50,8 @@ fn main() {
     let init_option = matches
         .value_of("kvmi_socket")
         .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-    let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+    let mut drv =
+        Microvmi::new(domain_name, None, init_option).expect("Failed to init libmicrovmi");
     println!("Listen for memory events...");
     // record elapsed time
     let start = Instant::now();

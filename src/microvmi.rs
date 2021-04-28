@@ -4,8 +4,10 @@ use enum_iterator::IntoEnumIterator;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
-use crate::api::{DriverInitParam, DriverType, Event, EventReplyType, InterceptType};
-use crate::api::{Introspectable, Registers};
+use crate::api::{
+    Access, DriverInitParam, DriverType, Event, EventReplyType, InterceptType, Introspectable,
+    Registers,
+};
 #[cfg(feature = "kvm")]
 use crate::driver::kvm::Kvm;
 #[cfg(feature = "virtualbox")]
@@ -102,6 +104,25 @@ impl Microvmi {
     ///
     pub fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
         self.drv.borrow().read_registers(vcpu)
+    }
+
+    ///get page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to know.
+    ///
+    pub fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        self.drv.borrow().get_page_access(paddr)
+    }
+
+    ///set page access
+    ///
+    /// # Arguments
+    /// * 'paddr' - physical address of the page whose access we want to set
+    /// * 'access' - access flags to be set on the given page
+    ///
+    pub fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+        self.drv.borrow().set_page_access(paddr, access)
     }
 
     /// Pauses the VM
