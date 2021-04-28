@@ -2,11 +2,8 @@
 //!
 //! Click on this [book 📖](https://libmicrovmi.github.io/) to find our project documentation.
 
-
-
-
-mod memory;
 mod driver;
+mod memory;
 
 pub mod api;
 pub mod capi;

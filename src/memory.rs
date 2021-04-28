@@ -1,8 +1,8 @@
 //! This module defines a physical memory implementation behaving like a File-IO
 
-use crate::api::Introspectable;
 #[cfg(test)]
 use crate::api::MockIntrospectable;
+use crate::api::{Introspectable, PageFrame};
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
@@ -32,20 +32,27 @@ impl Memory {
 
 impl Read for Memory {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut total_bytes_read: usize = 0;
-        for chunk in buf.chunks_mut(PAGE_SIZE) {
-            let mut bytes_read: u64 = 0;
+        // amount of bytes we need to read
+        let mut read_remain: usize = buf.len();
+        let mut bytes_read: usize = 0;
+        while read_remain > 0 {
+            // determine size of next chunk
             let paddr = self.stream_position()?;
-            self.drv
-                .borrow()
-                .read_physical(paddr, chunk, &mut bytes_read)
-                .map_err(|_| Error::new(ErrorKind::Other, "driver read failure"))?;
-            // advance pos from bytes_read
-            self.seek(SeekFrom::Current(bytes_read as i64))?;
-            // add to total
-            total_bytes_read += bytes_read as usize;
+            let frame = PageFrame::with_paddr(paddr);
+            // windows_len -> 4K or less, if offset in frame
+            let next_chunk_size = std::cmp::min(frame.window_len(), read_remain as u32) as usize;
+            let chunk_end = bytes_read + next_chunk_size;
+            // get chunk
+            let chunk = &mut buf[bytes_read..chunk_end];
+            // read the frame
+            self.drv.borrow().read_frame(frame, chunk)?;
+            // advance pos
+            self.seek(SeekFrom::Current(next_chunk_size as i64))?;
+            // update loop vars
+            bytes_read += next_chunk_size;
+            read_remain -= next_chunk_size;
         }
-        Ok(total_bytes_read)
+        Ok(bytes_read as usize)
     }
 }
 
@@ -116,17 +123,35 @@ impl PaddedMemory {
 // TODO: slight duplication
 impl Read for PaddedMemory {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        for chunk in buf.chunks_mut(PAGE_SIZE) {
-            let mut bytes_read: u64 = 0;
+        // amount of bytes we need to read
+        let mut read_remain: usize = buf.len();
+        let mut bytes_read: usize = 0;
+        while read_remain > 0 {
+            // determine size of next chunk
             let paddr = self.stream_position()?;
-            self.drv
-                .borrow()
-                .read_physical(paddr, chunk, &mut bytes_read)
-                .unwrap_or_else(|_| chunk.fill(0));
+            let frame = PageFrame::with_paddr(paddr);
+            // windows_len -> 4K or less, if offset in frame
+            let next_chunk_size = std::cmp::min(frame.window_len(), read_remain as u32) as usize;
+            let chunk_end = bytes_read + next_chunk_size;
+            // get chunk
+            let chunk = &mut buf[bytes_read..chunk_end];
+            // read the frame
+            match self.drv.borrow().read_frame(frame, chunk) {
+                // handle non existing frames by padding
+                Err(ref e) if e.kind() == ErrorKind::NotFound => {
+                    trace!("PaddedMemory: frame not found: {:X}", frame.number);
+                    chunk.fill(0)
+                }
+                Err(e) => return Err(e),
+                _ => (),
+            };
             // advance pos
-            self.seek(SeekFrom::Current(chunk.len() as i64))?;
+            self.seek(SeekFrom::Current(next_chunk_size as i64))?;
+            // update loop vars
+            bytes_read += next_chunk_size;
+            read_remain -= next_chunk_size;
         }
-        Ok(buf.len())
+        Ok(bytes_read as usize)
     }
 }
 
