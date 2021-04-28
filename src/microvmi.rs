@@ -4,7 +4,7 @@ use enum_iterator::IntoEnumIterator;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
-use crate::api::{DriverInitParam, DriverType};
+use crate::api::{DriverInitParam, DriverType, Event, InterceptType};
 use crate::api::{Introspectable, Registers};
 #[cfg(feature = "kvm")]
 use crate::driver::kvm::Kvm;
@@ -82,24 +82,63 @@ impl Microvmi {
         })
     }
 
+    /// Get the maximum physical address
+    ///
+    /// Returns maximum physical address in 64 bit unsigned integer format.
+    ///
     pub fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         self.drv.borrow().get_max_physical_addr()
     }
 
+    /// Read register values
+    ///
+    /// # Arguments
+    /// * 'vcpu' - vcpu id for which the value of registers are to be dumped as the argument
+    ///
     pub fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
         self.drv.borrow().read_registers(vcpu)
     }
 
+    /// Pauses the VM
     pub fn pause(&mut self) -> Result<(), Box<dyn Error>> {
         self.drv.borrow_mut().resume()
     }
 
+    /// Resumes the VM
     pub fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         self.drv.borrow_mut().resume()
     }
 
+    /// Return the concrete DriverType
     pub fn get_driver_type(&self) -> DriverType {
         self.drv.borrow().get_driver_type()
+    }
+
+    /// Used to enable/disable an event interception
+    ///
+    /// # Arguments
+    /// * 'vcpu' - vcpu id for which we are to enable/disable intercept monitoring
+    /// * 'intercept_type' - to specify event type for which to raise flag
+    /// * 'enabled' - flag to specify whether to enable/disable event monitoring
+    ///
+    pub fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        self.drv
+            .borrow_mut()
+            .toggle_intercept(vcpu, intercept_type, enabled)
+    }
+
+    /// Listen and return the next event, or None
+    ///
+    /// # Arguments
+    /// * 'timeout' - Time for which it will wait for a new event
+    ///
+    pub fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        self.drv.borrow_mut().listen(timeout)
     }
 }
 

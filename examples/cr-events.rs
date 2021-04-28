@@ -5,7 +5,8 @@ use std::time::Instant;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 
-use microvmi::api::{CrType, DriverInitParam, EventType, InterceptType, Introspectable};
+use microvmi::api::{CrType, DriverInitParam, EventType, InterceptType};
+use microvmi::Microvmi;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -32,7 +33,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn toggle_cr_intercepts(drv: &mut Box<dyn Introspectable>, vec_cr: &[CrType], enabled: bool) {
+fn toggle_cr_intercepts(drv: &mut Microvmi, vec_cr: &[CrType], enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
     for cr in vec_cr {
@@ -88,8 +89,8 @@ fn main() {
     let init_option = matches
         .value_of("kvmi_socket")
         .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-    let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+    let mut drv =
+        Microvmi::new(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
     // enable control register interception
     toggle_cr_intercepts(&mut drv, &vec_cr, true);
