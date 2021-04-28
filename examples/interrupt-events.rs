@@ -5,7 +5,8 @@ use std::time::Instant;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 
-use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType};
+use microvmi::Microvmi;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -23,7 +24,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn toggle_int3_interception(drv: &mut Box<dyn Introspectable>, enabled: bool) {
+fn toggle_int3_interception(drv: &mut Microvmi, enabled: bool) {
     drv.pause().expect("Failed to pause VM");
 
     let intercept = InterceptType::Breakpoint;
@@ -56,10 +57,10 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+    let mut drv =
+        Microvmi::new(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
-    //Enable int3 interception
+    // enable int3 interception
     toggle_int3_interception(&mut drv, true);
 
     println!("Listen for interrupt events...");
@@ -91,7 +92,7 @@ fn main() {
     }
     let duration = start.elapsed();
 
-    //disable int3 interception
+    // disable int3 interception
     toggle_int3_interception(&mut drv, false);
 
     let ev_per_sec = i as f64 / duration.as_secs_f64();

@@ -4,7 +4,7 @@ use enum_iterator::IntoEnumIterator;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
-use crate::api::{DriverInitParam, DriverType, Event, InterceptType};
+use crate::api::{DriverInitParam, DriverType, Event, EventReplyType, InterceptType};
 use crate::api::{Introspectable, Registers};
 #[cfg(feature = "kvm")]
 use crate::driver::kvm::Kvm;
@@ -82,6 +82,11 @@ impl Microvmi {
         })
     }
 
+    /// Retrieve the number of VCPUs.
+    pub fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        self.drv.borrow().get_vcpu_count()
+    }
+
     /// Get the maximum physical address
     ///
     /// Returns maximum physical address in 64 bit unsigned integer format.
@@ -139,6 +144,20 @@ impl Microvmi {
     ///
     pub fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         self.drv.borrow_mut().listen(timeout)
+    }
+
+    /// Send reply corresponding to the current event being popped
+    ///
+    /// # Arguments
+    /// * 'event'
+    /// * 'reply_type'
+    ///
+    pub fn reply_event(
+        &mut self,
+        event: Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        self.drv.borrow_mut().reply_event(event, reply_type)
     }
 }
 
