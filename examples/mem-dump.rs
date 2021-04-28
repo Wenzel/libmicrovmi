@@ -8,7 +8,6 @@ use log::trace;
 
 use microvmi::api::DriverInitParam;
 use microvmi::Microvmi;
-use std::io;
 
 const BUFFER_SIZE: usize = 64535; // 64K
 
