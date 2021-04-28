@@ -2,6 +2,8 @@
 //!
 //! Click on this [book 📖](https://libmicrovmi.github.io/) to find our project documentation.
 
+#![allow(clippy::upper_case_acronyms)]
+
 mod driver;
 mod memory;
 

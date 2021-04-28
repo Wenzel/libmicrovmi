@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 mod errors;
 
 use log::{debug, info};
