@@ -1,9 +1,10 @@
 use std::error::Error;
+use std::io::{Error as IoError, ErrorKind};
 
 use fdp::{RegisterType, FDP};
 
 use crate::api::{
-    DriverInitParam, DriverType, Introspectable, Registers, SegmentReg, SystemTableReg,
+    DriverInitParam, DriverType, Introspectable, PageFrame, Registers, SegmentReg, SystemTableReg,
     X86Registers,
 };
 
@@ -30,15 +31,12 @@ impl Introspectable for VBox {
         Ok(1)
     }
 
-    fn read_physical(
-        &self,
-        paddr: u64,
-        buf: &mut [u8],
-        bytes_read: &mut u64,
-    ) -> Result<(), Box<dyn Error>> {
-        self.fdp.read_physical_memory(paddr, buf)?;
-        *bytes_read = buf.len() as u64;
-        Ok(())
+    fn read_frame(&self, frame: PageFrame, buf: &mut [u8]) -> Result<(), IoError> {
+        // TODO: read_physical_memory should return an IO error to tell
+        // if a page frame was not mapped
+        self.fdp
+            .read_physical_memory(frame.to_paddr(), buf)
+            .map_err(|e| IoError::new(ErrorKind::Other, e.to_string()))
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
