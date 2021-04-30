@@ -42,7 +42,7 @@ impl Microvmi {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use crate::microvmi::microvmi::Microvmi;
     /// use crate::microvmi::api::{DriverType, DriverInitParam};
     /// Microvmi::new("win10", None, None);
