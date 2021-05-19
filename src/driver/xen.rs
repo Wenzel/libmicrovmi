@@ -1,6 +1,6 @@
 use crate::api::{
     CrType, DriverInitParam, DriverType, Event, EventType, InterceptType, Introspectable,
-    Registers, SegmentReg, SystemTableReg, X86Registers,
+    PageFrame, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
@@ -112,48 +112,23 @@ impl Xen {
 }
 
 impl Introspectable for Xen {
-    fn read_physical(
-        &self,
-        paddr: u64,
-        buf: &mut [u8],
-        bytes_read: &mut u64,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut cur_paddr: u64;
-        let mut count_mut: u64 = buf.len() as u64;
-        let mut buf_offset: u64 = 0;
-        *bytes_read = 0;
-        while count_mut > 0 {
-            // compute new paddr
-            cur_paddr = paddr + buf_offset;
-            // get the current gfn
-            let gfn = cur_paddr >> PAGE_SHIFT;
-            let page_offset = u64::from(PAGE_SIZE - 1) & cur_paddr;
-            // map gfn
-            let page = self
-                .xen_fgn
-                .map(self.domid, PROT_READ, gfn)
-                .map_err(XenDriverError::from)?;
-            // determine how much we can read
-            let read_len = if (page_offset + count_mut as u64) > u64::from(PAGE_SIZE) {
-                u64::from(PAGE_SIZE) - page_offset
-            } else {
-                count_mut
-            };
+    fn read_frame(&self, frame: PageFrame, buf: &mut [u8]) -> Result<(), IoError> {
+        // map gfn
+        let page = self
+            .xen_fgn
+            .map(self.domid, PROT_READ, frame.number)
+            .map_err(|_| IoError::new(ErrorKind::NotFound, "Page not found"))?;
 
-            // prepare offsets
-            let buf_start = buf_offset as usize;
-            let buf_end = (buf_offset + read_len) as usize;
-            let page_start = page_offset as usize;
-            let page_end = (page_offset + read_len) as usize;
-            // do the read
-            buf[buf_start..buf_end].copy_from_slice(&page[page_start..page_end]);
-            // update loop variables
-            count_mut -= read_len;
-            buf_offset += read_len;
-            *bytes_read += read_len;
-            // unmap page
-            self.xen_fgn.unmap(page).map_err(XenDriverError::from)?;
-        }
+        // prepare offsets
+        let page_start = frame.offset as usize;
+        let page_end = (frame.offset + buf.len() as u16) as usize;
+        // do the read
+        buf.copy_from_slice(&page[page_start..page_end]);
+
+        // unmap page
+        self.xen_fgn
+            .unmap(page)
+            .map_err(|e| IoError::new(ErrorKind::Other, e))?;
         Ok(())
     }
 

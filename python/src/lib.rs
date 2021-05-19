@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 mod errors;
 
 use log::{debug, info};
@@ -7,8 +9,9 @@ use pyo3::prelude::*;
 
 use errors::PyMicrovmiError;
 use microvmi::api as rapi; // rust api
-use microvmi::init;
+use microvmi::Microvmi;
 use pyo3::types::{PyByteArray, PyBytes};
+use std::io::{Read, Seek, SeekFrom};
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -74,7 +77,7 @@ impl DriverInitParam {
 // compatible
 #[pyclass(unsendable)]
 struct MicrovmiExt {
-    driver: Box<dyn rapi::Introspectable>,
+    microvmi: Microvmi,
 }
 
 #[pymethods]
@@ -120,9 +123,9 @@ impl MicrovmiExt {
                     rapi::DriverInitParam::KVMiSocket(param.param_data_string)
                 }
             });
-        let driver =
-            init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
-        Ok(MicrovmiExt { driver })
+        let microvmi = Microvmi::new(domain_name, rust_driver_type, rust_init_param)
+            .map_err(PyMicrovmiError::from)?;
+        Ok(MicrovmiExt { microvmi })
     }
 
     /// read VM physical memory starting from paddr, of a given size
@@ -134,16 +137,15 @@ impl MicrovmiExt {
     /// Returns:
     ///     Tuple[bytes, int]: the read operation result and the amount bytes read
     fn read_physical<'p>(
-        &self,
+        &mut self,
         py: Python<'p>,
         paddr: u64,
         size: usize,
     ) -> PyResult<(&'p PyBytes, u64)> {
         let mut bytes_read: u64 = 0;
+        self.microvmi.memory.seek(SeekFrom::Start(paddr))?;
         let pybuffer: &PyBytes = PyBytes::new_with(py, size, |mut buffer| {
-            self.driver
-                .read_physical(paddr, &mut buffer, &mut bytes_read)
-                .ok();
+            bytes_read = self.microvmi.memory.read(&mut buffer).unwrap_or(0) as u64;
             Ok(())
         })?;
 
@@ -155,24 +157,59 @@ impl MicrovmiExt {
     /// Args:
     ///     paddr (int): the physical address to start reading from
     ///     buffer (bytearray): the buffer to read into
-    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> u64 {
+    fn read_physical_into(&mut self, paddr: u64, buffer: &PyByteArray) -> PyResult<u64> {
         let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
-        let mut bytes_read: u64 = 0;
         // ignore read error
-        self.driver
-            .read_physical(paddr, mut_buf, &mut bytes_read)
-            .ok();
-        bytes_read
+        self.microvmi.memory.seek(SeekFrom::Start(paddr))?;
+        let bytes_read = self.microvmi.memory.read(mut_buf).unwrap_or(0) as u64;
+        Ok(bytes_read)
+    }
+
+    /// read VM physical memory starting from paddr, of a given size, adding padding if necessary
+    ///
+    /// Args:
+    ///     paddr: (int) physical address from where the read operation should start
+    ///     size: (int) size of the read operation
+    ///
+    /// Returns:
+    ///     Tuple[bytes, int]: the read operation result and the amount bytes read
+    fn read_physical_padded<'p>(
+        &mut self,
+        py: Python<'p>,
+        paddr: u64,
+        size: usize,
+    ) -> PyResult<(&'p PyBytes, u64)> {
+        let mut bytes_read: u64 = 0;
+        self.microvmi.padded_memory.seek(SeekFrom::Start(paddr))?;
+        let pybuffer: &PyBytes = PyBytes::new_with(py, size, |mut buffer| {
+            bytes_read = self.microvmi.padded_memory.read(&mut buffer).unwrap_or(0) as u64;
+            Ok(())
+        })?;
+
+        Ok((pybuffer, bytes_read))
+    }
+
+    /// read VM physical memory starting from paddr into the given buffer, adding padding if necessary
+    ///
+    /// Args:
+    ///     paddr (int): the physical address to start reading from
+    ///     buffer (bytearray): the buffer to read into
+    fn read_physical_padded_into(&mut self, paddr: u64, buffer: &PyByteArray) -> PyResult<u64> {
+        let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
+        // ignore read error
+        self.microvmi.padded_memory.seek(SeekFrom::Start(paddr))?;
+        let bytes_read = self.microvmi.padded_memory.read(mut_buf).unwrap_or(0) as u64;
+        Ok(bytes_read)
     }
 
     /// pause the VM
     fn pause(&mut self) -> PyResult<()> {
-        Ok(self.driver.pause().map_err(PyMicrovmiError::from)?)
+        Ok(self.microvmi.pause().map_err(PyMicrovmiError::from)?)
     }
 
     /// resume the VM
     fn resume(&mut self) -> PyResult<()> {
-        Ok(self.driver.resume().map_err(PyMicrovmiError::from)?)
+        Ok(self.microvmi.resume().map_err(PyMicrovmiError::from)?)
     }
 
     /// get maximum physical address
@@ -181,7 +218,7 @@ impl MicrovmiExt {
     ///     int: the maximum physical address
     fn get_max_physical_addr(&self) -> PyResult<u64> {
         let max_addr = self
-            .driver
+            .microvmi
             .get_max_physical_addr()
             .map_err(PyMicrovmiError::from)?;
         Ok(max_addr)

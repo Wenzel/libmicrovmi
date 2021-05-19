@@ -1,6 +1,7 @@
 use clap::{App, Arg, ArgMatches};
 
-use microvmi::api::{DriverInitParam, Introspectable};
+use microvmi::api::DriverInitParam;
+use microvmi::Microvmi;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -28,8 +29,8 @@ fn main() {
     let init_option = matches
         .value_of("kvmi_socket")
         .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-    let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+    let mut drv =
+        Microvmi::new(domain_name, None, init_option).expect("Failed to init libmicrovmi");
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");

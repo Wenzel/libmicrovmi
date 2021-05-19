@@ -8,14 +8,14 @@ use std::convert::From;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::error::Error;
+use std::io::Error as IoError;
 use std::mem;
 use std::vec::Vec;
 
 use crate::api::{
     Access, CrType, DriverInitParam, DriverType, Event, EventReplyType, EventType, InterceptType,
-    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+    Introspectable, PageFrame, Registers, SegmentReg, SystemTableReg, X86Registers,
 };
-use kvmi::constants::PAGE_SIZE;
 
 impl TryFrom<Access> for KVMiPageAccess {
     type Error = &'static str;
@@ -147,22 +147,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(self.kvmi.get_vcpu_count()?.try_into()?)
     }
 
-    fn read_physical(
-        &self,
-        paddr: u64,
-        buf: &mut [u8],
-        bytes_read: &mut u64,
-    ) -> Result<(), Box<dyn Error>> {
-        // kvmi read_physical can only handle a 4K buf request
-        // any buffer bigger than that will result in an IOError (KVM_EINVAL)
-        // need to chunk the read in 4K
-        for (i, chunk) in buf.chunks_mut(PAGE_SIZE).enumerate() {
-            let offset = i * PAGE_SIZE;
-            let cur_paddr = paddr + offset as u64;
-            self.kvmi.read_physical(cur_paddr, chunk)?;
-            *bytes_read = offset as u64;
-        }
-        Ok(())
+    fn read_frame(&self, frame: PageFrame, buf: &mut [u8]) -> Result<(), IoError> {
+        self.kvmi.read_physical(frame.to_paddr(), buf)
     }
 
     fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {

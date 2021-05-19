@@ -1,6 +1,9 @@
+#[cfg(test)]
+use mockall::*;
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};
+use std::io::Error as IoError;
 
 use enum_iterator::IntoEnumIterator;
 
@@ -169,9 +172,39 @@ pub enum Registers {
     X86(X86Registers),
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct PageFrame {
+    /// frame number
+    pub number: u64,
+    /// offset inside the frame
+    pub offset: u16,
+}
+
+impl PageFrame {
+    pub fn with_paddr(paddr: u64) -> Self {
+        PageFrame {
+            number: paddr >> PAGE_SHIFT,
+            offset: (paddr & 0xfff_u64) as u16,
+        }
+    }
+
+    pub fn to_paddr(&self) -> u64 {
+        (self.number << PAGE_SHIFT) + self.offset as u64
+    }
+
+    pub fn window_len(&self) -> u32 {
+        PAGE_SIZE - (self.offset as u32)
+    }
+
+    pub fn is_aligned(&self) -> bool {
+        self.offset == 0
+    }
+}
+
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
+#[cfg_attr(test, automock)]
 pub trait Introspectable {
     /// Retrieve the number of VCPUs.
     ///
@@ -179,20 +212,13 @@ pub trait Introspectable {
         unimplemented!();
     }
 
-    /// read the physical memory, starting from paddr, into buf
+    /// read memory from the specified page frame into buf
     ///
     /// # Arguments
     ///
-    /// * 'paddr' - the physical address to read from
-    /// * 'buf' - the data read from memory
-    /// * 'bytes_read' - the number of bytes read
-    ///
-    fn read_physical(
-        &self,
-        _paddr: u64,
-        _buf: &mut [u8],
-        _bytes_read: &mut u64,
-    ) -> Result<(), Box<dyn Error>> {
+    /// * 'frame' - the page frame to read from
+    /// * 'buf' - the buffer to write into
+    fn read_frame(&self, _frame: PageFrame, _buf: &mut [u8]) -> Result<(), IoError> {
         unimplemented!();
     }
 
