@@ -14,18 +14,52 @@ use std::result::Result as StdResult;
 
 const PAGE_SIZE: usize = 4096;
 
-pub struct Memory {
-    drv: Rc<RefCell<Box<dyn Introspectable>>>,
+// define shared Seek behavior between the 2 Memory objects
+struct AddressSeek {
     pos: u64,
     max_addr: u64,
+}
+
+impl Seek for AddressSeek {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        match pos {
+            SeekFrom::Start(p) => {
+                self.pos = 0;
+                // force cast from u64 to i64, default to i64 MAX if conversion fail
+                self.seek(SeekFrom::Current(i64::try_from(p).unwrap_or(i64::MAX)))?;
+            }
+            SeekFrom::End(p) => {
+                self.pos = self.max_addr;
+                self.seek(SeekFrom::Current(p))?;
+            }
+            SeekFrom::Current(p) => {
+                if p > 0 {
+                    self.pos = self.pos.saturating_add(p.unsigned_abs());
+                } else {
+                    self.pos = self.pos.saturating_sub(p.unsigned_abs());
+                }
+                if self.pos > self.max_addr {
+                    self.pos = self.max_addr;
+                }
+            }
+        };
+        Ok(self.pos)
+    }
+}
+
+pub struct Memory {
+    drv: Rc<RefCell<Box<dyn Introspectable>>>,
+    addr_seek: AddressSeek,
 }
 
 impl Memory {
     pub fn new(drv: Rc<RefCell<Box<dyn Introspectable>>>) -> StdResult<Self, Box<dyn StdError>> {
         Ok(Memory {
             drv: drv.clone(),
-            pos: 0,
-            max_addr: drv.borrow().get_max_physical_addr()?,
+            addr_seek: AddressSeek {
+                pos: 0,
+                max_addr: drv.borrow().get_max_physical_addr()?,
+            },
         })
     }
 }
@@ -79,43 +113,23 @@ impl Write for Memory {
 
 impl Seek for Memory {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        match pos {
-            SeekFrom::Start(p) => {
-                self.pos = 0;
-                // force cast from u64 to i64, default to i64 MAX if conversion fail
-                self.seek(SeekFrom::Current(i64::try_from(p).unwrap_or(i64::MAX)))?;
-            }
-            SeekFrom::End(p) => {
-                self.pos = self.max_addr;
-                self.seek(SeekFrom::Current(p))?;
-            }
-            SeekFrom::Current(p) => {
-                if p > 0 {
-                    self.pos = self.pos.saturating_add(p.unsigned_abs());
-                } else {
-                    self.pos = self.pos.saturating_sub(p.unsigned_abs());
-                }
-                if self.pos > self.max_addr {
-                    self.pos = self.max_addr;
-                }
-            }
-        };
-        Ok(self.pos)
+        self.addr_seek.seek(pos)
     }
 }
 
 pub struct PaddedMemory {
     drv: Rc<RefCell<Box<dyn Introspectable>>>,
-    pos: u64,
-    max_addr: u64,
+    addr_seek: AddressSeek,
 }
 
 impl PaddedMemory {
     pub fn new(drv: Rc<RefCell<Box<dyn Introspectable>>>) -> StdResult<Self, Box<dyn StdError>> {
         Ok(PaddedMemory {
             drv: drv.clone(),
-            pos: 0,
-            max_addr: drv.borrow().get_max_physical_addr()?,
+            addr_seek: AddressSeek {
+                pos: 0,
+                max_addr: drv.borrow().get_max_physical_addr()?,
+            },
         })
     }
 }
@@ -155,31 +169,9 @@ impl Read for PaddedMemory {
     }
 }
 
-// TODO: duplicated implementation
 impl Seek for PaddedMemory {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        match pos {
-            SeekFrom::Start(p) => {
-                self.pos = 0;
-                // force cast from u64 to i64, default to i64 MAX if conversion fail
-                self.seek(SeekFrom::Current(i64::try_from(p).unwrap_or(i64::MAX)))?;
-            }
-            SeekFrom::End(p) => {
-                self.pos = self.max_addr;
-                self.seek(SeekFrom::Current(p))?;
-            }
-            SeekFrom::Current(p) => {
-                if p > 0 {
-                    self.pos = self.pos.saturating_add(p.unsigned_abs());
-                } else {
-                    self.pos = self.pos.saturating_sub(p.unsigned_abs());
-                }
-                if self.pos > self.max_addr {
-                    self.pos = self.max_addr;
-                }
-            }
-        };
-        Ok(self.pos)
+        self.addr_seek.seek(pos)
     }
 }
 
