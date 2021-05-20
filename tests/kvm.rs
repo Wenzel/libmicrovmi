@@ -4,6 +4,7 @@ use std::panic;
 use std::process::Command;
 
 static VM_NAME: &str = "winxp";
+static VIRSH_URI: &str = "qemu:///system";
 
 fn run_test<T>(test: T) -> ()
 where
@@ -20,6 +21,7 @@ where
 fn setup_test() {
     debug!("setup test");
     Command::new("virsh")
+        .arg(format!("--connect={}", VIRSH_URI))
         .arg("snapshot-revert")
         .arg(VM_NAME)
         .arg("--current")
@@ -35,6 +37,7 @@ fn setup_test() {
 fn teardown_test() {
     debug!("teardown test");
     Command::new("virsh")
+        .arg(format!("--connect={}", VIRSH_URI))
         .arg("destroy")
         .arg(VM_NAME)
         .status()
