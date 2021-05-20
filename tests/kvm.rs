@@ -83,4 +83,42 @@ mod tests {
             drv.pause().unwrap();
         })
     }
+
+    #[test]
+    fn test_double_pause() {
+        run_test(|| {
+            let mut drv = init_driver();
+            drv.pause().unwrap();
+            drv.pause().unwrap();
+        })
+    }
+
+    #[test]
+    fn test_double_resume() {
+        run_test(|| {
+            let mut drv = init_driver();
+            drv.resume().unwrap();
+            drv.resume().unwrap();
+        })
+    }
+
+    #[test]
+    fn test_pause_resume() {
+        run_test(|| {
+            let mut drv = init_driver();
+            drv.pause().unwrap();
+            drv.resume().unwrap();
+        })
+    }
+
+    #[test]
+    fn test_multiple_pause_resume() {
+        run_test(|| {
+            let mut drv = init_driver();
+            for _ in 0..50 {
+                drv.pause().unwrap();
+                drv.resume().unwrap();
+            }
+        })
+    }
 }
