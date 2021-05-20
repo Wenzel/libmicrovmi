@@ -2,6 +2,10 @@ use env_logger;
 use log::debug;
 use std::panic;
 use std::process::Command;
+use std::sync::Once;
+
+// to init env logger
+static INIT: Once = Once::new();
 
 static VM_NAME: &str = "winxp";
 static VIRSH_URI: &str = "qemu:///system";
@@ -11,7 +15,9 @@ fn run_test<T>(test: T) -> ()
 where
     T: FnOnce() -> () + panic::UnwindSafe,
 {
-    env_logger::builder().is_test(true).try_init().unwrap();
+    INIT.call_once(|| {
+        env_logger::builder().is_test(true).init();
+    });
     setup_test();
     let result = panic::catch_unwind(|| test());
     teardown_test();
@@ -51,18 +57,22 @@ fn teardown_test() {
 #[cfg(feature = "kvm")]
 mod tests {
     use super::*;
-    use microvmi::api::{DriverInitParam, DriverType};
+    use microvmi::api::{DriverInitParam, DriverType, Introspectable};
     use microvmi::init;
 
+    fn init_driver() -> Box<dyn Introspectable> {
+        init(
+            VM_NAME,
+            Some(DriverType::KVM),
+            Some(DriverInitParam::KVMiSocket(String::from(KVMI_SOCKET))),
+        )
+        .expect("Failed to init libmicrovmi")
+    }
+
     #[test]
-    fn test_init_kvm_driver() {
+    fn test_init_driver() {
         run_test(|| {
-            init(
-                VM_NAME,
-                Some(DriverType::KVM),
-                Some(DriverInitParam::KVMiSocket(String::from(KVMI_SOCKET))),
-            )
-            .expect("Failed to init libmicrovmi");
+            init_driver();
         })
     }
 }
