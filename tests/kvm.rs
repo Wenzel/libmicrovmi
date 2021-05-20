@@ -61,7 +61,10 @@ fn teardown_test() {
 #[cfg(feature = "kvm")]
 mod tests {
     use super::*;
-    use microvmi::api::{DriverInitParam, DriverType, Introspectable};
+    use microvmi::api::{
+        CrType, DriverInitParam, DriverType, EventReplyType, EventType, InterceptType,
+        Introspectable,
+    };
     use microvmi::init;
 
     fn init_driver() -> Box<dyn Introspectable> {
@@ -122,6 +125,47 @@ mod tests {
             for _ in 0..50 {
                 drv.pause().unwrap();
                 drv.resume().unwrap();
+            }
+        })
+    }
+
+    #[test]
+    fn test_intercept_cr3_one() {
+        run_test(|| {
+            let mut drv = init_driver();
+            for vcpu in 0..drv.get_vcpu_count().unwrap() - 1 {
+                drv.toggle_intercept(vcpu, InterceptType::Cr(CrType::Cr3), true)
+                    .expect("Failed to toggle CR3 intercept");
+            }
+            let event = drv.listen(5000).unwrap().unwrap();
+            assert!(matches!(
+                event.kind,
+                EventType::Cr {
+                    cr_type: CrType::Cr3,
+                    ..
+                }
+            ));
+        })
+    }
+
+    #[test]
+    fn test_intercept_cr3_multiple() {
+        run_test(|| {
+            let mut drv = init_driver();
+            for vcpu in 0..drv.get_vcpu_count().unwrap() - 1 {
+                drv.toggle_intercept(vcpu, InterceptType::Cr(CrType::Cr3), true)
+                    .expect("Failed to toggle CR3 intercept");
+            }
+            for _ in 0..10 {
+                let event = drv.listen(5000).unwrap().unwrap();
+                match event.kind {
+                    EventType::Cr { cr_type, .. } => {
+                        assert_eq!(cr_type, CrType::Cr3);
+                        drv.reply_event(event, EventReplyType::Continue)
+                            .expect("Failed to send event reply");
+                    }
+                    _ => panic!("Failed"),
+                }
             }
         })
     }

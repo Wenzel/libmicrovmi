@@ -360,7 +360,7 @@ pub enum EventType {
 
 ///Types of x86 control registers are listed here
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CrType {
     ///Has various control flags that modify the basic operation of the processor.
     Cr0,
