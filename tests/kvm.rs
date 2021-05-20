@@ -75,4 +75,12 @@ mod tests {
             init_driver();
         })
     }
+
+    #[test]
+    fn test_pause() {
+        run_test(|| {
+            let mut drv = init_driver();
+            drv.pause().unwrap();
+        })
+    }
 }
