@@ -1,7 +1,7 @@
 use env_logger;
 use log::debug;
 use std::panic;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Once;
 
 // to init env logger
@@ -33,6 +33,8 @@ fn setup_test() {
         .arg(VM_NAME)
         .arg("--current")
         .arg("--running")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .expect("Failed to start virsh")
         .success()
@@ -47,6 +49,8 @@ fn teardown_test() {
         .arg(format!("--connect={}", VIRSH_URI))
         .arg("destroy")
         .arg(VM_NAME)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .expect("Failed to start virsh")
         .success()
