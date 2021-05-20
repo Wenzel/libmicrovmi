@@ -1,10 +1,11 @@
 use env_logger;
-use log::{debug, info};
+use log::debug;
 use std::panic;
 use std::process::Command;
 
 static VM_NAME: &str = "winxp";
 static VIRSH_URI: &str = "qemu:///system";
+static KVMI_SOCKET: &str = "/tmp/introspector";
 
 fn run_test<T>(test: T) -> ()
 where
@@ -50,9 +51,18 @@ fn teardown_test() {
 #[cfg(feature = "kvm")]
 mod tests {
     use super::*;
+    use microvmi::api::{DriverInitParam, DriverType};
+    use microvmi::init;
 
     #[test]
-    fn test_01() {
-        run_test(|| info!("Running the test"))
+    fn test_init_kvm_driver() {
+        run_test(|| {
+            init(
+                VM_NAME,
+                Some(DriverType::KVM),
+                Some(DriverInitParam::KVMiSocket(String::from(KVMI_SOCKET))),
+            )
+            .expect("Failed to init libmicrovmi");
+        })
     }
 }
