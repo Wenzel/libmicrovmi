@@ -5,24 +5,42 @@ use log::debug;
 use std::mem;
 use std::panic;
 use std::process::{Command, Stdio};
-use std::sync::Once;
+use std::sync::{mpsc, Once};
+use std::thread;
+use std::time::Duration;
 
-use config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
+use config::{KVMI_SOCKET, TIMEOUT, VIRSH_URI, VM_NAME};
 
 // to init env logger
 static INIT: Once = Once::new();
 
 fn run_test<T>(test: T) -> ()
 where
-    T: FnOnce() -> () + panic::UnwindSafe,
+    T: Send + 'static,
+    T: FnOnce() -> (),
 {
+    // init env_logger if necessary
     INIT.call_once(|| {
         env_logger::builder().is_test(true).init();
     });
+    // setup before test
     setup_test();
-    let result = panic::catch_unwind(|| test());
+
+    // setup test execution in a thread
+    let (done_tx, done_rx) = mpsc::channel();
+    let handle = thread::spawn(move || {
+        let val = test();
+        done_tx.send(()).expect("Unable to send completion signal");
+        val
+    });
+
+    // wait for test to complete until timeout
+    let timeout = Duration::from_secs(TIMEOUT);
+    let res = done_rx.recv_timeout(timeout).map(|_| handle.join());
+    // cleanup test
     teardown_test();
-    assert!(result.is_ok())
+    // check results
+    res.expect("Test timeout").expect("Test panicked");
 }
 
 /// restore VM state from internal QEMU snapshot
