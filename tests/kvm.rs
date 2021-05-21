@@ -102,6 +102,16 @@ mod tests {
         })
     }
 
+    // TODO: this test timeout, and makes intercept_cr3 tests timeout as well
+    // #[test]
+    // fn test_init_driver_twice() {
+    //     run_test(|| {
+    //         let drv = init_driver();
+    //         mem::drop(drv);
+    //         let _drv = init_driver();
+    //     })
+    // }
+
     #[test]
     fn test_pause() {
         run_test(|| {
