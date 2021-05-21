@@ -104,7 +104,8 @@ jobs:
           command: test
           # The target arg is a workaround in order to prevent build.rs files from being compiled with RUSTFLAGS
           # -Cpanic=abort can lead to issues with bindgen during compile time
-          args: --features kvm --no-fail-fast --target x86_64-unknown-linux-gnu
+          # --lib only unit tests in the library, avoid integration tests
+          args: --lib --features kvm --no-fail-fast --target x86_64-unknown-linux-gnu
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
