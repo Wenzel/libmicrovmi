@@ -1,15 +1,16 @@
+mod config;
+
 use env_logger;
 use log::debug;
+use std::mem;
 use std::panic;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 
+use config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
+
 // to init env logger
 static INIT: Once = Once::new();
-
-static VM_NAME: &str = "winxp";
-static VIRSH_URI: &str = "qemu:///system";
-static KVMI_SOCKET: &str = "/tmp/introspector";
 
 fn run_test<T>(test: T) -> ()
 where
