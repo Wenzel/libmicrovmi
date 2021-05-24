@@ -6,9 +6,7 @@ tasks:
 
 vscode:
   extensions:
-    # Theia does not support rust-analyzer, therefore this plugin list targets vscode instead. 
     - editorconfig.editorconfig
-    - rust-lang.rust
     - matklad.rust-analyzer
     - eamodio.gitlens
     - serayuzgur.crates

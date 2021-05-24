@@ -22,5 +22,6 @@ RUN git clone --depth 1 https://github.com/thalium/icebox \
     && cd - \
     && rm -rf icebox
 
-RUN cargo install cbindgen \
+RUN rustup default stable \
+    && cargo install cbindgen \
     && rustup component add clippy rustfmt
