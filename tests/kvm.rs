@@ -2,7 +2,7 @@ mod config;
 
 use env_logger;
 use log::debug;
-use std::mem;
+use serial_test::serial;
 use std::panic;
 use std::process::{Command, Stdio};
 use std::sync::{mpsc, Once};
@@ -96,6 +96,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_init_driver() {
         run_test(|| {
             init_driver();
@@ -104,6 +105,7 @@ mod tests {
 
     // TODO: this test timeout, and makes intercept_cr3 tests timeout as well
     // #[test]
+    // #[serial]
     // fn test_init_driver_twice() {
     //     run_test(|| {
     //         let drv = init_driver();
@@ -113,6 +115,7 @@ mod tests {
     // }
 
     #[test]
+    #[serial]
     fn test_pause() {
         run_test(|| {
             let mut drv = init_driver();
@@ -121,6 +124,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_double_pause() {
         run_test(|| {
             let mut drv = init_driver();
@@ -130,6 +134,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_double_resume() {
         run_test(|| {
             let mut drv = init_driver();
@@ -139,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_pause_resume() {
         run_test(|| {
             let mut drv = init_driver();
@@ -148,6 +154,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_multiple_pause_resume() {
         run_test(|| {
             let mut drv = init_driver();
@@ -159,6 +166,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_intercept_cr3_one() {
         run_test(|| {
             let mut drv = init_driver();
@@ -178,6 +186,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_intercept_cr3_multiple() {
         run_test(|| {
             let mut drv = init_driver();

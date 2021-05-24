@@ -50,7 +50,7 @@ colored = "2.0"
 mockall = "0.9"
 test-case = "1"
 indicatif = "0.15.0"
-
+serial_test = "*"
 
 [build-dependencies]
 cbindgen = "0.18.0"

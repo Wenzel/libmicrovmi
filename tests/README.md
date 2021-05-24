@@ -2,7 +2,6 @@
 
 Instructions for all tests:
 - Update the values in `tests/config.rs` according to your environment
-- `cargo test -- --test-threads=1`: the tests must be run sequentially since they share the same VM
 - `cargo test -- --nocapture`: displays the `log` output, useful for debugging
 
 ## KVM
@@ -21,5 +20,5 @@ The VM state between each test is handled by the following commands:
 **Execution**
 
 ~~~
-cargo test --feature kvm -- --test-threads=1
+cargo test --feature kvm
 ~~~
