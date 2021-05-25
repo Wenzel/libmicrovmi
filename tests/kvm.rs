@@ -1,3 +1,6 @@
+#![feature(test)]
+extern crate test;
+
 mod config;
 
 use env_logger;
@@ -79,12 +82,14 @@ fn teardown_test() {
 
 #[cfg(feature = "kvm")]
 mod tests {
+
     use super::*;
     use microvmi::api::{
         CrType, DriverInitParam, DriverType, EventReplyType, EventType, InterceptType,
         Introspectable,
     };
     use microvmi::init;
+    use test::{bench, Bencher};
 
     fn init_driver() -> Box<dyn Introspectable> {
         init(
@@ -222,6 +227,17 @@ mod tests {
     fn test_get_driver_type() {
         run_test(|| {
             assert_eq!(DriverType::KVM, init_driver().get_driver_type());
+        })
+    }
+
+    // benchmark
+    #[bench]
+    fn bench_read_physical(b: &mut Bencher) {
+        run_test(|| {
+            let mut drv = init_driver();
+            let mut buffer: [u8; 4096];
+            let mut bytes_read = 0;
+            b.iter(|| drv.read_physical(0, &mut buffer, &mut bytes_read).unwrap());
         })
     }
 }
