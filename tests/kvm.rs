@@ -1,90 +1,62 @@
-mod config;
-
-use env_logger;
-use log::debug;
-use serial_test::serial;
-use std::panic;
-use std::process::{Command, Stdio};
-use std::sync::{mpsc, Once};
-use std::thread;
-use std::time::Duration;
-
-use config::{KVMI_SOCKET, TIMEOUT, VIRSH_URI, VM_NAME, VM_VCPU_COUNT};
-
-// to init env logger
-static INIT: Once = Once::new();
-
-fn run_test<T>(test: T) -> ()
-where
-    T: Send + 'static,
-    T: FnOnce() -> (),
-{
-    // init env_logger if necessary
-    INIT.call_once(|| {
-        env_logger::builder().is_test(true).init();
-    });
-    // setup before test
-    setup_test();
-
-    // setup test execution in a thread
-    let (done_tx, done_rx) = mpsc::channel();
-    let handle = thread::spawn(move || {
-        let val = test();
-        done_tx.send(()).expect("Unable to send completion signal");
-        val
-    });
-
-    // wait for test to complete until timeout
-    let timeout = Duration::from_secs(TIMEOUT);
-    let res = done_rx.recv_timeout(timeout).map(|_| handle.join());
-    // cleanup test
-    teardown_test();
-    // check results
-    res.expect("Test timeout").expect("Test panicked");
-}
-
-/// restore VM state from internal QEMU snapshot
-fn setup_test() {
-    debug!("setup test");
-    Command::new("virsh")
-        .arg(format!("--connect={}", VIRSH_URI))
-        .arg("snapshot-revert")
-        .arg(VM_NAME)
-        .arg("--current")
-        .arg("--running")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .expect("Failed to start virsh")
-        .success()
-        .then(|| 0)
-        .expect("Failed to run virsh snapshot-revert");
-}
-
-/// shutdown VM
-fn teardown_test() {
-    debug!("teardown test");
-    Command::new("virsh")
-        .arg(format!("--connect={}", VIRSH_URI))
-        .arg("destroy")
-        .arg(VM_NAME)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .expect("Failed to start virsh")
-        .success()
-        .then(|| 0)
-        .expect("Failed to run virsh destroy");
-}
+mod common;
 
 #[cfg(feature = "kvm")]
 mod tests {
-    use super::*;
+    use super::common::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME, VM_VCPU_COUNT};
+    use super::common::run_test_generic;
+    use log::debug;
+    use serial_test::serial;
+    use std::panic;
+    use std::process::{Command, Stdio};
+
     use microvmi::api::{
         CrType, DriverInitParam, DriverType, EventReplyType, EventType, InterceptType,
         Introspectable,
     };
     use microvmi::init;
+
+    /// restore VM state from internal QEMU snapshot
+    pub fn setup_test() {
+        debug!("setup test");
+        Command::new("virsh")
+            .arg(format!("--connect={}", VIRSH_URI))
+            .arg("snapshot-revert")
+            .arg(VM_NAME)
+            .arg("--current")
+            .arg("--running")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .expect("Failed to start virsh")
+            .success()
+            .then(|| 0)
+            .expect("Failed to run virsh snapshot-revert");
+    }
+
+    /// shutdown VM
+    pub fn teardown_test() {
+        debug!("teardown test");
+        Command::new("virsh")
+            .arg(format!("--connect={}", VIRSH_URI))
+            .arg("destroy")
+            .arg(VM_NAME)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .expect("Failed to start virsh")
+            .success()
+            .then(|| 0)
+            .expect("Failed to run virsh destroy");
+    }
+
+    // define run_test with setup / teardown
+    pub fn run_test<T>(test: T) -> ()
+    where
+        T: Send + 'static,
+        T: FnOnce() -> (),
+    {
+        run_test_generic(setup_test, teardown_test, test)
+    }
 
     fn init_driver() -> Box<dyn Introspectable> {
         init(
