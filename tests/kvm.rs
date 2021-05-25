@@ -13,6 +13,9 @@ use std::thread;
 use std::time::Duration;
 
 use config::{KVMI_SOCKET, TIMEOUT, VIRSH_URI, VM_NAME, VM_VCPU_COUNT};
+use test::Bencher;
+use microvmi::api::Introspectable;
+use microvmi::init;
 
 // to init env logger
 static INIT: Once = Once::new();
@@ -78,6 +81,24 @@ fn teardown_test() {
         .success()
         .then(|| 0)
         .expect("Failed to run virsh destroy");
+}
+
+fn init_driver() -> Box<dyn Introspectable> {
+    init(
+        VM_NAME,
+        None, None
+    ).expect("Failed to init libmicrovmi")
+}
+
+// benchmark
+#[bench]
+fn bench_read_physical(b: &mut Bencher) {
+    run_test(|| {
+        let mut drv = init_driver();
+        let mut buffer: [u8; 4096];
+        let mut bytes_read = 0;
+        b.iter(|| drv.read_physical(0, &mut buffer, &mut bytes_read).unwrap());
+    })
 }
 
 #[cfg(feature = "kvm")]
@@ -230,14 +251,5 @@ mod tests {
         })
     }
 
-    // benchmark
-    #[bench]
-    fn bench_read_physical(b: &mut Bencher) {
-        run_test(|| {
-            let mut drv = init_driver();
-            let mut buffer: [u8; 4096];
-            let mut bytes_read = 0;
-            b.iter(|| drv.read_physical(0, &mut buffer, &mut bytes_read).unwrap());
-        })
-    }
+
 }
