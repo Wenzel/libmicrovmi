@@ -207,4 +207,13 @@ mod tests {
             }
         })
     }
+
+    // get_driver_type
+    #[test]
+    #[serial]
+    fn test_get_driver_type() {
+        run_test(|| {
+            assert_eq!(DriverType::KVM, init_driver().get_driver_type());
+        })
+    }
 }

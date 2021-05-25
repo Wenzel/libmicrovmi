@@ -21,7 +21,7 @@ bitflags! {
 
 ///Represents the available hypervisor VMI drivers supported by libmicrovmi
 #[repr(C)]
-#[derive(Debug, Copy, Clone, IntoEnumIterator)]
+#[derive(Debug, Copy, Clone, PartialEq, IntoEnumIterator)]
 pub enum DriverType {
     KVM,
     VirtualBox,
