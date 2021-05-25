@@ -9,7 +9,7 @@ use std::sync::{mpsc, Once};
 use std::thread;
 use std::time::Duration;
 
-use config::{KVMI_SOCKET, TIMEOUT, VIRSH_URI, VM_NAME};
+use config::{KVMI_SOCKET, TIMEOUT, VIRSH_URI, VM_NAME, VM_VCPU_COUNT};
 
 // to init env logger
 static INIT: Once = Once::new();
@@ -113,6 +113,14 @@ mod tests {
     //         let _drv = init_driver();
     //     })
     // }
+
+    #[test]
+    #[serial]
+    fn test_get_vcpu_count() {
+        run_test(|| {
+            assert_eq!(VM_VCPU_COUNT, init_driver().get_vcpu_count().unwrap());
+        })
+    }
 
     #[test]
     #[serial]
