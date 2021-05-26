@@ -17,9 +17,9 @@ static INIT: Once = Once::new();
 
 fn run_test_generic<A, B, C, D>(setup: A, teardown: B, init_driver: C, test: D) -> ()
 where
-    A: Send + 'static,
+    A: Send,
     A: FnOnce() -> (),
-    B: Send + 'static,
+    B: Send,
     B: FnOnce() -> (),
     C: Send + 'static,
     C: FnOnce() -> Box<dyn Introspectable>,
