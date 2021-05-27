@@ -51,7 +51,6 @@ mockall = "0.9"
 test-case = "1"
 indicatif = "0.15.0"
 inventory = "0.1.10"
-serial_test = "*"
 
 [build-dependencies]
 cbindgen = "0.18.0"
