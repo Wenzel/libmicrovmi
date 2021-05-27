@@ -1,13 +1,17 @@
-mod common;
-mod tests;
-
-use common::config::TIMEOUT;
-use common::context::init_context;
-use env_logger;
+use std::io;
 use std::panic::catch_unwind;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+
+use colored::*;
+use env_logger;
+
+mod common;
+mod tests;
+use common::config::TIMEOUT;
+use common::context::init_context;
+use std::io::Write;
 use tests::IntegrationTest;
 
 fn main() {
@@ -15,6 +19,8 @@ fn main() {
     env_logger::builder().is_test(true).init();
     // for each test
     for test in inventory::iter::<IntegrationTest> {
+        print!("Test {} ... ", test.name);
+        io::stdout().flush().expect("Failed to flush stdout");
         // get setup / teardown context
         let ctx = init_context();
         // setup environment before test
@@ -40,12 +46,16 @@ fn main() {
         ctx.teardown();
         // check results
         match timeout_result {
-            Err(timeout_err) => println!("Test {} timeout: {}", test.name, timeout_err),
+            Err(_) => println!("{}: {}", "Failed".red(), "Timeout".yellow()),
             Ok(join_result) => match join_result {
-                Err(cause) => println!("test runner failed to join thread: {:?}", cause),
+                Err(cause) => println!(
+                    "{}: test runner failed to join thread: {:?}",
+                    "Failed".red(),
+                    cause
+                ),
                 Ok(catch_unwind_result) => match catch_unwind_result {
-                    Err(_) => println!("Test {} failed", test.name),
-                    Ok(_) => println!("test {} OK", test.name),
+                    Err(_) => println!("{}", "Failed".red()),
+                    Ok(_) => println!("{}", "ok".green()),
                 },
             },
         }
