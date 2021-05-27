@@ -4,7 +4,7 @@ use log::debug;
 use microvmi::api::{DriverInitParam, DriverType, Introspectable};
 use microvmi::init;
 
-use crate::common::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
+use super::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
 use crate::common::context::Context;
 
 pub struct KVM;

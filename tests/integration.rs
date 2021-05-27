@@ -1,4 +1,5 @@
 use std::io;
+use std::io::Write;
 use std::panic::catch_unwind;
 use std::sync::mpsc;
 use std::thread;
@@ -7,12 +8,12 @@ use std::time::Duration;
 use colored::*;
 use env_logger;
 
-mod common;
-mod tests;
 use common::config::TIMEOUT;
 use common::context::init_context;
-use std::io::Write;
 use tests::IntegrationTest;
+
+mod common;
+mod tests;
 
 fn main() {
     // init logger

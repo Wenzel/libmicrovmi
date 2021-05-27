@@ -1,7 +1,7 @@
 # Integration Tests
 
 Instructions for all tests:
-- Update the values in `tests/config.rs` according to your environment
+- Update the values in `tests/common/config.rs` according to your environment
 - `cargo test -- --nocapture`: displays the `log` output, useful for debugging
 
 ## KVM
