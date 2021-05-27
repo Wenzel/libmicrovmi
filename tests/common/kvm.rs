@@ -1,11 +1,11 @@
 use std::process::{Command, Stdio};
 
 use log::debug;
+use microvmi::api::{DriverInitParam, DriverType, Introspectable};
+use microvmi::init;
 
 use crate::common::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
 use crate::common::context::Context;
-use microvmi::api::{DriverInitParam, DriverType, Introspectable};
-use microvmi::init;
 
 pub struct KVM;
 

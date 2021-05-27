@@ -1,6 +1,9 @@
 use microvmi::api::Introspectable;
 
+pub mod events;
+pub mod get;
 pub mod init;
+pub mod pause;
 
 #[derive(Debug)]
 pub struct IntegrationTest {
