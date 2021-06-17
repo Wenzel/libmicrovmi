@@ -1,3 +1,4 @@
+use crate::api::params::{CommonInitParams, DriverInitParams};
 use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
 use crate::init;
 use bitflags::_core::ptr::null_mut;
@@ -47,7 +48,7 @@ pub unsafe extern "C" fn microvmi_init(
     } else {
         Some(driver_type.read())
     };
-    let init_option: Option<DriverInitParam> = if driver_init_option.is_null() {
+    let _init_option: Option<DriverInitParam> = if driver_init_option.is_null() {
         None
     } else {
         Some(
@@ -55,7 +56,16 @@ pub unsafe extern "C" fn microvmi_init(
                 .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
         )
     };
-    match init(&safe_domain_name, optional_driver_type, init_option) {
+    // TODO: just for compiling
+    let common = Some(CommonInitParams {
+        vm_name: safe_domain_name,
+    });
+    let init_params = DriverInitParams {
+        common,
+        // TODO: KVM params ?
+        ..Default::default()
+    };
+    match init(optional_driver_type, Some(init_params)) {
         Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
         Err(err) => {
             if !init_error.is_null() {

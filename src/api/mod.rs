@@ -1,3 +1,5 @@
+pub mod params;
+
 use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::{CStr, IntoStringError};

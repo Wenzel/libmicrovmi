@@ -2,24 +2,29 @@ use std::error::Error;
 
 use fdp::{RegisterType, FDP};
 
-use crate::api::{
-    DriverInitParam, DriverType, Introspectable, Registers, SegmentReg, SystemTableReg,
-    X86Registers,
-};
+use crate::api::params::DriverInitParams;
+use crate::api::{DriverType, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers};
 
-// unit struct
 #[derive(Debug)]
 pub struct VBox {
     fdp: FDP,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum VBoxDriverError {
+    #[error("VirtualBox driver requires a VM name parameter")]
+    MissingVMName,
+}
+
 impl VBox {
-    pub fn new(
-        domain_name: &str,
-        _init_option: Option<DriverInitParam>,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new(init_params: DriverInitParams) -> Result<Self, Box<dyn Error>> {
+        let domain_name = init_params
+            .common
+            .ok_or(VBoxDriverError::MissingVMName)?
+            .vm_name;
+
         // init FDP
-        let fdp = FDP::new(domain_name)?;
+        let fdp = FDP::new(&domain_name)?;
         Ok(VBox { fdp })
     }
 }

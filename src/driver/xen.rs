@@ -1,6 +1,7 @@
+use crate::api::params::DriverInitParams;
 use crate::api::{
-    CrType, DriverInitParam, DriverType, Event, EventType, InterceptType, Introspectable,
-    Registers, SegmentReg, SystemTableReg, X86Registers,
+    CrType, DriverType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
+    SystemTableReg, X86Registers,
 };
 use libc::{PROT_READ, PROT_WRITE};
 use nix::poll::PollFlags;
@@ -35,6 +36,8 @@ pub struct Xen {
 
 #[derive(thiserror::Error, Debug)]
 pub enum XenDriverError {
+    #[error("Xen driver requires a VM name parameter")]
+    MissingVMName,
     #[error("failed to read xenstore entry {0}: {1}")]
     XenstoreReadError(String, IoError),
     #[error("event version mismatch: {0} <-> {1}")]
@@ -54,11 +57,11 @@ pub enum XenDriverError {
 }
 
 impl Xen {
-    pub fn new(
-        domain_name: &str,
-        _init_option: Option<DriverInitParam>,
-    ) -> Result<Self, Box<dyn Error>> {
-        debug!("init on {}", domain_name);
+    pub fn new(init_params: DriverInitParams) -> Result<Self, Box<dyn Error>> {
+        let domain_name = init_params
+            .common
+            .ok_or(XenDriverError::MissingVMName)?
+            .vm_name;
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly)?;
         let mut found: bool = false;
@@ -102,7 +105,7 @@ impl Xen {
             xc,
             xev,
             xen_fgn,
-            dom_name: domain_name.to_string(),
+            dom_name: domain_name,
             domid: cand_domid,
             back_ring,
         };

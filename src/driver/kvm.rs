@@ -11,9 +11,10 @@ use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
+use crate::api::params::{DriverInitParams, KVMInitParams};
 use crate::api::{
-    Access, CrType, DriverInitParam, DriverType, Event, EventReplyType, EventType, InterceptType,
-    Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers,
+    Access, CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable,
+    Registers, SegmentReg, SystemTableReg, X86Registers,
 };
 use kvmi::constants::PAGE_SIZE;
 
@@ -103,20 +104,23 @@ pub struct Kvm<T: KVMIntrospectable> {
 
 #[derive(thiserror::Error, Debug)]
 pub enum KVMDriverError {
+    #[error("KVM driver requires a VM name parameter")]
+    MissingVMName,
     #[error("KVM driver initialization requires an additional socket parameter")]
     MissingSocketParameter,
 }
 
 impl<T: KVMIntrospectable> Kvm<T> {
-    pub fn new(
-        domain_name: &str,
-        mut kvmi: T,
-        init_option: Option<DriverInitParam>,
-    ) -> Result<Self, Box<dyn Error>> {
-        let DriverInitParam::KVMiSocket(socket_path) =
-            init_option.ok_or(KVMDriverError::MissingSocketParameter)?;
-        debug!("init on {} (socket: {})", domain_name, socket_path);
-        let unix_socket = SocketType::UnixSocket(socket_path);
+    pub fn new(mut kvmi: T, init_params: DriverInitParams) -> Result<Self, Box<dyn Error>> {
+        let domain_name = init_params
+            .common
+            .ok_or(KVMDriverError::MissingVMName)?
+            .vm_name;
+        let KVMInitParams::UnixSocket { path } = init_params
+            .kvm
+            .ok_or(KVMDriverError::MissingSocketParameter)?;
+        debug!("init on {} (socket: {})", domain_name, path);
+        let unix_socket = SocketType::UnixSocket(path);
         kvmi.init(unix_socket)?;
         let mut kvm = Kvm {
             kvmi,
@@ -370,6 +374,7 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::params::CommonInitParams;
     use kvmi::{kvm_regs, kvm_sregs, KvmMsrs};
     use mockall::mock;
     use mockall::predicate::{eq, function};
@@ -387,9 +392,16 @@ mod tests {
         });
 
         let result = Kvm::new(
-            "some_vm",
             kvmi_mock,
-            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+            DriverInitParams {
+                common: Some(CommonInitParams {
+                    vm_name: String::from("some_vm"),
+                }),
+                kvm: Some(KVMInitParams::UnixSocket {
+                    path: "/tmp/introspector".to_string(),
+                }),
+                ..Default::default()
+            },
         );
 
         assert!(result.is_err(), "Expected error, got ok instead!");
@@ -462,9 +474,16 @@ mod tests {
         }
 
         let result = Kvm::new(
-            "some_vm",
             kvmi_mock,
-            Some(DriverInitParam::KVMiSocket("/tmp/introspector".to_string())),
+            DriverInitParams {
+                common: Some(CommonInitParams {
+                    vm_name: String::from("some_vm"),
+                }),
+                kvm: Some(KVMInitParams::UnixSocket {
+                    path: "/tmp/introspector".to_string(),
+                }),
+                ..Default::default()
+            },
         );
 
         assert!(result.is_ok(), "Expected ok, got error instead!");
