@@ -43,3 +43,35 @@ impl Clappable for DriverInitParams {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Clappable;
+    use clap::App;
+    use microvmi::api::params::{DriverInitParams, KVMInitParams};
+
+    #[test]
+    fn test_common_vm_name() {
+        let cmdline = vec!["test", "--vm_name=windows10"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!("windows10", params.common.unwrap().vm_name)
+    }
+
+    #[test]
+    fn test_kvm_unix_socket() {
+        let cmdline = vec!["test", "--kvm_unix_socket=/tmp/introspector"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!(
+            KVMInitParams::UnixSocket {
+                path: String::from("/tmp/introspector")
+            },
+            params.kvm.unwrap()
+        );
+    }
+}
