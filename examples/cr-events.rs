@@ -5,9 +5,9 @@ use std::time::Instant;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 
+use microvmi::api::events::{CrType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::{CrType, EventType, InterceptType, Introspectable};
-
+use microvmi::api::Introspectable;
 use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {

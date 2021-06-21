@@ -1,12 +1,13 @@
-use clap::{App, ArgMatches};
-use colored::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use microvmi::api::params::DriverInitParams;
-use microvmi::api::{Access, EventReplyType, EventType, InterceptType, Introspectable};
+use clap::{App, ArgMatches};
+use colored::*;
 
+use microvmi::api::events::{EventReplyType, EventType, InterceptType};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::{Access, Introspectable};
 use utilities::Clappable;
 
 const PAGE_SIZE: usize = 4096;

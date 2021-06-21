@@ -13,11 +13,10 @@ use kvmi::{
     KVMiEventType, KVMiInterceptType, KVMiPageAccess, SocketType,
 };
 
+use crate::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use crate::api::params::{DriverInitParams, KVMInitParams};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
-use crate::api::{
-    Access, CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable,
-};
+use crate::api::{Access, DriverType, Introspectable};
 
 impl TryFrom<Access> for KVMiPageAccess {
     type Error = &'static str;

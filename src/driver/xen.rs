@@ -20,9 +20,10 @@ use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
 
+use crate::api::events::{CrType, Event, EventType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
-use crate::api::{CrType, DriverType, Event, EventType, InterceptType, Introspectable};
+use crate::api::{DriverType, Introspectable};
 
 #[derive(Debug)]
 pub struct Xen {

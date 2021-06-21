@@ -1,13 +1,14 @@
-use clap::{App, Arg, ArgMatches};
-use colored::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::u32;
 
-use microvmi::api::params::DriverInitParams;
-use microvmi::api::{EventReplyType, EventType, InterceptType, Introspectable};
+use clap::{App, Arg, ArgMatches};
+use colored::*;
 
+use microvmi::api::events::{EventReplyType, EventType, InterceptType};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
 use utilities::Clappable;
 
 // default set of MSRs to be intercepted
