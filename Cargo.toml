@@ -44,6 +44,7 @@ ntapi = { version = "0.3", optional = true }
 vid-sys = { version = "=0.3.0", features = ["deprecated-apis"], optional = true }
 
 [dev-dependencies]
+utilities = { path = "utilities" }
 ctrlc = "3.1"
 clap = "2.33"
 colored = "2.0"

@@ -1,6 +1,9 @@
 use clap::{App, Arg, ArgMatches};
 
-use microvmi::api::{DriverInitParam, Introspectable};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
+
+use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
@@ -8,14 +11,7 @@ fn parse_args() -> ArgMatches<'static> {
         .author("Mathieu Tarral")
         .about("Dumps the state of registers on VCPU 0")
         .arg(Arg::with_name("vm_name").index(1).required(true))
-        .arg(
-            Arg::with_name("kvmi_socket")
-                .short("k")
-                .takes_value(true)
-                .help(
-                "pass additional KVMi socket initialization parameter required for the KVM driver",
-            ),
-        )
+        .args(DriverInitParams::to_clap_args().as_ref())
         .get_matches()
 }
 
@@ -23,13 +19,9 @@ fn main() {
     env_logger::init();
 
     let matches = parse_args();
-    let domain_name = matches.value_of("vm_name").unwrap();
-
-    let init_option = matches
-        .value_of("kvmi_socket")
-        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+    let init_params = DriverInitParams::from_matches(&matches);
     let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+        microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
 
     println!("pausing the VM");
     drv.pause().expect("Failed to pause VM");

@@ -6,7 +6,10 @@ use clap::{App, Arg, ArgMatches};
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 
-use microvmi::api::{DriverInitParam, Introspectable};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
+
+use utilities::Clappable;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -15,15 +18,7 @@ fn parse_args() -> ArgMatches<'static> {
         .version("0.1")
         .author("Mathieu Tarral")
         .about("Dumps VM physical memory")
-        .arg(Arg::with_name("vm_name").index(1).required(true))
-        .arg(
-            Arg::with_name("kvmi_socket")
-                .short("k")
-                .takes_value(true)
-                .help(
-                "pass additional KVMi socket initialization parameter required for the KVM driver",
-            ),
-        )
+        .args(DriverInitParams::to_clap_args().as_ref())
         .arg(
             Arg::with_name("output")
                 .short("o")
@@ -37,8 +32,12 @@ fn main() {
     env_logger::init();
 
     let matches = parse_args();
-    let domain_name = matches.value_of("vm_name").unwrap();
 
+    let init_params = DriverInitParams::from_matches(&matches);
+    let domain_name: String = init_params
+        .common
+        .clone()
+        .map_or(String::from("unknown_vm_name"), |v| v.vm_name);
     let dump_path = Path::new(
         matches
             .value_of("output")
@@ -48,15 +47,12 @@ fn main() {
     let mut dump_file = File::create(&dump_path).expect("Fail to open dump file");
     dump_path.canonicalize().unwrap();
 
-    let init_option = matches
-        .value_of("kvmi_socket")
-        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(200);
     spinner.set_message("Initializing libmicrovmi...");
+
     let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+        microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
     spinner.finish_and_clear();
 
     println!("pausing the VM");
