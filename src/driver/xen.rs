@@ -1,11 +1,3 @@
-use crate::api::params::DriverInitParams;
-use crate::api::{
-    CrType, DriverType, Event, EventType, InterceptType, Introspectable, Registers, SegmentReg,
-    SystemTableReg, X86Registers,
-};
-use libc::{PROT_READ, PROT_WRITE};
-use nix::poll::PollFlags;
-use nix::poll::{poll, PollFd};
 use std::convert::Infallible;
 use std::convert::TryInto;
 use std::error::Error;
@@ -13,6 +5,10 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
 use std::num::TryFromIntError;
+
+use libc::{PROT_READ, PROT_WRITE};
+use nix::poll::PollFlags;
+use nix::poll::{poll, PollFd};
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::error::XcError;
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
@@ -23,6 +19,10 @@ use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
+
+use crate::api::params::DriverInitParams;
+use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
+use crate::api::{CrType, DriverType, Event, EventType, InterceptType, Introspectable};
 
 #[derive(Debug)]
 pub struct Xen {

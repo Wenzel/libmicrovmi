@@ -1,11 +1,14 @@
-use crate::api::params::{CommonInitParams, DriverInitParams};
-use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
-use crate::init;
-use bitflags::_core::ptr::null_mut;
-use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 use std::convert::TryInto;
 use std::ffi::{c_void, CStr, CString};
 use std::slice;
+
+use bitflags::_core::ptr::null_mut;
+use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+
+use crate::api::params::{CommonInitParams, DriverInitParams};
+use crate::api::registers::Registers;
+use crate::api::{DriverInitParam, DriverType, Introspectable};
+use crate::init;
 
 /// Support passing initialization options
 /// similar to DriverInitParam, however this enum offers C API compatibility

@@ -3,7 +3,8 @@ use std::error::Error;
 use fdp::{RegisterType, FDP};
 
 use crate::api::params::DriverInitParams;
-use crate::api::{DriverType, Introspectable, Registers, SegmentReg, SystemTableReg, X86Registers};
+use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
+use crate::api::{DriverType, Introspectable};
 
 #[derive(Debug)]
 pub struct VBox {

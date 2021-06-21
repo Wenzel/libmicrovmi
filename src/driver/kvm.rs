@@ -1,9 +1,3 @@
-#[cfg(test)] // only needed for tests
-use kvmi::errors::KVMiError;
-use kvmi::{
-    kvm_dtable, kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply,
-    KVMiEventType, KVMiInterceptType, KVMiPageAccess, SocketType,
-};
 use std::convert::From;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -11,12 +5,19 @@ use std::error::Error;
 use std::mem;
 use std::vec::Vec;
 
+use kvmi::constants::PAGE_SIZE;
+#[cfg(test)] // only needed for tests
+use kvmi::errors::KVMiError;
+use kvmi::{
+    kvm_dtable, kvm_regs, kvm_segment, KVMIntrospectable, KVMiCr, KVMiEvent, KVMiEventReply,
+    KVMiEventType, KVMiInterceptType, KVMiPageAccess, SocketType,
+};
+
 use crate::api::params::{DriverInitParams, KVMInitParams};
+use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{
     Access, CrType, DriverType, Event, EventReplyType, EventType, InterceptType, Introspectable,
-    Registers, SegmentReg, SystemTableReg, X86Registers,
 };
-use kvmi::constants::PAGE_SIZE;
 
 impl TryFrom<Access> for KVMiPageAccess {
     type Error = &'static str;
@@ -373,13 +374,16 @@ impl<T: KVMIntrospectable> Drop for Kvm<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::api::params::CommonInitParams;
+    use std::fmt::{Debug, Formatter};
+
     use kvmi::{kvm_regs, kvm_sregs, KvmMsrs};
     use mockall::mock;
     use mockall::predicate::{eq, function};
-    use std::fmt::{Debug, Formatter};
     use test_case::test_case;
+
+    use crate::api::params::CommonInitParams;
+
+    use super::*;
 
     #[test]
     fn test_fail_to_create_kvm_driver_if_kvmi_init_returns_error() {
