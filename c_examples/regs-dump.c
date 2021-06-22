@@ -42,7 +42,13 @@ int main(int argc, char* argv[]) {
     }
     microvmi_envlogger_init();
     const char* init_error = NULL;
-    void* driver = microvmi_init(argv[1], NULL, NULL, &init_error);
+    void* vm_name = argv[1];
+    DriverInitParamsFFI init_params = {
+        .common = {
+            .vm_name = vm_name
+        }
+    };
+    void* driver = microvmi_init(NULL, &init_params, &init_error);
     if (!driver) {
         fprintf(stderr, "%s\n", init_error);
         rs_cstring_free((char*)init_error);
