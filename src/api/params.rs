@@ -18,7 +18,8 @@ pub enum VBoxInitParams {}
 ///
 /// These parameters are shared by two or more drivers, and are stored in this struct
 /// to avoid duplication and simplify the API
-#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct CommonInitParams {
     pub vm_name: String,
 }

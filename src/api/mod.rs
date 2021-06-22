@@ -1,13 +1,8 @@
-use std::convert::TryInto;
-use std::error::Error;
-use std::ffi::{CStr, IntoStringError};
-
 use enum_iterator::IntoEnumIterator;
+use std::error::Error;
 
 use events::{Event, EventReplyType, InterceptType};
 use registers::Registers;
-
-use crate::capi::DriverInitParamFFI;
 
 pub mod events;
 pub mod params;
@@ -35,33 +30,19 @@ pub enum DriverType {
     Xen,
 }
 
-/// Supports passing initialization parameters to the driver
-///
-/// Some drivers can support optional extra initialization parameters.
-///
-/// This is required to initialize the KVM driver, which needs a `domain_name` and
-/// a `kvm_socket` parameters.
-///
-/// This is equivalent to LibVMI's `vmi_init_data_type_t`
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub enum DriverInitParam {
-    KVMiSocket(String),
-}
-
-impl TryInto<DriverInitParam> for DriverInitParamFFI {
-    type Error = IntoStringError;
-
-    fn try_into(self) -> Result<DriverInitParam, Self::Error> {
-        Ok(match self {
-            DriverInitParamFFI::KVMiSocket(cstr_socket) => DriverInitParam::KVMiSocket(
-                unsafe { CStr::from_ptr(cstr_socket) }
-                    .to_owned()
-                    .into_string()?,
-            ),
-        })
-    }
-}
+// impl TryInto<DriverInitParam> for DriverInitParamFFI {
+//     type Error = IntoStringError;
+//
+//     fn try_into(self) -> Result<DriverInitParam, Self::Error> {
+//         Ok(match self {
+//             DriverInitParamFFI::KVMiSocket(cstr_socket) => DriverInitParam::KVMiSocket(
+//                 unsafe { CStr::from_ptr(cstr_socket) }
+//                     .to_owned()
+//                     .into_string()?,
+//             ),
+//         })
+//     }
+// }
 
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
