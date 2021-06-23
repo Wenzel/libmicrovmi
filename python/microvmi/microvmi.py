@@ -3,7 +3,7 @@ from typing import Optional
 
 from microvmi.memory import PaddedPhysicalMemoryIO, PhysicalMemoryIO
 
-from .pymicrovmi import DriverInitParam, MicrovmiExt
+from .pymicrovmi import DriverInitParamsPy, MicrovmiExt
 
 
 class DriverType(Enum):
@@ -19,20 +19,33 @@ class Microvmi:
 
     def __init__(
         self,
-        domain_name: str,
         driver_type: DriverType = None,
-        drv_init_param: DriverInitParam = None,
+        init_params: DriverInitParamsPy = None,
     ):
         """
         Initialize a Microvmi instance
 
         Args:
-            domain_name (str): the domain name
             driver_type (int, optional): the hypervisor driver type on which the library should be initialized
-            init_param (DriverInitParam, optional): additional initialization parameters for driver initialization
+            init_params (DriverInitParamsPy, optional): initialization parameters for driver initialization
+
+        Examples:
+            from microvmi import Microvmi, DriverInitParamsPy, CommonInitParamsPy, KVMInitParamsPy
+            # setup common params
+            common = CommonInitParamsPy()
+            common.vm_name = "windows10"
+            # setup kvm params
+            kvm = KVMInitParamsPy()
+            kvm.unix_socket = "/tmp/introspector"
+            # setup main init_params
+            init_params = DriverInitParamsPy()
+            init_params.common = common
+            init_params.kvm = kvm
+            # init
+            m = Microvmi(None, init_params)
         """
         drv_type_ext: Optional[int] = driver_type.value if driver_type is not None else None
-        self._micro = MicrovmiExt(domain_name, drv_type_ext, drv_init_param)
+        self._micro = MicrovmiExt(drv_type_ext, init_params)
         self._memory = PhysicalMemoryIO(self._micro)
         self._padded_memory = PaddedPhysicalMemoryIO(self._micro)
 

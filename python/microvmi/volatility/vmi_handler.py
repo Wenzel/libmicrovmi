@@ -1,9 +1,9 @@
 import logging
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 from urllib.request import BaseHandler, Request
 
-from microvmi import DriverInitParam, DriverType, Microvmi
+from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, Microvmi
 
 # to be used by volatility, the VMIHandler should inherit from VolatilityHandler
 # in order to be non cacheable
@@ -31,14 +31,10 @@ class VMIHandler(VolatilityHandler):
     Documentation: https://wenzel.github.io/libmicrovmi/
 
     Syntax is defined here:
-        vmi://<hypervisor>/<vm_name>?param1=value1&param2=value2
+        vmi://<hypervisor>/?param1=value1&param2=value2
     """
 
     SCHEME = "vmi"
-
-    """Map of driver initialization parameter keys to the associated DriverInitParam functions
-    exposed by the pymicrovmi python extension"""
-    DRIVER_INIT_PARAM_MAP = {"kvmi_unix_socket": DriverInitParam.kvmi_unix_socket}
 
     @classmethod
     def non_cached_schemes(cls) -> List[str]:
@@ -48,29 +44,27 @@ class VMIHandler(VolatilityHandler):
     def vmi_open(req: Request) -> Optional[Any]:
         """Handles the request if it's the VMI scheme"""
         logging.getLogger("microvmi").setLevel(logging.WARNING)
-        vm_name, driver_type, init_param = url_to_driver_parameters(req.full_url)
+        driver_type, init_params = url_to_driver_parameters(req.full_url)
         # this method is called multiple times
         # just return if already initialized instance
         global micro
         if micro is not None:
             return micro.padded_memory
         # init Microvmi
-        micro = Microvmi(vm_name, driver_type, init_param)
+        micro = Microvmi(driver_type, init_params)
         return micro.padded_memory
 
 
-def url_to_driver_parameters(url: str) -> Tuple[str, Optional[DriverType], Optional[DriverInitParam]]:
+def url_to_driver_parameters(url: str) -> Tuple[Optional[DriverType], Optional[DriverInitParamsPy]]:
     """Parses a given request and extracts the Microvmi driver initialization parameters"""
     parsed_url = urlparse(url)
     # scheme
     _validate_scheme(parsed_url.scheme)
-    # domain
-    vm_name: str = _parse_vm_name(parsed_url.path)
     # hypervisor
     driver_type: Optional[DriverType] = _parse_hypervisor(parsed_url.netloc)
     # init params
-    init_param: Optional[DriverInitParam] = _parse_driver_init_params(parsed_url.query)
-    return vm_name, driver_type, init_param
+    init_params: Optional[DriverInitParamsPy] = _parse_driver_init_params(parsed_url.query)
+    return driver_type, init_params
 
 
 def _validate_scheme(scheme: str):
@@ -99,20 +93,24 @@ def _parse_hypervisor(netloc: str) -> Optional[DriverType]:
     return None
 
 
-def _parse_driver_init_params(query: str) -> Optional[DriverInitParam]:
+def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
     if not query:
         return None
-    url_params = parse_qs(query, strict_parsing=True)
+    url_params: Dict[str, List[str]] = parse_qs(query, strict_parsing=True)
     if not url_params:
         return None
-    if len(url_params) > 1:
-        raise MicrovmiHandlerError("Only one driver initialization parameter is supported")
-    try:
-        key = list(url_params.keys())[0]
-        init_param_func = VMIHandler.DRIVER_INIT_PARAM_MAP[key]
-    except KeyError as e:
-        raise MicrovmiHandlerError(
-            f"Unknown driver initialization parameter. Allow init parameters: {VMIHandler.DRIVER_INIT_PARAM_MAP.keys()}"
-        ) from e
-    else:
-        return init_param_func(url_params[key][0])
+    common = None
+    kvm = None
+    for param, list_value in url_params.items():
+        if param == "vm_name":
+            common = CommonInitParamsPy()
+            common.vm_name = list_value[0]
+        elif param == "kvm_unix_socket":
+            kvm = KVMInitParamsPy()
+            kvm.unix_socket = list_value[0]
+        else:
+            raise MicrovmiHandlerError(f"Unknown driver initialization parameter: {param}")
+    init_params = DriverInitParamsPy()
+    init_params.common = common
+    init_params.kvm = kvm
+    return init_params
