@@ -3,24 +3,45 @@
 ### Initializing libmicrovmi
 
 ~~~Python
-from microvmi import Microvmi
+from microvmi import Microvmi, DriverInitParamsPy, CommonInitParamsPy
 
-micro = Microvmi("Windows10")
+# setup common params
+common = CommonInitParamsPy()
+common.vm_name = "windows10"
+# setup main init_params
+init_params = DriverInitParamsPy()
+init_params.common = common
+micro = Microvmi(None, init_params)
 ~~~
 
 ### Specifying the hypervisor
 
 ~~~Python
-from microvmi import Microvmi, DriverType
+from microvmi import Microvmi, DriverType, DriverInitParamsPy, CommonInitParamsPy
 
-micro = Microvmi("Windows10", DriverType.XEN)
+# setup common params
+common = CommonInitParamsPy()
+common.vm_name = "windows10"
+# setup main init_params
+init_params = DriverInitParamsPy()
+init_params.common = common
+micro = Microvmi(DriverType.XEN, init_params)
 ~~~
 
 ### Adding driver initialization parameters
 
 ~~~Python
-from microvmi import Microvmi, DriverType, DriverInitParam
+from microvmi import Microvmi, DriverInitParamsPy, CommonInitParamsPy, KVMInitParamsPy
 
-init_param = DriverInitParam.kvmi_unix_socket("/tmp/introspector")
-micro = Microvmi("Windows10", DriverType.KVM, init_param)
+# setup common params
+common = CommonInitParamsPy()
+common.vm_name = "windows10"
+# setup kvm params
+kvm = KVMInitParamsPy()
+kvm.unix_socket = "/tmp/introspector"
+# setup main init_params
+init_params = DriverInitParamsPy()
+init_params.common = common
+init_params.kvm = kvm
+micro = Microvmi(DriverType.KVM, init_params)
 ~~~

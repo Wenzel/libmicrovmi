@@ -1,6 +1,8 @@
 //! libmicrovmi is a cross-platform unified virtual machine introsection interface, following a simple design to keep interoperability at heart.
 //!
 //! Click on this [book 📖](https://libmicrovmi.github.io/) to find our project documentation.
+//!
+//! The library's entrypoint is the [init](fn.init.html) function.
 
 #![allow(clippy::upper_case_acronyms)]
 
@@ -29,6 +31,42 @@ use errors::MicrovmiError;
 #[cfg(feature = "kvm")]
 use kvmi::create_kvmi;
 
+/// libmicrovmi initialization entrypoint
+///
+/// This function will initialize a libmicrovmi driver and call the hypervisor VMI API.
+/// It returns a `Box<dyn Introspectable>` trait object, which implements the [Introspectable](api/trait.Introspectable.html) trait.
+///
+/// # Arguments
+/// * `driver_type`: optional driver type to initialize. If None, all compiled drivers will be initialized one by one. The first that succeeds will be returned.
+/// * `init_params`: optional driver initialization parameters
+///
+/// # Examples
+/// ```no_run
+/// use microvmi::init;
+/// // 1 - attempt to init all drivers, without any init parameters
+/// let drv = init(None, None);
+///
+/// // 2 - add parameters: vm_name
+/// // a `vm_name` parameter is required for multiple drivers: Xen, KVM, VirtualBox
+/// use microvmi::api::params::{DriverInitParams, CommonInitParams};
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     ..Default::default()
+/// };
+/// let drv = init(None, Some(init_params));
+///
+/// // 3 - add parameters: KVM specific params
+/// // KVM requires an additional unix socket to be specified
+/// // and specify the KVM driver only
+/// use microvmi::api::params::KVMInitParams;
+/// use microvmi::api::DriverType;
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     kvm: Some(KVMInitParams::UnixSocket {path: String::from("/tmp/introspector")}),
+///     ..Default::default()
+/// };
+/// let drv = init(Some(DriverType::KVM), Some(init_params));
+/// ```
 pub fn init(
     driver_type: Option<DriverType>,
     init_params: Option<DriverInitParams>,
