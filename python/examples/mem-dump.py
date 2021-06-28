@@ -3,8 +3,9 @@
 import argparse
 import logging
 from contextlib import contextmanager
+from typing import Optional
 
-from microvmi import Microvmi
+from microvmi import CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, Microvmi
 from rich import print
 from rich.progress import BarColumn, Progress, TextColumn
 
@@ -22,14 +23,25 @@ def pause_ctxt(micro: Microvmi):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("vm_name", help="The VM name to dump memory from")
+    parser.add_argument("-d", "--vm_name", type=str, help="The VM name to dump memory from")
+    parser.add_argument("-k", "--kvm-unix-socket", type=str, help="The Unix socket path for the KVM driver")
     parser.add_argument("-o", "--output-file", help="Dump file path", default="{vm_name}.dump")
     args = parser.parse_args()
     return args
 
 
-def dump_mem(vm_name, output_file):
-    micro = Microvmi(vm_name)
+def dump_mem(vm_name: Optional[str], kvm_unix_socket: Optional[str], output_file: Optional[str]):
+    # prepare drivers init params
+    init_params = DriverInitParamsPy()
+    common = CommonInitParamsPy()
+    common.vm_name = vm_name
+    init_params.common = common
+    if kvm_unix_socket:
+        kvm = KVMInitParamsPy()
+        kvm.unix_socket = kvm_unix_socket
+        init_params.kvm = kvm
+    # init libmicrovmi
+    micro = Microvmi(None, init_params)
     destination = output_file.format(vm_name=vm_name)
     with pause_ctxt(micro):
         max_addr = micro.max_addr
@@ -58,8 +70,9 @@ def main():
 
     try:
         vm_name = args.vm_name
+        kvm_unix_socket = args.kvm_unix_socket
         output_file = args.output_file
-        dump_mem(vm_name, output_file)
+        dump_mem(vm_name, kvm_unix_socket, output_file)
     except KeyboardInterrupt:
         logging.critical("Cancelled by CTRL-C")
 
