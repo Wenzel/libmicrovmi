@@ -126,6 +126,29 @@ jobs:
           flags: unittests
           fail_ci_if_error: true
 
+  memflow:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+      - uses: actions/checkout@v1
+      - name: build Memflow driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --features mflow
+      - name: annotate commit with clippy warnings
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy memflow
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --features mflow -- -D warnings
+
   virtualbox:
     runs-on: ubuntu-20.04
 
