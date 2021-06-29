@@ -26,6 +26,7 @@ bitflags! {
 #[derive(Debug, Copy, Clone, PartialEq, IntoEnumIterator)]
 pub enum DriverType {
     KVM,
+    Memflow,
     VirtualBox,
     Xen,
 }

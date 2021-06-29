@@ -23,6 +23,8 @@ use api::DriverType;
 use api::Introspectable;
 #[cfg(feature = "kvm")]
 use driver::kvm::Kvm;
+#[cfg(feature = "mflow")]
+use driver::memflow::Memflow;
 #[cfg(feature = "virtualbox")]
 use driver::virtualbox::VBox;
 #[cfg(feature = "xen")]
@@ -106,6 +108,8 @@ fn init_driver(
     match driver_type {
         #[cfg(feature = "kvm")]
         DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi(), _init_params)?)),
+        #[cfg(feature = "mflow")]
+        DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
         #[cfg(feature = "virtualbox")]
         DriverType::VirtualBox => Ok(Box::new(VBox::new(_init_params)?)),
         #[cfg(feature = "xen")]

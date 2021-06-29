@@ -1,6 +1,8 @@
 /// This crate implements utilities and common code shared by libmicrovmi examples
 use clap::{Arg, ArgMatches};
-use microvmi::api::params::{CommonInitParams, DriverInitParams, KVMInitParams};
+use microvmi::api::params::{
+    CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+};
 
 /// This trait allows to convert a struct to Clap's command line arguments
 /// and to parse back the matches into the struct
@@ -24,6 +26,15 @@ impl Clappable for DriverInitParams {
                 .long("kvm_unix_socket")
                 .takes_value(true)
                 .help("Driver parameter (required for KVM): KVM unix socket path"),
+            // memflow
+            Arg::with_name("memflow_connector_name")
+                .long("memflow_connector_name")
+                .takes_value(true)
+                .help("Driver parameter (optional for Memflow): Memflow connector name"),
+            Arg::with_name("memflow_connector_args")
+                .long("memflow_connector_args")
+                .multiple(true)
+                .min_values(1),
         ]
     }
 
@@ -36,9 +47,20 @@ impl Clappable for DriverInitParams {
             .map(|s| KVMInitParams::UnixSocket {
                 path: String::from(s),
             });
+        let memflow = Some(MemflowInitParams {
+            connector_name: matches
+                .value_of("memflow_connector_name")
+                .map(|s| s.to_string()),
+            connector_args: matches.values_of("memflow_connector_args").map(|v| {
+                MemflowConnectorParams::Unknown {
+                    args: v.map(|s| s.to_string()).collect(),
+                }
+            }),
+        });
         DriverInitParams {
             common,
             kvm,
+            memflow,
             ..Default::default()
         }
     }
@@ -48,7 +70,7 @@ impl Clappable for DriverInitParams {
 mod tests {
     use super::Clappable;
     use clap::App;
-    use microvmi::api::params::{DriverInitParams, KVMInitParams};
+    use microvmi::api::params::{DriverInitParams, KVMInitParams, MemflowConnectorParams};
 
     #[test]
     fn test_common_vm_name() {
@@ -73,5 +95,46 @@ mod tests {
             },
             params.kvm.unwrap()
         );
+    }
+
+    // tests for memflow
+    #[test]
+    fn test_memflow_connector_name() {
+        let cmdline = vec!["test", "--memflow_connector_name=foobar"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!("foobar", params.memflow.unwrap().connector_name.unwrap())
+    }
+
+    #[test]
+    fn test_memflow_connector_args_one() {
+        let cmdline = vec!["test", "--memflow_connector_args", "first"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!(
+            MemflowConnectorParams::Unknown {
+                args: vec!["first".into()]
+            },
+            params.memflow.unwrap().connector_args.unwrap()
+        )
+    }
+
+    #[test]
+    fn test_memflow_connector_args_multiple() {
+        let cmdline = vec!["test", "--memflow_connector_args", "first", "second", "third"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!(
+            MemflowConnectorParams::Unknown {
+                args: vec!["first".into(), "second".into(), "third".into()]
+            },
+            params.memflow.unwrap().connector_args.unwrap()
+        )
     }
 }
