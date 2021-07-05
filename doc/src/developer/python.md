@@ -39,4 +39,16 @@ nox -r -s generate_wheels -- --features xen --release
 
 After the execution, the wheels will be available in `libmicrovmi/python/dist/manylinux`.
 
+## Testing Volatility
 
+Nox provides sessions to facilitate testing the volatility integration on a given driver.
+
+For Xen:
+~~~
+nox -r -s test_volatility_xen -- vmi:///....
+~~~
+
+To list nox sessions:
+~~~
+nox -l
+~~~
