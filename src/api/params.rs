@@ -1,4 +1,7 @@
-/// This module describes initialization parameters for all libmicrovmi drivers
+//! This module describes initialization parameters for all libmicrovmi drivers
+//!
+//! The [`DriverInitParams`](struct.DriverInitParams.html) is used to pass additional driver initialization parameters.
+//! You might want to check it's documentation for examples on how to initialize your driver.
 
 /// Xen initialization parameters
 #[derive(Debug, Clone, PartialEq)]
@@ -65,6 +68,40 @@ pub struct CommonInitParams {
 }
 
 /// This struct is used to specify the initialization parameters for all drivers
+///
+/// # Examples
+///
+/// ```no_run
+/// // Xen
+/// // common.vm_name: mandatory
+/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams};
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     ..Default::default()
+/// };
+/// // KVM
+/// // common.vm_name: mandatory
+/// // kvm.unix_socket: mandatory
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     kvm: Some(KVMInitParams::UnixSocket { path: String::from("/tmp/introspector")}),
+///     ..Default::default()
+/// };
+/// // VirtualBox
+/// // common.vm_name: mandatory
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     ..Default::default()
+/// };
+/// // Memflow
+/// // memflow.connector_name: mandatory
+/// // memflow.connector_args: optional
+/// let init_params = DriverInitParams {
+///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu_procfs"), ///
+///         ..Default::default()}),
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct DriverInitParams {
     pub common: Option<CommonInitParams>,

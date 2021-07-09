@@ -38,6 +38,8 @@ use kvmi::create_kvmi;
 /// This function will initialize a libmicrovmi driver and call the hypervisor VMI API.
 /// It returns a `Box<dyn Introspectable>` trait object, which implements the [Introspectable](api/trait.Introspectable.html) trait.
 ///
+/// For complete documentation on driver init params, please check [DriverInitParams](struct.DriverInitParams.html) struct.
+///
 /// # Arguments
 /// * `driver_type`: optional driver type to initialize. If None, all compiled drivers will be initialized one by one. The first that succeeds will be returned.
 /// * `init_params`: optional driver initialization parameters
