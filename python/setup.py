@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import toml
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 from setuptools_rust import Binding, RustExtension
 
 CUR_DIR = Path(__file__).resolve().parent

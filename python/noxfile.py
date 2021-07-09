@@ -41,8 +41,68 @@ def test(session):
     # see: https://github.com/PyO3/maturin/issues/330
     session.run(f'{CUR_DIR / "setup.py"}', "develop")
     session.install("pytest==6.0.2", "coverage==5.3")
-    session.run("coverage", "run", "-m", "pytest", "-v", *args)
+    session.run("coverage", "run", "-m", "pytest", "-v", "-k", "unit", *args)
     session.run("coverage", "report")
+
+
+@nox.session
+def test_volatility_xen(session):
+    """Run the PsList volatility plugin on the Xen domain specified by the URL"""
+    # example:
+    # nox -r -s test_volatility_xen -- <url>
+    args = session.posargs
+    if not args:
+        raise RuntimeError("URL required. Example: nox -r -s test_volatility_xen -- vmi:///win10")
+    # we need to compile and install the extension
+    session.install("-r", "requirements.txt")
+    # make sure we have volatility
+    # Note: we need to use the latest unreleased dev code from Github
+    session.install("git+https://github.com/volatilityfoundation/volatility3@af090bf29e6bb26a5961e0a6c25b5d1ec6e82498")
+    # can't use pip install
+    # see: https://github.com/PyO3/maturin/issues/330
+    session.run(f'{CUR_DIR / "setup.py"}', "develop", "--features", "xen")
+    vol_path = Path(__file__).parent / ".nox" / "test_volatility_xen" / "bin" / "vol"
+    plugins_dir = Path(__file__).parent / "microvmi" / "volatility"
+    session.run(
+        "sudo",
+        "-E",
+        str(vol_path),
+        "--plugin-dirs",
+        str(plugins_dir),
+        "--single-location",
+        *args,
+        "windows.pslist.PsList",
+    )
+
+
+@nox.session
+def test_volatility_kvm(session):
+    """Run the PsList volatility plugin on the KVM domain specified by the URL"""
+    # example:
+    # nox -r -s test_volatility_kvm -- <url>
+    args = session.posargs
+    if not args:
+        raise RuntimeError(
+            "URL required. Example: nox -r -s test_volatility_kvm -- vmi:///win10?kvmi_unix_socket=/tmp/introspector"
+        )
+    # we need to compile and install the extension
+    session.install("-r", "requirements.txt")
+    # make sure we have volatility
+    # Note: we need to use the latest unreleased dev code from Github
+    session.install("git+https://github.com/volatilityfoundation/volatility3@af090bf29e6bb26a5961e0a6c25b5d1ec6e82498")
+    # can't use pip install
+    # see: https://github.com/PyO3/maturin/issues/330
+    session.run(f'{CUR_DIR / "setup.py"}', "develop", "--features", "kvm")
+    vol_path = Path(__file__).parent / ".nox" / "test_volatility_kvm" / "bin" / "vol"
+    plugins_dir = Path(__file__).parent / "microvmi" / "volatility"
+    session.run(
+        str(vol_path),
+        "--plugin-dirs",
+        str(plugins_dir),
+        "--single-location",
+        *args,
+        "windows.pslist.PsList",
+    )
 
 
 @nox.session
