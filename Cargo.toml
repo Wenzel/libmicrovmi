@@ -20,6 +20,9 @@ xen = ["xenctrl", "xenstore-rs", "xenforeignmemory", "xenevtchn", "xenvmevent-sy
 kvm = ["kvmi"]
 # VirtualBox driver
 virtualbox = ["fdp"]
+# memflow driver
+# feature name is "mflow" to avoid conflict with the dependency
+mflow = ["memflow"]
 
 
 [dependencies]
@@ -42,6 +45,7 @@ winapi = { version = "0.3", features = ["tlhelp32", "winnt", "handleapi", "secur
 widestring = { version = "0.4", optional = true }
 ntapi = { version = "0.3", optional = true }
 vid-sys = { version = "=0.3.0", features = ["deprecated-apis"], optional = true }
+memflow = { version = "0.1.5", optional = true }
 
 [dev-dependencies]
 utilities = { path = "utilities" }

@@ -9,11 +9,17 @@ This section documents the drivers available and the requirements to compile the
 | `xen`        | Build the Xen driver        |
 | `kvm`        | Build the KVM driver        |
 | `virtualbox` | Build the VirtualBox driver |
+| `mflow`      | Build the memflow driver    |
 
 Example
 ~~~
 $ cargo build --features xen,kvm
 ~~~
+
+## Rust API initialization parameters
+
+To initialize each Driver from the Rust API,
+please check [`DriverInitParams`](https://docs.rs/microvmi/api/params/struct.DriverInitParams.html).
 
 ## Xen
 
@@ -48,3 +54,7 @@ $ g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
 $ sudo mv include/* /usr/local/include/
 $ sudo mv libFDP.so /usr/local/lib/
 ~~~
+
+## Memflow
+
+Please follow the instructions at [memflow](https://github.com/memflow/memflow)

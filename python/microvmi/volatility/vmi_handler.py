@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 from urllib.request import BaseHandler, Request
 
-from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, Microvmi
+from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, MemflowInitParamsPy, Microvmi
 
 # to be used by volatility, the VMIHandler should inherit from VolatilityHandler
 # in order to be non cacheable
@@ -101,6 +101,7 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
         return None
     common = None
     kvm = None
+    memflow = None
     for param, list_value in url_params.items():
         if param == "vm_name":
             common = CommonInitParamsPy()
@@ -108,9 +109,16 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
         elif param == "kvm_unix_socket":
             kvm = KVMInitParamsPy()
             kvm.unix_socket = list_value[0]
+        elif param == "memflow_connector_name":
+            memflow = MemflowInitParamsPy(list_value[0])
+        elif param == "memflow_connector_args":
+            if memflow is None:
+                raise MicrovmiHandlerError("memflow connector args received but no connector name specified")
+            memflow.connector_args = list_value
         else:
             raise MicrovmiHandlerError(f"Unknown driver initialization parameter: {param}")
     init_params = DriverInitParamsPy()
     init_params.common = common
     init_params.kvm = kvm
+    init_params.memflow = memflow
     return init_params
