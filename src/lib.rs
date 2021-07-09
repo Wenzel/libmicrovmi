@@ -1,6 +1,6 @@
 //! libmicrovmi is a cross-platform unified virtual machine introsection interface, following a simple design to keep interoperability at heart.
 //!
-//! Click on this [book 📖](https://libmicrovmi.github.io/) to find our project documentation.
+//! Click on this [book 📖](https://wenzel.github.io/libmicrovmi/) to find our project documentation.
 //!
 //! The library's entrypoint is the [init](fn.init.html) function.
 
