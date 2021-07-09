@@ -271,7 +271,7 @@ jobs:
         uses: satackey/action-docker-layer-caching@v0.0.11
 
       - name: Build Wheels with manylinux
-        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox --release
+        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox,mflow --release
         working-directory: python
 
       # upload all generated wheels *.whl
@@ -334,7 +334,7 @@ jobs:
         run: cargo install cargo-deb
 
       - name: build debian package
-        run: cargo deb -- --features xen,kvm,virtualbox
+        run: cargo deb -- --features xen,kvm,virtualbox,mflow
 
       - name: upload artifact
         uses: actions/upload-artifact@v2
