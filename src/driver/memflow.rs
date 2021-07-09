@@ -72,6 +72,10 @@ impl Introspectable for Memflow {
         Ok(())
     }
 
+    fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
+        Ok(self.connector.borrow_mut().metadata().size as u64)
+    }
+
     fn get_driver_type(&self) -> DriverType {
         DriverType::Memflow
     }
