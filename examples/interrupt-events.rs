@@ -2,24 +2,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{App, ArgMatches};
 use colored::*;
 
-use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
+use microvmi::api::events::{EventReplyType, EventType, InterceptType};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
+use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
         .version("0.1")
         .about("Watches interrupt VMI events")
-        .arg(Arg::with_name("vm_name").index(1).required(true))
-        .arg(
-            Arg::with_name("kvmi_socket")
-                .short("k")
-                .takes_value(true)
-                .help(
-                "pass additional KVMi socket initialization parameter required for the KVM driver",
-            ),
-        )
+        .args(DriverInitParams::to_clap_args().as_ref())
         .get_matches()
 }
 
@@ -42,11 +37,6 @@ fn main() {
 
     let matches = parse_args();
 
-    let domain_name = matches.value_of("vm_name").unwrap();
-
-    let init_option = matches
-        .value_of("kvmi_socket")
-        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -56,8 +46,9 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
+    let init_params = DriverInitParams::from_matches(&matches);
     let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+        microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
 
     //Enable int3 interception
     toggle_int3_interception(&mut drv, true);

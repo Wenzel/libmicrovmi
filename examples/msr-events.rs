@@ -1,11 +1,15 @@
-use clap::{App, Arg, ArgMatches};
-use colored::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::u32;
 
-use microvmi::api::{DriverInitParam, EventReplyType, EventType, InterceptType, Introspectable};
+use clap::{App, Arg, ArgMatches};
+use colored::*;
+
+use microvmi::api::events::{EventReplyType, EventType, InterceptType};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
+use utilities::Clappable;
 
 // default set of MSRs to be intercepted
 const DEFAULT_MSR: [u32; 6] = [0x174, 0x175, 0x176, 0xc0000080, 0xc0000081, 0xc0000082];
@@ -24,26 +28,13 @@ fn parse_args() -> ArgMatches<'static> {
                 ",
         )
         .arg(
-            Arg::with_name("vm_name")
-                .help("VM name")
-                .index(1)
-                .required(true),
-        )
-        .arg(
             Arg::with_name("MSR index")
                 .help("Specific set of MSRs to be intercepted")
                 .multiple(true)
                 .takes_value(true)
                 .short("r"),
         )
-        .arg(
-            Arg::with_name("kvmi_socket")
-                .short("k")
-                .takes_value(true)
-                .help(
-                "pass additional KVMi socket initialization parameter required for the KVM driver",
-            ),
-        )
+        .args(DriverInitParams::to_clap_args().as_ref())
         .get_matches()
 }
 
@@ -68,7 +59,6 @@ fn main() {
 
     let matches = parse_args();
 
-    let domain_name = matches.value_of("vm_name").unwrap();
     let mut registers: Vec<u32> = matches.values_of("register").map_or(Vec::new(), |v| {
         v.map(|s| {
             s.parse::<u32>()
@@ -81,10 +71,6 @@ fn main() {
         registers = DEFAULT_MSR.to_vec();
     }
 
-    let init_option = matches
-        .value_of("kvmi_socket")
-        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
-
     // set CTRL-C handler
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -94,8 +80,9 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
+    let init_params = DriverInitParams::from_matches(&matches);
     let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+        microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
 
     toggle_msr_intercepts(&mut drv, &registers, true);
 

@@ -1,7 +1,8 @@
 use std::process::{Command, Stdio};
 
 use log::debug;
-use microvmi::api::{DriverInitParam, DriverType, Introspectable};
+use microvmi::api::params::{CommonInitParams, DriverInitParams, KVMInitParams};
+use microvmi::api::{DriverType, Introspectable};
 use microvmi::init;
 
 use super::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
@@ -30,9 +31,16 @@ impl Context for KVM {
 
     fn init_driver(&self) -> Box<dyn Introspectable> {
         init(
-            VM_NAME,
             Some(DriverType::KVM),
-            Some(DriverInitParam::KVMiSocket(String::from(KVMI_SOCKET))),
+            Some(DriverInitParams {
+                common: Some(CommonInitParams {
+                    vm_name: String::from(VM_NAME),
+                }),
+                kvm: Some(KVMInitParams::UnixSocket {
+                    path: String::from(KVMI_SOCKET),
+                }),
+                ..Default::default()
+            }),
         )
         .expect("Failed to init libmicrovmi")
     }

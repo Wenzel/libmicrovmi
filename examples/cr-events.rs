@@ -5,14 +5,17 @@ use std::time::Instant;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 
-use microvmi::api::{CrType, DriverInitParam, EventType, InterceptType, Introspectable};
+use microvmi::api::events::{CrType, EventType, InterceptType};
+use microvmi::api::params::DriverInitParams;
+use microvmi::api::Introspectable;
+use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {
     App::new(file!())
         .version("0.3")
         .author("Mathieu Tarral")
         .about("Watches control register VMI events")
-        .arg(Arg::with_name("vm_name").index(1).required(true))
+        .args(DriverInitParams::to_clap_args().as_ref())
         .arg(
             Arg::with_name("register")
                 .multiple(true)
@@ -20,14 +23,6 @@ fn parse_args() -> ArgMatches<'static> {
                 .short("r")
                 .default_value("3")
                 .help("control register to intercept. Possible values: [0 3 4]"),
-        )
-        .arg(
-            Arg::with_name("kvmi_socket")
-                .short("k")
-                .takes_value(true)
-                .help(
-                "pass additional KVMi socket initialization parameter required for the KVM driver",
-            ),
         )
         .get_matches()
 }
@@ -71,7 +66,6 @@ fn main() {
 
     let matches = parse_args();
 
-    let domain_name = matches.value_of("vm_name").unwrap();
     let registers: Vec<_> = matches.values_of("register").unwrap().collect();
 
     let vec_cr = get_cr(registers);
@@ -85,11 +79,9 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     println!("Initialize Libmicrovmi");
-    let init_option = matches
-        .value_of("kvmi_socket")
-        .map(|socket| DriverInitParam::KVMiSocket(socket.into()));
+    let init_params = DriverInitParams::from_matches(&matches);
     let mut drv: Box<dyn Introspectable> =
-        microvmi::init(domain_name, None, init_option).expect("Failed to init libmicrovmi");
+        microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
 
     // enable control register interception
     toggle_cr_intercepts(&mut drv, &vec_cr, true);

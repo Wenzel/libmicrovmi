@@ -1,3 +1,3 @@
 from microvmi.microvmi import DriverType, Microvmi
 
-from .pymicrovmi import DriverInitParam
+from .pymicrovmi import CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy

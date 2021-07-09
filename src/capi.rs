@@ -1,17 +1,70 @@
-use crate::api::{DriverInitParam, DriverType, Introspectable, Registers};
-use crate::init;
-use bitflags::_core::ptr::null_mut;
-use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
-use std::convert::TryInto;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr, CString, IntoStringError};
 use std::slice;
 
-/// Support passing initialization options
-/// similar to DriverInitParam, however this enum offers C API compatibility
+use bitflags::_core::ptr::null_mut;
+use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+
+use crate::api::params::{CommonInitParams, DriverInitParams, KVMInitParams};
+use crate::api::registers::Registers;
+use crate::api::{DriverType, Introspectable};
+use crate::init;
+use std::convert::TryFrom;
+
+/// equivalent of `CommonInitParams` with C compatibility
 #[repr(C)]
-#[derive(Debug)]
-pub enum DriverInitParamFFI {
-    KVMiSocket(*const c_char),
+#[derive(Debug, Clone)]
+pub struct CommonInitParamsFFI {
+    pub vm_name: *const c_char,
+}
+
+/// equivalent of `KVMInitParams` with C compatibility
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub enum KVMInitParamsFFI {
+    UnixSocket { path: *const c_char },
+}
+
+/// equivalent of `DriverInitParam` with C API compatibility
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct DriverInitParamsFFI {
+    common: CommonInitParamsFFI,
+    kvm: KVMInitParamsFFI,
+}
+
+// convert from FFI type to Rust type
+impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
+    type Error = IntoStringError;
+
+    fn try_from(value: DriverInitParamsFFI) -> Result<Self, Self::Error> {
+        // build common params
+        let vm_name = if value.common.vm_name.is_null() {
+            None
+        } else {
+            Some(
+                unsafe { CStr::from_ptr(value.common.vm_name) }
+                    .to_owned()
+                    .into_string()?,
+            )
+        };
+        let common = vm_name.map(|v| CommonInitParams { vm_name: v });
+        // build kvm params
+        let kvm_socket = match value.kvm {
+            KVMInitParamsFFI::UnixSocket { path } => {
+                if path.is_null() {
+                    None
+                } else {
+                    Some(unsafe { CStr::from_ptr(path) }.to_owned().into_string()?)
+                }
+            }
+        };
+        let kvm = kvm_socket.map(|v| KVMInitParams::UnixSocket { path: v });
+        Ok(DriverInitParams {
+            common,
+            kvm,
+            ..Default::default()
+        })
+    }
 }
 
 /// This API allows a C program to initialize the logging system in libmicrovmi.
@@ -36,26 +89,27 @@ pub unsafe extern "C" fn microvmi_envlogger_init() {
 /// The init_error pointer should be freed with rs_cstring_free()
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_init(
-    domain_name: *const c_char,
     driver_type: *const DriverType,
-    driver_init_option: *const DriverInitParamFFI,
+    init_params: *const DriverInitParamsFFI,
     init_error: *mut *const c_char,
 ) -> *mut c_void {
-    let safe_domain_name = CStr::from_ptr(domain_name).to_string_lossy().into_owned();
+    // check driver type
     let optional_driver_type: Option<DriverType> = if driver_type.is_null() {
         None
     } else {
         Some(driver_type.read())
     };
-    let init_option: Option<DriverInitParam> = if driver_init_option.is_null() {
+    // check init params
+    let optional_init_params = if init_params.is_null() {
         None
     } else {
         Some(
-            DriverInitParamFFI::try_into(driver_init_option.read())
-                .expect("Failed to convert DriverInitParam C struct to Rust equivalent"),
+            DriverInitParams::try_from(init_params.read())
+                .expect("Failed to convert DriverInitParam C struct to Rust"),
         )
     };
-    match init(&safe_domain_name, optional_driver_type, init_option) {
+
+    match init(optional_driver_type, optional_init_params) {
         Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
         Err(err) => {
             if !init_error.is_null() {

@@ -1,14 +1,17 @@
 mod errors;
+mod params;
 
 use log::{debug, info};
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::{PyByteArray, PyBytes};
 
 use errors::PyMicrovmiError;
 use microvmi::api as rapi; // rust api
+use microvmi::api::params as rparams; // rust params
 use microvmi::init;
-use pyo3::types::{PyByteArray, PyBytes};
+use params::{CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy};
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -18,7 +21,9 @@ fn pymicrovmi(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_class::<MicrovmiExt>()?;
     m.add_class::<DriverType>()?;
-    m.add_class::<DriverInitParam>()?;
+    m.add_class::<DriverInitParamsPy>()?;
+    m.add_class::<CommonInitParamsPy>()?;
+    m.add_class::<KVMInitParamsPy>()?;
 
     Ok(())
 }
@@ -37,37 +42,6 @@ impl DriverType {
     const XEN: u32 = 2;
 }
 
-// this will not be exported to Python
-#[derive(Debug, Copy, Clone)]
-enum DriverInitParamType {
-    KVMiUnixSocket = 0,
-}
-
-// exposing DriverInitParam to Python is bit more complicated
-// as it's an enum with associated data
-// the proposed implementation is exposing static method returning an
-// initialized instance of DriverInitParam struct
-/// Manages additional driver initialization parameters
-#[pyclass]
-#[derive(Debug, Clone)]
-struct DriverInitParam {
-    pub param_type: DriverInitParamType,
-    #[pyo3(get)]
-    pub param_data_string: String,
-}
-
-#[pymethods]
-impl DriverInitParam {
-    /// initialize a DriverInitParam for the KVM driver, with a Unix socket
-    #[staticmethod]
-    fn kvmi_unix_socket(socket: &str) -> Self {
-        DriverInitParam {
-            param_type: DriverInitParamType::KVMiUnixSocket,
-            param_data_string: socket.to_string(),
-        }
-    }
-}
-
 /// Main class to interact with libmicrovmi
 // A class marked as unsendable will panic when accessed by another thread.
 // TODO: make Introspectable trait inherit Send trait, and make the drivers implementation
@@ -81,27 +55,22 @@ struct MicrovmiExt {
 impl MicrovmiExt {
     // enums are not available in PyO3 (yet)
     // TODO: docstring is not exposed in Python (bug ?)
-    /// initializes libmicrovmi from the specified domain name
+    /// initializes libmicrovmi
     /// if driver_type is None, every driver compiled in libmicrovmi will be tested,
     /// and the first one that succeeds will be returned, or an error
     ///
     /// Args:
-    ///     domain_name (str): the domain name
     ///     driver_type (int, optional): the hypervisor driver type on which the library should be initialized.
-    ///     init_param (DriverInitParam, optional): additional initialization parameters for driver initialization
+    ///     init_param (DriverInitParamPy, optional): initialization parameters for driver initialization
     #[new]
-    #[args(domain_name, driver_type = "None", init_param = "None")]
-    fn new(
-        domain_name: &str,
-        driver_type: Option<u32>,
-        init_param: Option<DriverInitParam>,
-    ) -> PyResult<Self> {
+    #[args(driver_type = "None", init_params = "None")]
+    fn new(driver_type: Option<u32>, init_params: Option<DriverInitParamsPy>) -> PyResult<Self> {
         info!("Microvmi Python init");
-        // convert Python DriverType to rust API DriverType
         debug!(
             "Microvmi Python init driver_type: {:?}, init_param: {:?}",
-            driver_type, init_param
+            driver_type, init_params
         );
+        // convert Python DriverType to rust API DriverType
         let rust_driver_type = driver_type
             .map(|drv_type| match drv_type {
                 DriverType::KVM => Ok(rapi::DriverType::KVM),
@@ -113,15 +82,17 @@ impl MicrovmiExt {
                 ))),
             })
             .transpose()?;
-        // convert Python DriverInitParam to rust API DriverinitParam
-        let rust_init_param: Option<rapi::DriverInitParam> =
-            init_param.map(|param| match param.param_type {
-                DriverInitParamType::KVMiUnixSocket => {
-                    rapi::DriverInitParam::KVMiSocket(param.param_data_string)
-                }
-            });
-        let driver =
-            init(domain_name, rust_driver_type, rust_init_param).map_err(PyMicrovmiError::from)?;
+        let rust_init_params = init_params.map(|v| rparams::DriverInitParams {
+            common: v
+                .common
+                .map(|k| rparams::CommonInitParams { vm_name: k.vm_name }),
+            kvm: v.kvm.map(|k| rparams::KVMInitParams::UnixSocket {
+                path: k.unix_socket,
+            }),
+            ..Default::default()
+        });
+
+        let driver = init(rust_driver_type, rust_init_params).map_err(PyMicrovmiError::from)?;
         Ok(MicrovmiExt { driver })
     }
 

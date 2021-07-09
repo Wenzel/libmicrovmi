@@ -1,10 +1,3 @@
-use crate::api::{
-    CrType, DriverInitParam, DriverType, Event, EventType, InterceptType, Introspectable,
-    Registers, SegmentReg, SystemTableReg, X86Registers,
-};
-use libc::{PROT_READ, PROT_WRITE};
-use nix::poll::PollFlags;
-use nix::poll::{poll, PollFd};
 use std::convert::Infallible;
 use std::convert::TryInto;
 use std::error::Error;
@@ -12,6 +5,10 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::mem;
 use std::num::TryFromIntError;
+
+use libc::{PROT_READ, PROT_WRITE};
+use nix::poll::PollFlags;
+use nix::poll::{poll, PollFd};
 use xenctrl::consts::{PAGE_SHIFT, PAGE_SIZE};
 use xenctrl::error::XcError;
 use xenctrl::RING_HAS_UNCONSUMED_REQUESTS;
@@ -22,6 +19,11 @@ use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 use xenvmevent_sys::{
     vm_event_back_ring, vm_event_response_t, VM_EVENT_FLAG_VCPU_PAUSED, VM_EVENT_INTERFACE_VERSION,
 };
+
+use crate::api::events::{CrType, Event, EventType, InterceptType};
+use crate::api::params::DriverInitParams;
+use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
+use crate::api::{DriverType, Introspectable};
 
 #[derive(Debug)]
 pub struct Xen {
@@ -35,6 +37,8 @@ pub struct Xen {
 
 #[derive(thiserror::Error, Debug)]
 pub enum XenDriverError {
+    #[error("Xen driver requires a VM name parameter")]
+    MissingVMName,
     #[error("failed to read xenstore entry {0}: {1}")]
     XenstoreReadError(String, IoError),
     #[error("event version mismatch: {0} <-> {1}")]
@@ -54,11 +58,11 @@ pub enum XenDriverError {
 }
 
 impl Xen {
-    pub fn new(
-        domain_name: &str,
-        _init_option: Option<DriverInitParam>,
-    ) -> Result<Self, Box<dyn Error>> {
-        debug!("init on {}", domain_name);
+    pub fn new(init_params: DriverInitParams) -> Result<Self, Box<dyn Error>> {
+        let domain_name = init_params
+            .common
+            .ok_or(XenDriverError::MissingVMName)?
+            .vm_name;
         // find domain name in xenstore
         let xs = Xs::new(XsOpenFlags::ReadOnly)?;
         let mut found: bool = false;
@@ -102,7 +106,7 @@ impl Xen {
             xc,
             xev,
             xen_fgn,
-            dom_name: domain_name.to_string(),
+            dom_name: domain_name,
             domid: cand_domid,
             back_ring,
         };

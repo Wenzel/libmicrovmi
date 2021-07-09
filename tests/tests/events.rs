@@ -1,5 +1,7 @@
+use microvmi::api::events::{CrType, EventReplyType, EventType, InterceptType};
+use microvmi::api::Introspectable;
+
 use super::IntegrationTest;
-use microvmi::api::{CrType, EventReplyType, EventType, InterceptType, Introspectable};
 
 fn intercept_cr3_one(mut drv: Box<dyn Introspectable>) {
     for vcpu in 0..drv.get_vcpu_count().unwrap() - 1 {

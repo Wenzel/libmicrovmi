@@ -39,15 +39,19 @@ venv/lib/python3.7/site-packages/microvmi/volatility
 
 The libmicrovmi handler for volatility is a URL handler with the following syntax:
 
-    vmi://[hypervisor]/vm_name
+    vmi://[hypervisor]/?param1=value1...
 
 The hypervisor part is optional. If not specified, it will default to try every builtin driver available.
 
 Additional driver parameters can be specified.
 
+To pass the VM name:
+
+    vmi:///?vm_name=windows10
+
 To pass the KVMi socket:
 
-    vmi:///vm_name?kvmi_unix_socket=/tmp/introspector
+    vmi:///?vm_name=windows10&kvm_unix_socket=/tmp/introspector
 
 ## Running volatility3
 
@@ -57,7 +61,7 @@ Let's put all of this together and run volatility3 combined with libmicrovmi.
 - `--single-location vmi://` url
 
 ~~~
-(venv) $ vol -p <plugin_dir> --single-location vmi:///vm_name <volatility plugin>
+(venv) $ vol -p <plugin_dir> --single-location vmi:///?vm_name=windows10 <volatility plugin>
 ~~~
 
 ### Example listing processes on Xen
@@ -65,12 +69,6 @@ Let's put all of this together and run volatility3 combined with libmicrovmi.
 ~~~bash
 (venv) $ sudo -E ./venv/bin/vol \  # running volatility3 as root (required by the Xen driver)
     -p venv/lib/python3.7/site-packages/microvmi/volatility \  # path to the microvmi connection plugin
-    --single-location vmi:///winxp \  # specify the resource location
+    --single-location vmi:///?vm_name=winxp \  # specify the resource location
     windows.pslist.PsList  # volatility's pslist plugin
 ~~~
-
-🎥 [asciicast](https://asciinema.org/a/6YOXUkEwt53uYcU5rXxoWaFLq)
-
-### Example listing processes on KVM
-
-🎥 [asciicast](https://asciinema.org/a/DTyjM0rnq26RYbFX7hbS7jXvP)
