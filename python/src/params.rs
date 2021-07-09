@@ -33,6 +33,27 @@ impl KVMInitParamsPy {
     }
 }
 
+/// equivalent of `MemflowInitParams` for Python
+#[pyclass]
+#[derive(Default, Debug, Clone)]
+pub struct MemflowInitParamsPy {
+    #[pyo3(get, set)]
+    pub connector_name: String,
+    #[pyo3(get, set)]
+    pub connector_args: Vec<String>,
+}
+
+#[pymethods]
+impl MemflowInitParamsPy {
+    #[new]
+    fn new(name: &str) -> Self {
+        Self {
+            connector_name: String::from(name),
+            connector_args: Vec::new(),
+        }
+    }
+}
+
 /// equivalent of `DriverInitParams` for Python
 ///
 /// # Examples
@@ -58,6 +79,8 @@ pub struct DriverInitParamsPy {
     pub common: Option<CommonInitParamsPy>,
     #[pyo3(get, set)]
     pub kvm: Option<KVMInitParamsPy>,
+    #[pyo3(get, set)]
+    pub memflow: Option<MemflowInitParamsPy>,
 }
 
 #[pymethods]

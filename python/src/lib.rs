@@ -11,7 +11,7 @@ use errors::PyMicrovmiError;
 use microvmi::api as rapi; // rust api
 use microvmi::api::params as rparams; // rust params
 use microvmi::init;
-use params::{CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy};
+use params::{CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, MemflowInitParamsPy};
 
 /// microvmi Python module declaration
 #[pymodule]
@@ -24,6 +24,7 @@ fn pymicrovmi(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<DriverInitParamsPy>()?;
     m.add_class::<CommonInitParamsPy>()?;
     m.add_class::<KVMInitParamsPy>()?;
+    m.add_class::<MemflowInitParamsPy>()?;
 
     Ok(())
 }
@@ -88,6 +89,12 @@ impl MicrovmiExt {
                 .map(|k| rparams::CommonInitParams { vm_name: k.vm_name }),
             kvm: v.kvm.map(|k| rparams::KVMInitParams::UnixSocket {
                 path: k.unix_socket,
+            }),
+            memflow: v.memflow.map(|k| rparams::MemflowInitParams {
+                connector_name: k.connector_name,
+                connector_args: Some(rparams::MemflowConnectorParams::Default {
+                    args: k.connector_args,
+                }),
             }),
             ..Default::default()
         });
