@@ -106,6 +106,36 @@ def test_volatility_kvm(session):
 
 
 @nox.session
+def test_volatility_memflow(session):
+    """Run the PsList volatility plugin on the memflow connector specified by the URL"""
+    # example:
+    # nox -r -s test_volatility_memflow -- vmi:///?memflow_connector_name=qemu_procfs
+    args = session.posargs
+    if not args:
+        raise RuntimeError("URL required. Example: nox -r -s test_volatility_memflow -- vmi:///...")
+    # we need to compile and install the extension
+    session.install("-r", "requirements.txt")
+    # make sure we have volatility
+    # Note: we need to use the latest unreleased dev code from Github
+    session.install("git+https://github.com/volatilityfoundation/volatility3@af090bf29e6bb26a5961e0a6c25b5d1ec6e82498")
+    # can't use pip install
+    # see: https://github.com/PyO3/maturin/issues/330
+    session.run(f'{CUR_DIR / "setup.py"}', "develop", "--features", "mflow")
+    vol_path = Path(__file__).parent / ".nox" / "test_volatility_memflow" / "bin" / "vol"
+    plugins_dir = Path(__file__).parent / "microvmi" / "volatility"
+    session.run(
+        "sudo",
+        "-E",
+        str(vol_path),
+        "--plugin-dirs",
+        str(plugins_dir),
+        "--single-location",
+        *args,
+        "windows.pslist.PsList",
+    )
+
+
+@nox.session
 def coverage_html(session):
     session.install("coverage==5.3")
     session.run("coverage", "html", "--dir", ".coverage_html")
