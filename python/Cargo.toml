@@ -23,6 +23,8 @@ xen = ["microvmi/xen"]
 kvm = ["microvmi/kvm"]
 # VirtualBox driver
 virtualbox = ["microvmi/virtualbox"]
+# memflow driver
+mflow = ["microvmi/mflow"]
 
 [dependencies]
 log = "0.4"
