@@ -85,7 +85,5 @@ volatility3 could inspect and run its forensics plugins on live memory by
 adding a new URL handler.
 
 - [project](https://github.com/volatilityfoundation/volatility3)
-- [issue](https://github.com/Wenzel/libmicrovmi/issues/161)
-- [fork](https://github.com/Wenzel/volatility3/tree/vm_introspection_handler) (Note: use the `vm_introspection_handler` branch)
 - compatibility: ✅
-
+- [tutorial](https://wenzel.github.io/libmicrovmi/tutorial/integration/volatility3.html)
