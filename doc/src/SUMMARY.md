@@ -27,5 +27,6 @@
 
 # Developer
 
+- [libmicrovmi](./developer/libmicrovmi.md)
 - [Python](./developer/python.md)
 - [Release](./developer/release.md)
