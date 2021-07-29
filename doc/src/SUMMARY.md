@@ -28,3 +28,4 @@
 # Developer
 
 - [Python](./developer/python.md)
+- [Release](./developer/release.md)

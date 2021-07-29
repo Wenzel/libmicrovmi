@@ -1,0 +1,4 @@
+# cargo-release config file
+
+# internal crate, skip release process
+disable-release = true
