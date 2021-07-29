@@ -20,6 +20,13 @@ fn parse_args() -> ArgMatches<'static> {
         .about("Dumps VM physical memory")
         .args(DriverInitParams::to_clap_args().as_ref())
         .arg(
+            Arg::with_name("no-pause")
+                .long("no-pause")
+                .required(false)
+                .takes_value(false)
+                .help("Don't pause the VM while dumping the memory"),
+        )
+        .arg(
             Arg::with_name("output")
                 .short("o")
                 .takes_value(true)
@@ -38,6 +45,7 @@ fn main() {
         .common
         .clone()
         .map_or(String::from("unknown_vm_name"), |v| v.vm_name);
+    let no_pause = matches.is_present("no-pause");
     let dump_path = Path::new(
         matches
             .value_of("output")
@@ -55,8 +63,10 @@ fn main() {
         microvmi::init(None, Some(init_params)).expect("Failed to init libmicrovmi");
     spinner.finish_and_clear();
 
-    println!("pausing the VM");
-    drv.pause().expect("Failed to pause VM");
+    if !no_pause {
+        println!("pausing the VM");
+        drv.pause().expect("Failed to pause VM");
+    }
 
     let max_addr = drv.get_max_physical_addr().unwrap();
     println!(
@@ -96,6 +106,8 @@ fn main() {
         dump_path.display()
     );
 
-    println!("resuming the VM");
-    drv.resume().expect("Failed to resume VM");
+    if !no_pause {
+        println!("resuming the VM");
+        drv.resume().expect("Failed to resume VM");
+    }
 }
