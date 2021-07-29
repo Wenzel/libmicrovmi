@@ -29,4 +29,5 @@
 
 - [libmicrovmi](./developer/libmicrovmi.md)
 - [Python](./developer/python.md)
+- [Tests](./developer/tests.md)
 - [Release](./developer/release.md)
