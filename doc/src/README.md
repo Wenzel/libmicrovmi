@@ -55,9 +55,9 @@ The documentation keeps track of libmicrovmi's [integration status](https://wenz
 
 ## Documentation
 
-Our documentation is available in `doc/` as an [`mdbook`](https://rust-lang.github.io/mdBook/) 📖
+Our documentation is hosted online at [![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://wenzel.github.io/libmicrovmi/)
 
-[![online_docs](https://img.shields.io/badge/Online-Documentation-green)](https://wenzel.github.io/libmicrovmi/)
+You can find it at `doc/` as an [`mdbook`](https://rust-lang.github.io/mdBook/) 📖
 
 To build the docs locally:
 ~~~
