@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Drivers - Libmicrovmi Documentation</title>
+        <title>libmicrovmi - Libmicrovmi Documentation</title>
         <!-- Custom HTML head -->
         
 
@@ -77,7 +77,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html" class="active"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">11.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">12.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">13.</strong> Release</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.1.</strong> volatility3</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html" class="active"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">11.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">12.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">13.</strong> Release</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -137,54 +137,37 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="drivers"><a class="header" href="#drivers">Drivers</a></h1>
-<p>This section documents the drivers available and the requirements to compile them.</p>
-<h2 id="features"><a class="header" href="#features">Features</a></h2>
-<table><thead><tr><th>Feature</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>xen</code></td><td>Build the Xen driver</td></tr>
-<tr><td><code>kvm</code></td><td>Build the KVM driver</td></tr>
-<tr><td><code>virtualbox</code></td><td>Build the VirtualBox driver</td></tr>
-<tr><td><code>mflow</code></td><td>Build the memflow driver</td></tr>
-</tbody></table>
-<p>Example</p>
-<pre><code>$ cargo build --features xen,kvm
+                        <h1 id="libmicrovmi"><a class="header" href="#libmicrovmi">libmicrovmi</a></h1>
+<h2 id="compiling-the-crate"><a class="header" href="#compiling-the-crate">Compiling the crate</a></h2>
+<p>Compiling the crate without any driver:</p>
+<pre><code>cargo build
 </code></pre>
-<h2 id="rust-api-initialization-parameters"><a class="header" href="#rust-api-initialization-parameters">Rust API initialization parameters</a></h2>
-<p>To initialize each Driver from the Rust API,
-please check <a href="https://docs.rs/microvmi/api/params/struct.DriverInitParams.html"><code>DriverInitParams</code></a>.</p>
-<h2 id="xen"><a class="header" href="#xen">Xen</a></h2>
-<pre><code>$ sudo apt install clang libxen-dev
+<h2 id="enabling-drivers"><a class="header" href="#enabling-drivers">Enabling drivers</a></h2>
+<p>Enabling Xen and KVM drivers:</p>
+<pre><code>cargo build --features xen,kvm
 </code></pre>
-<p>Compatibility: Xen &gt;= 4.11.0</p>
-<h2 id="kvm"><a class="header" href="#kvm">KVM</a></h2>
-<p>The KVM driver depends on <a href="https://github.com/bitdefender/libkvmi">libkvmi</a></p>
-<pre><code>$ git clone https://github.com/bitdefender/libkvmi.git
-$ cd libkvmi
-$ git checkout bf5776319e1801b59125c994c459446f0ed6837e
-$ ./bootstrap
-$ ./configure
-$ make
-$ sudo make install
+<p>Please look at the <a href="https://wenzel.github.io/libmicrovmi/reference/drivers.html">drivers</a> section
+for each driver's requirements.</p>
+<h2 id="running-the-examples"><a class="header" href="#running-the-examples">Running the examples</a></h2>
+<p>Specifing no example will list all available examples:</p>
+<pre><code>cargo run --example
 </code></pre>
-<h2 id="virtualbox"><a class="header" href="#virtualbox">VirtualBox</a></h2>
-<p>The VirtualBox driver depends on <a href="https://github.com/thalium/icebox/tree/master/src/FDP">libFDP</a></p>
-<pre><code>$ git clone --depth 1 https://github.com/thalium/icebox
-$ cd icebox/src/FDP
-$ g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
-$ sudo mv include/* /usr/local/include/
-$ sudo mv libFDP.so /usr/local/lib/
+<p>To run the <code>mem-dump</code> example, and include the Xen driver:</p>
+<pre><code>cargo run --features xen --example mem-dump
 </code></pre>
-<h2 id="memflow"><a class="header" href="#memflow">Memflow</a></h2>
-<p>Please follow the instructions at <a href="https://github.com/memflow/memflow">memflow</a></p>
+<p>To pass arbitrary arguments to an example:</p>
+<pre><code>cargo run --example mem-dump -- --help
+cargo run --features kvm --example mem-dump -- --vm_name win10 ----kvm_unix_socket /tmp/introspector
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../reference/python_api.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../explanation/vmi_ecosystem.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
-                            <a rel="next" href="../reference/integration_status.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../developer/python.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
@@ -193,10 +176,10 @@ $ sudo mv libFDP.so /usr/local/lib/
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../reference/python_api.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../explanation/vmi_ecosystem.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    <a rel="next" href="../reference/integration_status.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../developer/python.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
