@@ -334,7 +334,7 @@ jobs:
         run: cargo install cargo-deb
 
       - name: build debian package
-        run: cargo deb -- --features xen,kvm,virtualbox,mflow
+        run: cargo deb --no-strip -- --features xen,kvm,virtualbox,mflow
 
       - name: upload artifact
         uses: actions/upload-artifact@v2
