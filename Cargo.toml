@@ -1,6 +1,6 @@
 [package]
 name = "microvmi"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 description = "A cross-platform, unified, low-level VM introspection API supporting multiple hypervisors"
