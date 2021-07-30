@@ -1,71 +1,17 @@
-use std::ffi::{c_void, CStr, CString, IntoStringError};
-use std::slice;
-
 use bitflags::_core::ptr::null_mut;
 use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
 
-use crate::api::params::{CommonInitParams, DriverInitParams, KVMInitParams};
+use std::ffi::{c_void, CString};
+use std::slice;
+
+use crate::api::params::DriverInitParams;
 use crate::api::registers::Registers;
 use crate::api::{DriverType, Introspectable};
+use crate::capi::params::DriverInitParamsFFI;
 use crate::init;
 use std::convert::TryFrom;
 
-/// equivalent of `CommonInitParams` with C compatibility
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct CommonInitParamsFFI {
-    pub vm_name: *const c_char,
-}
-
-/// equivalent of `KVMInitParams` with C compatibility
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub enum KVMInitParamsFFI {
-    UnixSocket { path: *const c_char },
-}
-
-/// equivalent of `DriverInitParam` with C API compatibility
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct DriverInitParamsFFI {
-    common: CommonInitParamsFFI,
-    kvm: KVMInitParamsFFI,
-}
-
-// convert from FFI type to Rust type
-impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
-    type Error = IntoStringError;
-
-    fn try_from(value: DriverInitParamsFFI) -> Result<Self, Self::Error> {
-        // build common params
-        let vm_name = if value.common.vm_name.is_null() {
-            None
-        } else {
-            Some(
-                unsafe { CStr::from_ptr(value.common.vm_name) }
-                    .to_owned()
-                    .into_string()?,
-            )
-        };
-        let common = vm_name.map(|v| CommonInitParams { vm_name: v });
-        // build kvm params
-        let kvm_socket = match value.kvm {
-            KVMInitParamsFFI::UnixSocket { path } => {
-                if path.is_null() {
-                    None
-                } else {
-                    Some(unsafe { CStr::from_ptr(path) }.to_owned().into_string()?)
-                }
-            }
-        };
-        let kvm = kvm_socket.map(|v| KVMInitParams::UnixSocket { path: v });
-        Ok(DriverInitParams {
-            common,
-            kvm,
-            ..Default::default()
-        })
-    }
-}
+pub mod params;
 
 /// This API allows a C program to initialize the logging system in libmicrovmi.
 /// This simply calls env_logger::init()
