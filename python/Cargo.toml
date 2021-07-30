@@ -2,7 +2,7 @@
 name = "pymicrovmi"
 # note "pymicrovmi" is just a conflict free name for Cargo
 # the Python package is named "microvmi" (setup.py)
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 description = "Python bindings for libmicrovmi"
