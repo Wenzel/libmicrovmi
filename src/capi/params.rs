@@ -1,4 +1,6 @@
-use crate::api::params::{CommonInitParams, DriverInitParams, KVMInitParams};
+use crate::api::params::{
+    CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+};
 use std::convert::TryFrom;
 use std::ffi::{CStr, IntoStringError};
 use std::os::raw::c_char;
@@ -17,12 +19,33 @@ pub enum KVMInitParamsFFI {
     UnixSocket { path: *const c_char },
 }
 
-/// equivalent of `DriverInitParam` with C API compatibility
+/// equivalent of `MemflowConnectorParams`with C compatiblity
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub enum MemflowConnectorParamsFFI {
+    Default {
+        args_arr: *const *const c_char,
+        args_arr_len: usize,
+    },
+}
+
+/// equivalent of `MemflowInitParams` with C compatibility
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct MemflowInitParamsFFI {
+    /// connector name
+    pub connector_name: *const c_char,
+    /// optional connector initialization parameters
+    pub connector_args: MemflowConnectorParamsFFI,
+}
+
+/// equivalent of `DriverInitParam` with C compatibility
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct DriverInitParamsFFI {
     pub common: CommonInitParamsFFI,
     pub kvm: KVMInitParamsFFI,
+    pub memflow: MemflowInitParamsFFI,
 }
 
 // convert from FFI type to Rust type
@@ -52,9 +75,39 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
             }
         };
         let kvm = kvm_socket.map(|v| KVMInitParams::UnixSocket { path: v });
+        // build memflow params
+        let MemflowInitParamsFFI {
+            connector_name,
+            connector_args,
+        } = value.memflow;
+        let memflow = if connector_name.is_null() {
+            None
+        } else {
+            // parse ffi connector args
+            let args = match connector_args {
+                MemflowConnectorParamsFFI::Default {
+                    args_arr,
+                    args_arr_len,
+                } => unsafe {
+                    // build array slice
+                    let args = std::slice::from_raw_parts(args_arr, args_arr_len);
+                    // convert each C string to Rust owned String
+                    let mut args_vec = Vec::new();
+                    for s in args.iter() {
+                        args_vec.push(CStr::from_ptr(*s).to_owned().into_string()?);
+                    }
+                    args_vec
+                },
+            };
+            Some(MemflowInitParams {
+                connector_name: unsafe { CStr::from_ptr(connector_name).to_owned().into_string()? },
+                connector_args: Some(MemflowConnectorParams::Default { args }),
+            })
+        };
         Ok(DriverInitParams {
             common,
             kvm,
+            memflow,
             ..Default::default()
         })
     }
