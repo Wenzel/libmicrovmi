@@ -18,7 +18,7 @@ Release CI related jobs
 Release and tags are managed using the [cargo-release](https://github.com/sunng87/cargo-release) tool.
 
 ~~~
-$ cargo release --no-dev-version --workspace <patch / minor / major> # will publish both libmicrovmi and the python bindings
+$ cargo release --no-dev-version --workspace --exclude utilities <patch / minor / major> # will publish both libmicrovmi and the python bindings
 ~~~
 
 Note: `cargo-release` can handle the publication on crates.io, but we prefer to manage everything in one place, using the CI.
