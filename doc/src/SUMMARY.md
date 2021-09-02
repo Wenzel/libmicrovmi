@@ -11,6 +11,7 @@
   - [C](./tutorial/c.md)
   - [Python](./tutorial/python.md)
 - [Integration](./tutorial/integration.md)
+  - [LibVMI](./tutorial/integration/libvmi.md)
   - [volatility3](./tutorial/integration/volatility3.md)
 
 # Reference

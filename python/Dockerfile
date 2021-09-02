@@ -1,4 +1,4 @@
-FROM quay.io/pypa/manylinux2014_x86_64
+FROM quay.io/pypa/manylinux2014_x86_64:2021-07-25-cfe8a6c
 
 # install clang
 RUN yum -y install clang
