@@ -164,8 +164,8 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             let offset = i * PAGE_SIZE;
             let cur_paddr = paddr + offset as u64;
             self.kvmi.read_physical(cur_paddr, chunk)?;
-            *bytes_read = offset as u64;
         }
+        *bytes_read = buf.len() as u64;
         Ok(())
     }
 
