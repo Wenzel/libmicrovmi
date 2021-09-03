@@ -110,7 +110,7 @@ impl Xen {
             domid: cand_domid,
             back_ring,
         };
-        debug!("Initialized {:#?}", xen);
+        trace!("Initialized {:#?}", xen);
         Ok(xen)
     }
 }
