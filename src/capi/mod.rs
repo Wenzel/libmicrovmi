@@ -71,12 +71,18 @@ pub unsafe extern "C" fn microvmi_init(
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_destroy(context: *mut c_void) {
-    let _ = get_driver_box(context);
+    if !context.is_null() {
+        let _ = get_driver_box(context);
+        // box destructor is called
+    }
 }
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_pause(context: *mut c_void) -> bool {
+    if context.is_null() {
+        return false;
+    }
     let driver = get_driver_mut_ptr(context);
     (*driver).pause().is_ok()
 }
@@ -84,6 +90,9 @@ pub unsafe extern "C" fn microvmi_pause(context: *mut c_void) -> bool {
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_resume(context: *mut c_void) -> bool {
+    if context.is_null() {
+        return false;
+    }
     let driver = get_driver_mut_ptr(context);
     (*driver).resume().is_ok()
 }
@@ -97,6 +106,9 @@ pub unsafe extern "C" fn microvmi_read_physical(
     size: size_t,
     bytes_read: *mut uint64_t,
 ) -> bool {
+    if context.is_null() {
+        return false;
+    }
     let driver = get_driver_mut_ptr(context);
 
     let mut bytes_read_local = 0;
@@ -120,6 +132,9 @@ pub unsafe extern "C" fn microvmi_get_max_physical_addr(
     context: *mut c_void,
     address_ptr: *mut uint64_t,
 ) -> bool {
+    if context.is_null() {
+        return false;
+    }
     let driver = get_driver_mut_ptr(context);
     match (*driver).get_max_physical_addr() {
         Ok(max_addr) => {
@@ -137,6 +152,9 @@ pub unsafe extern "C" fn microvmi_read_registers(
     vcpu: uint16_t,
     registers: *mut Registers,
 ) -> bool {
+    if context.is_null() {
+        return false;
+    }
     let driver = get_driver_mut_ptr(context);
     match (*driver).read_registers(vcpu) {
         Ok(regs) => {
