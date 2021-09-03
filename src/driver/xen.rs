@@ -41,6 +41,8 @@ pub enum XenDriverError {
     MissingVMName,
     #[error("failed to read xenstore entry {0}: {1}")]
     XenstoreReadError(String, IoError),
+    #[error("domain {0} not found in xenstore")]
+    XenstoreDomainNotFoundError(String),
     #[error("event version mismatch: {0} <-> {1}")]
     EventVersionMismatch(u32, u32),
     #[error("failed to convert integer")]
@@ -94,7 +96,9 @@ impl Xen {
             }
         }
         if !found {
-            panic!("Cannot find domain {}", domain_name);
+            return Err(Box::new(XenDriverError::XenstoreDomainNotFoundError(
+                domain_name,
+            )));
         }
 
         let mut xc = XenControl::new(None, None, 0)?;
