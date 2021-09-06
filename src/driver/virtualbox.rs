@@ -4,7 +4,7 @@ use fdp::{RegisterType, FDP};
 
 use crate::api::params::DriverInitParams;
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
-use crate::api::{DriverType, Introspectable};
+use crate::api::{DriverType, Introspectable, PAGE_SIZE};
 
 #[derive(Debug)]
 pub struct VBox {
@@ -42,7 +42,11 @@ impl Introspectable for VBox {
         buf: &mut [u8],
         bytes_read: &mut u64,
     ) -> Result<(), Box<dyn Error>> {
-        self.fdp.read_physical_memory(paddr, buf)?;
+        for (i, chunk) in buf.chunks_mut(PAGE_SIZE as usize).enumerate() {
+            let offset = i * PAGE_SIZE as usize;
+            let cur_paddr = paddr + offset as u64;
+            self.fdp.read_physical_memory(cur_paddr, chunk)?;
+        }
         *bytes_read = buf.len() as u64;
         Ok(())
     }
