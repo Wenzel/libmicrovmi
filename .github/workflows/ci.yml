@@ -158,7 +158,7 @@ jobs:
       - name: Compile and install FDP library
         run: |
           cd icebox/src/FDP
-          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
+          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt
           sudo cp include/* /usr/local/include
           sudo cp libFDP.so /usr/local/lib
       - name: install stable toolchain with clippy
@@ -299,7 +299,7 @@ jobs:
 
       - name: install VirtualBox's FDP headers
         run: |
-          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
+          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt
           sudo cp include/* /usr/local/include
           sudo cp libFDP.so /usr/local/lib
         working-directory: icebox/src/FDP
