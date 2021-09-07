@@ -128,6 +128,24 @@ pub unsafe extern "C" fn microvmi_read_physical(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
+pub unsafe extern "C" fn microvmi_write_physical(
+    context: *mut c_void,
+    physical_address: uint64_t,
+    buffer: *mut uint8_t,
+    size: size_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    let slice_buf = slice::from_raw_parts_mut(buffer, size);
+    (*driver)
+        .write_physical(physical_address, slice_buf)
+        .is_ok()
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
 pub unsafe extern "C" fn microvmi_get_max_physical_addr(
     context: *mut c_void,
     address_ptr: *mut uint64_t,
