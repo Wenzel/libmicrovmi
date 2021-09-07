@@ -29,6 +29,7 @@ pub enum DriverType {
     Memflow,
     VirtualBox,
     Xen,
+    Dummy,
 }
 
 // impl TryInto<DriverInitParam> for DriverInitParamFFI {

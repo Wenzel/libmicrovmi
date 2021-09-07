@@ -21,6 +21,7 @@ use enum_iterator::IntoEnumIterator;
 use api::params::DriverInitParams;
 use api::DriverType;
 use api::Introspectable;
+use driver::dummy::Dummy;
 #[cfg(feature = "kvm")]
 use driver::kvm::Kvm;
 #[cfg(feature = "mflow")]
@@ -85,7 +86,7 @@ pub fn init(
                 match init_driver(drv_type, init_params.clone()) {
                     Ok(driver) => {
                         info!("Driver initialized: {:?}", driver.get_driver_type());
-                        info!("Driver initialized: {:?}", driver.get_driver_type());
+                        info!("Driver initialized 2: {:?}", driver.get_driver_type());
                         return Ok(driver);
                     }
                     Err(e) => {
@@ -99,10 +100,13 @@ pub fn init(
         Some(drv_type) => {
             let driver = init_driver(drv_type, init_params);
             if driver.is_ok() {
-                info!("Driver initialized: {:?}", driver.as_ref().unwrap().get_driver_type());
+                info!(
+                    "Driver initialized 3: {:?}",
+                    driver.as_ref().unwrap().get_driver_type()
+                );
             }
             driver
-        },
+        }
     }
 }
 
@@ -115,17 +119,6 @@ fn init_driver(
     let _init_params = init_params_option.unwrap_or(DriverInitParams {
         ..Default::default()
     });
-    #[allow(clippy::match_single_binding)]
-    match driver_type {
-        #[cfg(feature = "kvm")]
-        DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi(), _init_params)?)),
-        #[cfg(feature = "mflow")]
-        DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
-        #[cfg(feature = "virtualbox")]
-        DriverType::VirtualBox => Ok(Box::new(VBox::new(_init_params)?)),
-        #[cfg(feature = "xen")]
-        DriverType::Xen => Ok(Box::new(Xen::new(_init_params)?)),
-        #[allow(unreachable_patterns)]
-        _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
-    }
+    // always return Dummy driver
+    Ok(Box::new(Dummy::new(_init_params)?))
 }

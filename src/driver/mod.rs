@@ -6,3 +6,5 @@ pub mod memflow;
 pub mod virtualbox;
 #[cfg(feature = "xen")]
 pub mod xen;
+
+pub mod dummy;
