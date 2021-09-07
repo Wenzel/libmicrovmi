@@ -76,6 +76,7 @@ pub fn init(
     init_params: Option<DriverInitParams>,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     info!("Microvmi init");
+    debug!("Microvmi init params: {:#?}", init_params);
     match driver_type {
         None => {
             // for each possible DriverType
@@ -85,12 +86,12 @@ pub fn init(
                     Ok(driver) => {
                         return Ok(driver);
                     }
-                    Err(e) => {
-                        debug!("{:?} driver initialization failed: {}", drv_type, e);
+                    Err(_) => {
                         continue;
                     }
                 }
             }
+            info!("No driver available");
             Err(MicrovmiError::NoDriverAvailable)
         }
         Some(drv_type) => init_driver(drv_type, init_params),
@@ -107,7 +108,7 @@ fn init_driver(
         ..Default::default()
     });
     #[allow(clippy::match_single_binding)]
-    match driver_type {
+    let res: Result<Box<dyn Introspectable>, MicrovmiError> = match driver_type {
         #[cfg(feature = "kvm")]
         DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi(), _init_params)?)),
         #[cfg(feature = "mflow")]
@@ -118,5 +119,14 @@ fn init_driver(
         DriverType::Xen => Ok(Box::new(Xen::new(_init_params)?)),
         #[allow(unreachable_patterns)]
         _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
+    };
+    match res {
+        Ok(ref driver) => {
+            info!("Driver initialized: {:?}", driver.get_driver_type());
+        }
+        Err(ref e) => {
+            debug!("{:?} driver initialization failed: {}", driver_type, e);
+        }
     }
+    res
 }
