@@ -84,6 +84,8 @@ pub fn init(
                 // try to init
                 match init_driver(drv_type, init_params.clone()) {
                     Ok(driver) => {
+                        info!("Driver initialized: {:?}", driver.get_driver_type());
+                        info!("Driver initialized: {:?}", driver.get_driver_type());
                         return Ok(driver);
                     }
                     Err(e) => {
@@ -94,7 +96,13 @@ pub fn init(
             }
             Err(MicrovmiError::NoDriverAvailable)
         }
-        Some(drv_type) => init_driver(drv_type, init_params),
+        Some(drv_type) => {
+            let driver = init_driver(drv_type, init_params);
+            if driver.is_ok() {
+                info!("Driver initialized: {:?}", driver.as_ref().unwrap().get_driver_type());
+            }
+            driver
+        },
     }
 }
 
