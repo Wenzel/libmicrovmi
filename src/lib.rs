@@ -76,6 +76,7 @@ pub fn init(
     init_params: Option<DriverInitParams>,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     info!("Microvmi init");
+    debug!("Microvmi init params: {:#?}", init_params);
     match driver_type {
         None => {
             // for each possible DriverType
