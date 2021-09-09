@@ -28,12 +28,12 @@ mflow = ["microvmi/mflow"]
 
 [dependencies]
 log = "0.4"
-env_logger = "0.8"
+env_logger = "0.9.0"
 thiserror = "1.0"
 microvmi = { path = "../" }
 
 [dependencies.pyo3]
-version = "0.13.1"
+version = "0.14.5"
 features = ["extension-module"]
 
 [package.metadata.release]
