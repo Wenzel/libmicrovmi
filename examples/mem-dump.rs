@@ -97,7 +97,7 @@ fn main() {
             .write_all(&buffer)
             .expect("failed to write to file");
         // update bar
-        bar.set_prefix(&*format!("{:#X}", cur_addr));
+        bar.set_prefix(format!("{:#X}", cur_addr));
         bar.inc(PAGE_SIZE as u64);
     }
     bar.finish();
