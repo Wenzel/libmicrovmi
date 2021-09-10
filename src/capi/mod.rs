@@ -196,6 +196,7 @@ unsafe fn get_driver_mut_ptr(context: *mut c_void) -> *mut dyn Introspectable {
     driver.read()
 }
 
+#[allow(clippy::redundant_allocation)]
 unsafe fn get_driver_box(context: *mut c_void) -> Box<Box<dyn Introspectable>> {
     Box::from_raw(context as *mut _)
 }

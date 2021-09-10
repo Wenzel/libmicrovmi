@@ -11,6 +11,9 @@
     <a href="https://crates.io/crates/microvmi">
         <img src="https://img.shields.io/crates/v/microvmi.svg" alt="crates.io"/>
     </a>
+    <a href="https://deps.rs/repo/github/Wenzel/libmicrovmi">
+        <img src="https://deps.rs/repo/github/Wenzel/libmicrovmi/status.svg"/>
+    </a>
     <a href="https://docs.rs/microvmi">
         <img src="https://docs.rs/microvmi/badge.svg" alt="docs.rs">
     </a>
