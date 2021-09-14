@@ -14,6 +14,8 @@ pub enum MemflowDriverError {
     InvalidConnectorArgument(String),
 }
 
+const QEMU_PROCFS_CONNECTOR_NAME: &str = "qemu_procfs";
+
 pub struct Memflow {
     // refcell required because read methods are mutable
     // contrary to our read_frame signature
@@ -31,6 +33,20 @@ impl Memflow {
         let inventory = unsafe { ConnectorInventory::scan() };
         // parse connector args
         let mut create_connector_args = ConnectorArgs::new();
+
+        // reuse some of the common parameters in init_params
+        #[allow(clippy::single_match)]
+        match memflow_init_params.connector_name.as_str() {
+            QEMU_PROCFS_CONNECTOR_NAME => {
+                // if init_params.common.vm_name exists and connector_name is qemu_procfs
+                // then insert vm_name value as 'name' connector args
+                if init_params.common.is_some() {
+                    create_connector_args =
+                        create_connector_args.insert("name", &*init_params.common.unwrap().vm_name);
+                }
+            }
+            _ => {}
+        };
         if memflow_init_params.connector_args.is_some() {
             let MemflowConnectorParams::Default { args } =
                 memflow_init_params.connector_args.unwrap();
