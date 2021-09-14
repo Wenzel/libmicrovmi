@@ -7,6 +7,7 @@ other applications and libraries based on _virtual machine introspection_.
 |:-----------:|:---------:|
 |    LibVMI   |     🟠    |
 | volatility3 |     ✅     |
+| LeechCore   |     ✅     |
 
 ## LibVMI
 
@@ -87,3 +88,20 @@ adding a new URL handler.
 - [project](https://github.com/volatilityfoundation/volatility3)
 - compatibility: ✅
 - [tutorial](https://wenzel.github.io/libmicrovmi/tutorial/integration/volatility3.html)
+
+
+## LeechCore
+
+LeechCore is a physical memory acquisition library compatible
+with a great variety of software and hardware sources.
+
+It can be extended using [LeechCore-plugins](https://github.com/ufrisk/LeechCore-plugins) plugin interface.
+
+A "microvmi" plugin has been developed to integrate libmicrovmi in LeechCore, exposing the physical memory of
+virtual machines supported by libmicrovmi.
+
+The main use case is to mount the VM's physical memory as a high-level filesystem via [MemProcFS](https://github.com/ufrisk/MemProcFS)
+
+- [project](https://github.com/ufrisk/LeechCore)
+- compatibility: ✅
+- [tutorial](https://wenzel.github.io/libmicrovmi/tutorial/integration/leechcore.html)
