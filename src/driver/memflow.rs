@@ -50,10 +50,7 @@ impl Memflow {
         if memflow_init_params.connector_args.is_some() {
             let MemflowConnectorParams::Default { args } =
                 memflow_init_params.connector_args.unwrap();
-            debug!(
-                "Memflow params - name: {}, args: {:#?}",
-                &memflow_init_params.connector_name, args
-            );
+
             // for each string, split at '=' to get key, value
             for s in args.iter() {
                 let (key, value) = s
@@ -63,6 +60,8 @@ impl Memflow {
                 create_connector_args = create_connector_args.insert(key, value);
             }
         }
+        // display final connector args
+        debug!("Memflow connector args: {:#?}", create_connector_args);
         // create memflow connector
         let connector = unsafe {
             inventory
