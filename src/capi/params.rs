@@ -9,14 +9,14 @@ use std::os::raw::c_char;
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct CommonInitParamsFFI {
-    pub vm_name: *const c_char,
+    pub vm_name: *mut c_char,
 }
 
 /// equivalent of `KVMInitParams` with C compatibility
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub enum KVMInitParamsFFI {
-    UnixSocket { path: *const c_char },
+    UnixSocket { path: *mut c_char },
 }
 
 /// equivalent of `MemflowConnectorParams`with C compatiblity
@@ -24,7 +24,7 @@ pub enum KVMInitParamsFFI {
 #[derive(Debug, Clone)]
 pub enum MemflowConnectorParamsFFI {
     Default {
-        args_arr: *const *const c_char,
+        args_arr: *mut *mut c_char,
         args_arr_len: usize,
     },
 }
@@ -34,7 +34,7 @@ pub enum MemflowConnectorParamsFFI {
 #[derive(Debug, Clone)]
 pub struct MemflowInitParamsFFI {
     /// connector name
-    pub connector_name: *const c_char,
+    pub connector_name: *mut c_char,
     /// optional connector initialization parameters
     pub connector_args: MemflowConnectorParamsFFI,
 }
