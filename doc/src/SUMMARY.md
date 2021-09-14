@@ -13,6 +13,7 @@
 - [Integration](./tutorial/integration.md)
   - [LibVMI](./tutorial/integration/libvmi.md)
   - [volatility3](./tutorial/integration/volatility3.md)
+  - [LeechCore / MemProcFS](./tutorial/integration/leechcore.md)
 
 # Reference
 
