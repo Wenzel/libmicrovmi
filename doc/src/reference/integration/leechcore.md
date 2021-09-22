@@ -10,10 +10,8 @@ virtual machines supported by libmicrovmi.
 
 The main use case is to mount the VM's physical memory as a high-level filesystem via [MemProcFS](https://github.com/ufrisk/MemProcFS)
 
-## 1 - Install libmicrovmi
-
-Download and install the deb archive from [libmicrovmi release Github page](https://github.com/Wenzel/libmicrovmi/releases)
-
-## 2 - Follow instructions on LeechCore-plugins wiki
-
 The documentation regarding the microvmi LeechCore device is available on the [LeechCore-plugins's README](https://github.com/ufrisk/LeechCore-plugins)
+
+## Development
+
+- [LeechCore-plugins fork](https://github.com/mtarral/LeechCore-plugins)
