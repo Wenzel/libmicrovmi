@@ -1,5 +1,13 @@
 # libmicrovmi
 
+## Requirements
+
+- clang: to generate rust bindings
+
+~~~
+$ sudo apt install clang libxen-dev
+~~~
+
 ## Compiling the crate
 
 Compiling the crate without any driver:

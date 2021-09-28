@@ -1,15 +1,8 @@
-# Integration Status
+# LibVMI
 
-This section gives a status overview of libmicrovmi's integration into
-other applications and libraries based on _virtual machine introspection_.
+libmicrovmi can replace the low-level layer of LibVMI drivers:
 
-|   Project   | Supported |
-|:-----------:|:---------:|
-|    LibVMI   |     🟠    |
-| volatility3 |     ✅     |
-| LeechCore   |     ✅     |
-
-## LibVMI
+![libvmi_libmicrovmi](https://user-images.githubusercontent.com/964610/127520458-d9fb6048-7682-4dbd-beb6-1c999395b1ff.png)
 
 - [project](https://github.com/libvmi/libvmi)
 - [issue](https://github.com/Wenzel/libmicrovmi/issues/137)
@@ -79,29 +72,3 @@ The API is used in the following files:
 | `driver_set_access_required()`            |            |              |
 | `get_data()`                              |     ✅     |              |
 | `release_data()`                          |     ✅     |              |
-
-## volatility3
-
-volatility3 could inspect and run its forensics plugins on live memory by
-adding a new URL handler.
-
-- [project](https://github.com/volatilityfoundation/volatility3)
-- compatibility: ✅
-- [tutorial](https://wenzel.github.io/libmicrovmi/tutorial/integration/volatility3.html)
-
-
-## LeechCore
-
-LeechCore is a physical memory acquisition library compatible
-with a great variety of software and hardware sources.
-
-It can be extended using [LeechCore-plugins](https://github.com/ufrisk/LeechCore-plugins) plugin interface.
-
-A "microvmi" plugin has been developed to integrate libmicrovmi in LeechCore, exposing the physical memory of
-virtual machines supported by libmicrovmi.
-
-The main use case is to mount the VM's physical memory as a high-level filesystem via [MemProcFS](https://github.com/ufrisk/MemProcFS)
-
-- [project](https://github.com/ufrisk/LeechCore)
-- compatibility: ✅
-- [tutorial](https://wenzel.github.io/libmicrovmi/tutorial/integration/leechcore.html)

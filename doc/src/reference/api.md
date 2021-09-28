@@ -1,3 +1,3 @@
 # API
 
-[![docs.rs badge](https://docs.rs/microvmi/badge.svg?version=0.1.12)](https://docs.rs/microvmi)
+In this section the libmicrovmi API is detailed for `Rust`, `C` and `Python`

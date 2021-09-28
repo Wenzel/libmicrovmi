@@ -33,28 +33,46 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Getting Started](#getting-started)
 - [Documentation](#documentation)
 - [Maintainers](#maintainers)
 - [License](#license)
 
 ## Overview
 
-`libmicrovmi` aims to provide a cross-platform unified _Virtual Machine Introspection_ API.
+`libmicrovmi` aims to provide a cross-platform unified _Virtual Machine Introspection_ API. (See [What's VMI ?](https://wenzel.github.io/libmicrovmi/explanation/vmi_api.html))
 
 The term micro (μ) refers to the library's simplicity as well as the letter `U`
 standing for `Unified` interface.
 
 _Virtual Machine Introspection_ has been around since [2003](https://www.ndss-symposium.org/ndss2003/virtual-machine-introspection-based-architecture-intrusion-detection/),
-yet the ecosystem is still heavily fragmented and lacks standards as well as interoperability.
-
-See [Documentation: VMI Ecosystem Fragmentation](https://wenzel.github.io/libmicrovmi/explanation/vmi_ecosystem.html)
+yet the ecosystem is still heavily fragmented and lacks standards as well as interoperability. (See [VMI Ecosystem Fragmentation](https://wenzel.github.io/libmicrovmi/explanation/vmi_ecosystem.html))
 
 The main objective is to provide the simplest virtual machine introspection abstraction, offering a standard API to interact with
-any VMI provider.
+any VMI provider, with a high degree of compatibility and composability to be integrated with any high-level VMI application.
 
 The documentation keeps track of libmicrovmi's [integration status](https://wenzel.github.io/libmicrovmi/reference/integration_status.html) for each VMI apps.
 
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/110927584-1dfc4500-8326-11eb-9ed5-a0732296082b.png)
+
+## Getting Started
+
+The documentation is here to guide you, whether you are a *user* or *developer*.
+
+User
+
+[![User documentation](https://user-images.githubusercontent.com/964610/134169948-bf8de1df-6169-4c5a-918a-04bf71fc7c61.png)](https://wenzel.github.io/libmicrovmi/tutorial/installation.html)
+
+- I would like to install libmicrovmi on my system
+- I would like to know how to setup my VMI app with libmicrovmi
+- I would like to know which drivers are available and how to initialize them
+
+Developer
+
+[![Developer documentation](https://user-images.githubusercontent.com/964610/134168828-85f2cf4b-1d4f-455b-af10-f0ba8c49eb05.png)](https://wenzel.github.io/libmicrovmi/developer/libmicrovmi.html)
+
+- I am developing a memory forensic / VM introspection app, and I want an API that supports multiple hypervisors at glance
+- I want to add a new driver for libmicrovmi
 
 ## Documentation
 
