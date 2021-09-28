@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Memory dump example on Xen - Libmicrovmi Documentation</title>
+        <title>Listing Windows 10 Processes using Volatility3 on Xen - Libmicrovmi Documentation</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
@@ -75,7 +75,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorial</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/packaged.html"><strong aria-hidden="true">1.1.</strong> Packaged</a></li><li class="chapter-item expanded "><a href="../tutorial/source.html"><strong aria-hidden="true">1.2.</strong> Source</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/mem-dump-example.html" class="active"><strong aria-hidden="true">2.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/rust.html"><strong aria-hidden="true">2.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../tutorial/c.html"><strong aria-hidden="true">2.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../tutorial/python.html"><strong aria-hidden="true">2.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorial/integration.html"><strong aria-hidden="true">3.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorial/integration/libvmi.html"><strong aria-hidden="true">3.1.</strong> LibVMI</a></li><li class="chapter-item expanded "><a href="../tutorial/integration/volatility3.html"><strong aria-hidden="true">3.2.</strong> volatility3</a></li><li class="chapter-item expanded "><a href="../tutorial/integration/leechcore.html"><strong aria-hidden="true">3.3.</strong> LeechCore / MemProcFS</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">4.</strong> API</a></li><li class="chapter-item expanded "><a href="../reference/python_api.html"><strong aria-hidden="true">5.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li class="chapter-item expanded "><a href="../reference/integration_status.html"><strong aria-hidden="true">7.</strong> Integration Status</a></li><li class="chapter-item expanded affix "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">11.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">12.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">13.</strong> Release</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../tutorial/memprocfs_qemu.html"><strong aria-hidden="true">2.</strong> Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux)</a></li><li class="chapter-item expanded "><a href="../tutorial/volatility3_xen.html" class="active"><strong aria-hidden="true">3.</strong> Listing Windows 10 Processes using Volatility3 on Xen</a></li><li class="chapter-item expanded "><a href="../tutorial/libvmi.html"><strong aria-hidden="true">4.</strong> Run LibVMI fork on memflow</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/integration.html"><strong aria-hidden="true">5.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/integration/libvmi.html"><strong aria-hidden="true">5.1.</strong> LibVMI</a></li><li class="chapter-item expanded "><a href="../reference/integration/volatility3.html"><strong aria-hidden="true">5.2.</strong> volatility3</a></li><li class="chapter-item expanded "><a href="../reference/integration/leechcore.html"><strong aria-hidden="true">5.3.</strong> LeechCore</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/drivers/xen.html"><strong aria-hidden="true">6.1.</strong> Xen</a></li><li class="chapter-item expanded "><a href="../reference/drivers/kvm.html"><strong aria-hidden="true">6.2.</strong> KVM</a></li><li class="chapter-item expanded "><a href="../reference/drivers/virtualbox.html"><strong aria-hidden="true">6.3.</strong> VirtualBox</a></li><li class="chapter-item expanded "><a href="../reference/drivers/memflow.html"><strong aria-hidden="true">6.4.</strong> memflow</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">7.</strong> API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/api/rust_api.html"><strong aria-hidden="true">7.1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="../reference/api/python_api.html"><strong aria-hidden="true">7.2.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/api/c_api.html"><strong aria-hidden="true">7.3.</strong> C API</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/source.html"><strong aria-hidden="true">11.</strong> Source installation</a></li><li class="chapter-item expanded "><a href="../developer/intro_mem_dump.html"><strong aria-hidden="true">12.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../developer/mem_dump/rust.html"><strong aria-hidden="true">12.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/c.html"><strong aria-hidden="true">12.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/python.html"><strong aria-hidden="true">12.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">13.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">14.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">15.</strong> Release</a></li><li class="chapter-item expanded "><a href="../developer/credits.html"><strong aria-hidden="true">16.</strong> Credits</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -134,34 +134,51 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="memory-dump-example-on-xen"><a class="header" href="#memory-dump-example-on-xen">Memory dump example on Xen</a></h1>
-<p>This tutorial will walk you through the steps required to compile libmicrovmi and run
-the <code>mem-dump</code> Rust example code on a Xen domain in order to dump its physical memory.</p>
-<p>This tutorial assumes the following:</p>
-<ul>
-<li>you have a working cargo stable toolchain</li>
-<li>you have a running VM supervised by <strong>Xen 4.11.0</strong> or above.</li>
-<li>you are running on <strong>Ubuntu 20.04</strong></li>
-</ul>
+                        <h1 id="listing-windows-10-processes-using-volatility3-on-xen"><a class="header" href="#listing-windows-10-processes-using-volatility3-on-xen">Listing Windows 10 Processes using Volatility3 on Xen</a></h1>
+<p>In this tutorial, we will use the <a href="https://github.com/volatilityfoundation/volatility3">volatility3</a> memory forensic framework to list the processes
+on a running Windows 10 VM on Xen hypervisor.</p>
+<p>Thanks to volatility3's modular architecture the libmicrovmi integration doesn't require any upstream modification.
+Instead we need to indicate to volatility3 how to locate our plugin.</p>
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ul>
-<li><code>clang</code> (bindgen)</li>
-<li>Xen development headers</li>
+<li><a href="./installation.html">libmicrovmi Python bindings</a> in a virtualenv <code>venv</code></li>
+<li>Xen &gt;= 4.11</li>
+<li>Windows 10 VM running</li>
 </ul>
-<p>To install the additional dependencies:</p>
-<pre><code>$ sudo apt install clang libxen-dev
+<h2 id="1---install-volatility3"><a class="header" href="#1---install-volatility3">1 - Install volatility3</a></h2>
+<p>We need the latest development version of volatility3, from git:</p>
+<pre><code>(venv) $ git clone https://github.com/volatilityfoundation/volatility3
+(venv) $ cd volatility3
+(venv) $ pip install .
 </code></pre>
-<p>⚠️ Note: Accessing Xen's introspection APIs will require high privileges as we are talking to <code>Dom0</code>,
-hence we have to run <code>cargo</code> as <code>root</code> when actually running and testing example code.</p>
+<h2 id="2---locate-microvmi-volatility-plugin-directory"><a class="header" href="#2---locate-microvmi-volatility-plugin-directory">2 - Locate microvmi volatility plugin directory</a></h2>
+<p>The <code>microvmi</code> python package comes with a <a href="https://github.com/Wenzel/libmicrovmi/tree/master/python/microvmi/volatility"><code>volatility</code></a> directory which contains the connection plugin.</p>
+<p>We need to add this directory to <strong>volatility's search path</strong>.</p>
+<p>To locate the volatility directory in your <code>venv</code>:</p>
+<pre><code>(venv) $ find venv/ -type d -wholename '*microvmi/volatility*'
+venv/lib/python3.7/site-packages/microvmi/volatility
+</code></pre>
+<h2 id="3---running-volatility-with-microvmi-plugin"><a class="header" href="#3---running-volatility-with-microvmi-plugin">3 - Running volatility with microvmi plugin</a></h2>
+<p>The Microvmi volatility plugin recognizes the <code>vmi://</code> URL scheme.</p>
+<p>For Xen we need to pass the <code>vm_name</code> parameter.
+Assuming that our Xen domain is named <code>win10</code>:</p>
+<pre><code class="language-bash">(venv) $ sudo -E ./venv/bin/vol \  # running volatility3 as root (required by the Xen driver)
+    --plugin-dirs venv/lib/python3.7/site-packages/microvmi/volatility \  # path to the microvmi connection plugin
+    -vvv \ # verbosity
+    --single-location 'vmi:///?vm_name=win10' \  # specify the resource location
+    windows.pslist.PsList  # volatility's pslist plugin
+</code></pre>
+<p>⚠️ To debug libmicrovmi initialization: <code>export RUST_LOG=debug</code></p>
+<p>For a complete overview of the URL parameters, check the <a href="./../reference/integration/volatility3.html">documentation</a></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../tutorial/source.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../tutorial/memprocfs_qemu.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
-                            <a rel="next" href="../tutorial/rust.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../tutorial/libvmi.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
@@ -170,10 +187,10 @@ hence we have to run <code>cargo</code> as <code>root</code> when actually runni
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../tutorial/source.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../tutorial/memprocfs_qemu.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    <a rel="next" href="../tutorial/rust.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../tutorial/libvmi.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
