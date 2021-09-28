@@ -110,7 +110,7 @@ fn init_driver(
     #[allow(clippy::match_single_binding)]
     let res: Result<Box<dyn Introspectable>, MicrovmiError> = match driver_type {
         #[cfg(feature = "kvm")]
-        DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi(), _init_params)?)),
+        DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi()?, _init_params)?)),
         #[cfg(feature = "mflow")]
         DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
         #[cfg(feature = "virtualbox")]
