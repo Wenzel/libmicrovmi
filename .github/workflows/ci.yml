@@ -149,7 +149,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features mflow -- -D warnings
 
-  virtualbox:
+  virtualbox_linux:
     runs-on: ubuntu-20.04
 
     steps:
@@ -179,6 +179,56 @@ jobs:
           name: clippy virtualbox
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --features virtualbox -- -D warnings
+
+  virtualbox_windows:
+    runs-on: windows-2022
+
+    steps:
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+
+      - name: Clone Icebox repository
+        uses: actions/checkout@v2
+        with:
+          repository: thalium/icebox
+          path: icebox
+
+      - uses: actions/checkout@v2
+        with:
+          path: libmicrovmi
+
+      # adds cl.exe in the PATH
+      - name: Setup command prompt for Microsoft Visual C++
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compile and install FDP library
+        run: |
+          # install in C:\FDP to avoid issues with quotes etc
+          cl /c FDP.cpp /out:FDP.obj
+          cl /LD FDP.obj /link /out:FDP.dll
+          lib /NOLOGO FDP.obj /OUT:FDP.lib
+          dir
+          New-Item -Path "C:\FDP" -ItemType "directory"
+          copy FDP.dll "C:\FDP"
+          copy FDP.lib "C:\FDP"
+          copy "include\*" "C:\FDP"
+        working-directory: icebox/src/FDP
+
+      - name: Install Clang
+        run: choco install llvm
+
+      - name: build VirtualBox driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox
+        env:
+          BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
+          CARGO_BUILD_RUSTFLAGS: -L C:\FDP
 
   c_api:
     runs-on: ubuntu-20.04
@@ -283,6 +333,7 @@ jobs:
 
   debian_package:
     # create a Debian package with cargo deb
+    needs: [format, xen, kvm, virtualbox_linux, memflow]
     runs-on: ubuntu-20.04
 
     steps:
@@ -343,12 +394,73 @@ jobs:
           # microvmi_x.x.x_amd64.deb
           path: target/debian/*
 
+  build_windows:
+    # build libmicrovmi with all windows drivers
+    # and upload it as an artefact
+    needs: [virtualbox_windows]
+    runs-on: windows-2022
+    steps:
+      - name: install stable toolchain with clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+
+      - name: Clone Icebox repository
+        uses: actions/checkout@v2
+        with:
+          repository: thalium/icebox
+          path: icebox
+
+      - uses: actions/checkout@v2
+        with:
+          path: libmicrovmi
+
+      # adds cl.exe in the PATH
+      - name: Setup command prompt for Microsoft Visual C++
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compile and install FDP library
+        run: |
+          # install in C:\FDP to avoid issues with quotes etc
+          cl /c FDP.cpp /out:FDP.obj
+          cl /LD FDP.obj /link /out:FDP.dll
+          lib /NOLOGO FDP.obj /OUT:FDP.lib
+          dir
+          New-Item -Path "C:\FDP" -ItemType "directory"
+          copy FDP.dll "C:\FDP"
+          copy FDP.lib "C:\FDP"
+          copy "include\*" "C:\FDP"
+        working-directory: icebox/src/FDP
+
+      - name: Install Clang
+        run: choco install llvm
+
+      - name: build libmicrovmi with virtualbox and memflow driver
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow
+        env:
+          BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
+          CARGO_BUILD_RUSTFLAGS: -L C:\FDP
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: microvmi_win32
+          # microvmi_x.x.x_amd64.deb
+          path: |
+            target/debug/libmicrovmi.so
+            target/debug/capi/libmicrovmi.h
+
   release:
     # create a Github release
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [format, xen, kvm, virtualbox, c_api, examples, python, debian_package]
+    needs: [c_api, examples, python, debian_package, build_windows]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
