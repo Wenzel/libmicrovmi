@@ -234,7 +234,10 @@ jobs:
           CARGO_BUILD_RUSTFLAGS: -L C:\FDP
 
   c_api:
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2022]
 
     steps:
       - name: install stable toolchain
@@ -252,10 +255,9 @@ jobs:
 
       - name: build C API
         run: |
-          dir target/debug
-          dir target/debug/deps
           cd c_examples
-          make
+          cmake -B build
+          cmake --build build
 
   examples:
     runs-on: ${{ matrix.os }}
