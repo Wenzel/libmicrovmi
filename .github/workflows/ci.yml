@@ -446,14 +446,18 @@ jobs:
           BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
           CARGO_BUILD_RUSTFLAGS: -L C:\FDP
 
+      - name: create output directory and copy artifact content
+        run: |
+          mkdir output
+          copy ./target/debug/microvmi.dll output
+          copy ./target/debug/capi/libmicrovmi.h output
+        working-directory: libmicrovmi
+
       - name: upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: microvmi_win32
-          # microvmi_x.x.x_amd64.deb
-          path: |
-            target/debug/libmicrovmi.so
-            target/debug/capi/libmicrovmi.h
+          path: libmicrovmi/output/*
 
   release:
     # create a Github release
@@ -529,6 +533,35 @@ jobs:
           asset_path: ${{ steps.artefact.outputs.path }}
           asset_name: ${{ steps.artefact.outputs.name }}
           asset_content_type: application/vnd.debian.binary-package
+
+  release_windows:
+    runs-on: ubuntu-20.04
+    needs: release
+    steps:
+      - uses: actions/checkout@v1
+
+      # download artifacts
+      - uses: actions/download-artifact@v2
+        id: download
+        with:
+          # download to tmp_dir
+          name: microvmi_win32
+          path: tmp_dir
+
+      # create zip archive of tmp_dir content without including the folder itself
+      - name: create zip archive
+        run: zip -r ../microvmi_win32.zip *
+        working-directory: tmp_dir
+
+      - name: Upload Zip folder as Release asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./microvmi_win32.zip
+          asset_name: microvmi_win32.zip
+          asset_content_type: application/zip
 
   release_book:
     needs: release
