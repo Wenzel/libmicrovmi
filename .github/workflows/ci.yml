@@ -127,7 +127,10 @@ jobs:
           fail_ci_if_error: true
 
   memflow:
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04, windows-2022 ]
 
     steps:
       - name: install stable toolchain with clippy
@@ -400,7 +403,7 @@ jobs:
   build_windows:
     # build libmicrovmi with all windows drivers
     # and upload it as an artefact
-    needs: [virtualbox_windows]
+    needs: [virtualbox_windows, memflow]
     runs-on: windows-2022
     steps:
       - name: install stable toolchain with clippy
