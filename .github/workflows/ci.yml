@@ -252,6 +252,8 @@ jobs:
 
       - name: build C API
         run: |
+          dir target/debug
+          dir target/debug/deps
           cd c_examples
           make
 

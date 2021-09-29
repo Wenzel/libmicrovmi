@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "libmicrovmi.h"
+#include <libmicrovmi.h>
 
 void pause_vm(void* driver, unsigned long sleep_duration) {
     if (microvmi_pause(driver)) {
