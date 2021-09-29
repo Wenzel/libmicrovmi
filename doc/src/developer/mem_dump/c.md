@@ -24,7 +24,8 @@ $ cargo install --force cbindgen
 
 ~~~
 $ cd c_examples/
-$ make mem-dump
+$ cmake -B build .
+$ cmake --build build --target mem-dump
 ~~~
 
 ## Running the example
@@ -32,6 +33,7 @@ $ make mem-dump
 Next, let's run the example on your domain `<vm_name>`:
 
 ~~~
+cd build
 $ sudo LD_LIBRARY_PATH="$LD_LIBRARY_PATH:../target/debug" ./mem-dump <vm_name>
 ~~~
 
