@@ -253,7 +253,10 @@ jobs:
           make
 
   examples:
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2022]
     steps:
       - name: install stable toolchain with clippy
         uses: actions-rs/toolchain@v1
