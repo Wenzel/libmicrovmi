@@ -1,18 +1,22 @@
-#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+
+#ifdef _WIN32
+# include <Windows.h>
+#else
+# include <unistd.h>
+#endif
 
 #include <libmicrovmi.h>
 
-void pause_vm(void* driver, unsigned long sleep_duration) {
+void pause_vm(void* driver, unsigned long sleep_duration_sec) {
     if (microvmi_pause(driver)) {
         printf("Paused.\n");
     } else {
         printf("Unable to pause VM.\n");
         return;
     }
-    usleep(sleep_duration);
+    sleep(sleep_duration_sec);
     if (microvmi_resume(driver)) {
             printf("Resumed.\n");
     } else {
@@ -44,7 +48,7 @@ int main(int argc, char* argv[]) {
         rs_cstring_free((char*)init_error);
         return 1;
     }
-    pause_vm(driver, sleep_duration_sec * 1000000);
+    pause_vm(driver, sleep_duration_sec);
     microvmi_destroy(driver);
     return 0;
 }

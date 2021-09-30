@@ -40,10 +40,14 @@ link_directories(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 add_executable(mem-dump mem-dump.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
-add_executable(pause pause.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
-add_executable(regs-dump regs-dump.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
-
-
 target_link_libraries(mem-dump PRIVATE microvmi)
-target_link_libraries(pause PRIVATE microvmi)
+
+add_executable(regs-dump regs-dump.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
 target_link_libraries(regs-dump PRIVATE microvmi)
+
+if (NOT WIN32)
+    # TODO: libmicrovmi.h DriverType enum conflict with same name in winnt.h
+    # disable pause example for windows
+    add_executable(pause pause.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
+    target_link_libraries(pause PRIVATE microvmi)
+endif ()
