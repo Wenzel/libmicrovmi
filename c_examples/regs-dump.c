@@ -2,7 +2,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "libmicrovmi.h"
+#include <libmicrovmi.h>
 
 void read_registers(void* driver, const char* vm_name) {
     if (microvmi_pause(driver)) {
