@@ -60,6 +60,9 @@ inventory = "0.1.10"
 [build-dependencies]
 cbindgen = "0.20.0"
 
+[profile.release]
+debug = true
+
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
