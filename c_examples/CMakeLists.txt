@@ -9,6 +9,13 @@ else ()
     set(MICROVMI_FILENAME "libmicrovmi.so")
 endif ()
 
+# set debug build if not set
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug")
+endif ()
+# CMAKE_BUILD_TYPE is used to determine cargo debug | release build
+string(TOLOWER "${CMAKE_BUILD_TYPE}" CARGO_BUILD_TYPE)
+
 if (WIN32)
     # create symlink microvmi.lib -> microvmi.dll.lib in target/debug
     # because link.exe will try to look for microvmi.lib, and cargo uses another
@@ -17,7 +24,7 @@ if (WIN32)
         # original
         microvmi.dll.lib
         # link name
-        "${CMAKE_CURRENT_SOURCE_DIR}/../target/debug/microvmi.lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../target/${CARGO_BUILD_TYPE}/microvmi.lib"
         RESULT LINK_RES
         SYMBOLIC
     )
@@ -27,14 +34,14 @@ endif ()
 # generate libmicrovmi.h
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h"
     COMMAND cbindgen --config cbindgen.toml --crate microvmi --output "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../target/debug/${MICROVMI_FILENAME}"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../target/${CARGO_BUILD_TYPE}/${MICROVMI_FILENAME}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
     COMMENT "Generating libmicrovmi.h with cbindgen")
 
 # add local libmicrovmi.so library path
 link_directories(
     # microvmi.dll and mirovmi.dll.lib are located in target/<debug|release>
-    "${CMAKE_CURRENT_SOURCE_DIR}/../target/debug"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../target/${CARGO_BUILD_TYPE}"
 )
 # add headers path
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")

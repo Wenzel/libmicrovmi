@@ -16,7 +16,7 @@ This requires the `cbindgen` tool which can be installed via the following comma
 cargo install --force cbindgen
 ~~~
 
-The go back to the root directory and compile the crate, adding the drivers you
+Then go back to the root directory and compile the crate adding the drivers you
 want:
 
 ~~~
@@ -35,6 +35,9 @@ cmake --build build
 ~~~
 
 This will generate the examples in the `build` directory.
+
+Note: by default the examples will link with the debug cargo build (`target/debug/libmicrovmi.so`)
+To use the release build, specify `cmake -DCMAKE_BUILD_TYPE=Release`.
 
 ## Executing the examples
 
