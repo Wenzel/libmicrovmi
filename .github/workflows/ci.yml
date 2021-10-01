@@ -281,7 +281,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --examples -- -D warnings
 
-  python:
+  release_python:
+    # build a libmicrovmi python bindings release
+    # and upload it as artifact
     runs-on: ubuntu-20.04
     steps:
       - name: install stable toolchain with clippy
@@ -341,8 +343,9 @@ jobs:
           name: python_wheels
           path: python/dist/manylinux/*
 
-  debian_package:
-    # create a Debian package with cargo deb
+  release_debian_package:
+    # create a debian package with libmicrovmi release
+    # and upload it as artifact
     needs: [format, xen, kvm, virtualbox_linux, memflow]
     runs-on: ubuntu-20.04
 
@@ -395,6 +398,9 @@ jobs:
         run: cargo install cargo-deb
 
       - name: build debian package
+        # must keep --no-strip because cargo metadata doesn't expose
+        # workspace profiles
+        # also --release is already added by cargo deb
         run: cargo deb --no-strip -- --features xen,kvm,virtualbox,mflow
 
       - name: upload artifact
@@ -404,8 +410,8 @@ jobs:
           # microvmi_x.x.x_amd64.deb
           path: target/debian/*
 
-  build_windows:
-    # build libmicrovmi with all windows drivers
+  release_windows:
+    # build libmicrovmi release with all windows drivers
     # and upload it as an artefact
     needs: [virtualbox_windows, memflow]
     runs-on: windows-2022
@@ -451,7 +457,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow
+          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow --release
         env:
           BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
           CARGO_BUILD_RUSTFLAGS: -L C:\FDP
@@ -459,8 +465,8 @@ jobs:
       - name: create output directory and copy artifact content
         run: |
           mkdir output
-          copy ./target/debug/microvmi.dll output
-          copy ./target/debug/capi/libmicrovmi.h output
+          copy ./target/release/microvmi.dll output
+          copy ./target/release/capi/libmicrovmi.h output
         working-directory: libmicrovmi
 
       - name: upload artifact
@@ -469,12 +475,12 @@ jobs:
           name: microvmi_win32
           path: libmicrovmi/output/*
 
-  release:
+  github_release:
     # create a Github release
     # only when
     # - push on master
     # - tag starts with 'v*'
-    needs: [c_api, examples, python, debian_package, build_windows]
+    needs: [c_api, examples, release_python, release_debian_package, release_windows]
     runs-on: ubuntu-20.04
     # output these value to be used by other jobs so they can add assets
     outputs:
@@ -509,9 +515,9 @@ jobs:
       - id: step_upload_url
         run: echo "::set-output name=upload_url::${{ steps.create_release.outputs.upload_url }}"
 
-  release_debian:
-    # add the debian package in the Github release
-    needs: release
+  publish_debian_package:
+    # publish the debian package in the Github Release
+    needs: github_release
     runs-on: ubuntu-20.04
 
     steps:
@@ -544,9 +550,10 @@ jobs:
           asset_name: ${{ steps.artefact.outputs.name }}
           asset_content_type: application/vnd.debian.binary-package
 
-  release_windows:
+  publish_windows:
+    # publish the windows release on Github Release
     runs-on: ubuntu-20.04
-    needs: release
+    needs: github_release
     steps:
       - uses: actions/checkout@v1
 
@@ -573,8 +580,9 @@ jobs:
           asset_name: microvmi_win32.zip
           asset_content_type: application/zip
 
-  release_book:
-    needs: release
+  publish_book:
+    # build and publish the book on Github pages
+    needs: github_release
     runs-on: ubuntu-20.04
 
     steps:
@@ -602,8 +610,8 @@ jobs:
           folder: doc/book
           single_commit: true
 
-  publish:
-    needs: release
+  publish_crates_io:
+    needs: github_release
     runs-on: ubuntu-20.04
 
     # publish on crates.io
@@ -622,7 +630,7 @@ jobs:
 
 
   publish_pypi:
-    needs: release
+    needs: github_release
     runs-on: ubuntu-20.04
 
     steps:
