@@ -134,7 +134,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="installation"><a class="header" href="#installation">installation</a></h1>
+                        <h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <p>This section details how to install the officially distributed version of libmicrovmi.</p>
 <p>libmicrovmi is accessible through the following languages</p>
 <ul>
@@ -142,25 +142,42 @@
 <li>C</li>
 <li>Python</li>
 </ul>
-<p>It comes bundled by default with the following Linux drivers:</p>
-<ul>
-<li>Xen</li>
-<li>KVM</li>
-<li>VirtualBox</li>
-<li>memflow</li>
-</ul>
-<h1 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h1>
+<h2 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h2>
 <p>The crate is available on crates.io:</p>
 <p><a href="https://crates.io/crates/microvmi"><img src="https://img.shields.io/crates/v/microvmi?logo=rust&amp;style=for-the-badge" alt="Crates.io" /></a></p>
-<h1 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h1>
-<p>A Debian package is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+</ul>
+<h2 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h2>
+<p>A Debian package <code>microvmi_x.x.x_amd64.deb</code> is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
 <p><a href="https://github.com/Wenzel/libmicrovmi/releases"><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=yellowgreen&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></a></p>
 <p>It contains both the library and the headers to get started with C development</p>
 <ul>
 <li><code>/usr/lib/libmicrovmi.so</code></li>
 <li><code>/usr/include/libmicrovmi.h</code></li>
 </ul>
-<h1 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h1>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
+<li>memflow</li>
+</ul>
+<h2 id="c---windows-zip-archive"><a class="header" href="#c---windows-zip-archive">C - Windows zip archive</a></h2>
+<p>A zip archive <code>microvmi_win32.zip</code> containing a Windows release of <code>libmicrovmi</code> is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p><a href="https://github.com/Wenzel/libmicrovmi/releases"><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=blue&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></a></p>
+<p>It contains both the library and the headers to get started with C development</p>
+<ul>
+<li><code>microvmi.dll</code></li>
+<li><code>libmicrovmi.h</code></li>
+</ul>
+<p>Bundled drivers:</p>
+<ul>
+<li>Virtualbox</li>
+<li>memflow</li>
+</ul>
+<h2 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h2>
 <p>libmicrovmi is exposing a Python interface through a native extension.</p>
 <p>The package <code>microvmi</code> is available on <a href="https://pypi.org/project/microvmi/">PyPI</a>:</p>
 <p><a href="https://pypi.org/project/microvmi/"><img src="https://img.shields.io/pypi/v/microvmi?color=blue&amp;logo=pypi&amp;logoColor=white&amp;style=for-the-badge" alt="PyPI" /></a></p>
@@ -168,7 +185,15 @@
 <pre><code>$ virtualenv -p python3 venv
 (venv) $ pip install microvmi
 </code></pre>
-<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system. Hence you don't have to install the debian package above.</p>
+<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system.</p>
+<p>Note2: the native extension has been compiled for <strong>Linux only</strong>.</p>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
+<li>memflow</li>
+</ul>
 
                     </main>
 

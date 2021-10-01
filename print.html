@@ -212,7 +212,7 @@ $ xdg-open doc/book/index.html
 </ul>
 <h2 id="license"><a class="header" href="#license">License</a></h2>
 <p><a href="https://github.com/Wenzel/pyvmidbg/blob/master/LICENSE">GNU General Public License v3.0</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">installation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <p>This section details how to install the officially distributed version of libmicrovmi.</p>
 <p>libmicrovmi is accessible through the following languages</p>
 <ul>
@@ -220,25 +220,42 @@ $ xdg-open doc/book/index.html
 <li>C</li>
 <li>Python</li>
 </ul>
-<p>It comes bundled by default with the following Linux drivers:</p>
-<ul>
-<li>Xen</li>
-<li>KVM</li>
-<li>VirtualBox</li>
-<li>memflow</li>
-</ul>
-<h1 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h1>
+<h2 id="rust---cratesio"><a class="header" href="#rust---cratesio">Rust - Crates.io</a></h2>
 <p>The crate is available on crates.io:</p>
 <p><a href="https://crates.io/crates/microvmi"><img src="https://img.shields.io/crates/v/microvmi?logo=rust&amp;style=for-the-badge" alt="Crates.io" /></a></p>
-<h1 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h1>
-<p>A Debian package is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+</ul>
+<h2 id="c---debian-package"><a class="header" href="#c---debian-package">C - Debian package</a></h2>
+<p>A Debian package <code>microvmi_x.x.x_amd64.deb</code> is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
 <p><a href="https://github.com/Wenzel/libmicrovmi/releases"><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=yellowgreen&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></a></p>
 <p>It contains both the library and the headers to get started with C development</p>
 <ul>
 <li><code>/usr/lib/libmicrovmi.so</code></li>
 <li><code>/usr/include/libmicrovmi.h</code></li>
 </ul>
-<h1 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h1>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
+<li>memflow</li>
+</ul>
+<h2 id="c---windows-zip-archive"><a class="header" href="#c---windows-zip-archive">C - Windows zip archive</a></h2>
+<p>A zip archive <code>microvmi_win32.zip</code> containing a Windows release of <code>libmicrovmi</code> is available on <a href="https://github.com/Wenzel/libmicrovmi/releases">Github releases</a>:</p>
+<p><a href="https://github.com/Wenzel/libmicrovmi/releases"><img src="https://img.shields.io/github/v/release/Wenzel/libmicrovmi?color=blue&amp;logo=github&amp;style=for-the-badge" alt="GitHub release (latest by date)" /></a></p>
+<p>It contains both the library and the headers to get started with C development</p>
+<ul>
+<li><code>microvmi.dll</code></li>
+<li><code>libmicrovmi.h</code></li>
+</ul>
+<p>Bundled drivers:</p>
+<ul>
+<li>Virtualbox</li>
+<li>memflow</li>
+</ul>
+<h2 id="python---pypi"><a class="header" href="#python---pypi">Python - PyPI</a></h2>
 <p>libmicrovmi is exposing a Python interface through a native extension.</p>
 <p>The package <code>microvmi</code> is available on <a href="https://pypi.org/project/microvmi/">PyPI</a>:</p>
 <p><a href="https://pypi.org/project/microvmi/"><img src="https://img.shields.io/pypi/v/microvmi?color=blue&amp;logo=pypi&amp;logoColor=white&amp;style=for-the-badge" alt="PyPI" /></a></p>
@@ -246,7 +263,15 @@ $ xdg-open doc/book/index.html
 <pre><code>$ virtualenv -p python3 venv
 (venv) $ pip install microvmi
 </code></pre>
-<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system. Hence you don't have to install the debian package above.</p>
+<p>Note: this extension is completely independant from any existing <code>libmicrovmi.so</code> installation on you system.</p>
+<p>Note2: the native extension has been compiled for <strong>Linux only</strong>.</p>
+<p>Bundled drivers:</p>
+<ul>
+<li>Xen</li>
+<li>KVM</li>
+<li>VirtualBox</li>
+<li>memflow</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="listing-loaded-windows-10-drivers-using-memprocfs-on-qemu-linux"><a class="header" href="#listing-loaded-windows-10-drivers-using-memprocfs-on-qemu-linux">Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux)</a></h1>
 <p>TODO</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="listing-windows-10-processes-using-volatility3-on-xen"><a class="header" href="#listing-windows-10-processes-using-volatility3-on-xen">Listing Windows 10 Processes using Volatility3 on Xen</a></h1>
@@ -443,6 +468,7 @@ parameters.</p>
 <ul>
 <li>Xen &gt;= 4.11</li>
 <li>root privileges</li>
+<li>Platform: Linux</li>
 </ul>
 <h2 id="initialization-parameters"><a class="header" href="#initialization-parameters">Initialization parameters</a></h2>
 <ul>
@@ -452,6 +478,7 @@ parameters.</p>
 <h2 id="requirements-3"><a class="header" href="#requirements-3">Requirements</a></h2>
 <ul>
 <li>QEMU and KVM needs to be modified: <a href="https://kvm-vmi.github.io/kvm-vmi/master/">KVM-VMI setup</a></li>
+<li>Platform: Linux</li>
 </ul>
 <h2 id="initialization-parameters-1"><a class="header" href="#initialization-parameters-1">Initialization parameters</a></h2>
 <ul>
@@ -462,6 +489,7 @@ parameters.</p>
 <h2 id="requirements-4"><a class="header" href="#requirements-4">Requirements</a></h2>
 <ul>
 <li>virtualbox modified via <a href="https://github.com/thalium/icebox">icebox</a> project</li>
+<li>Platform: Windows/Linux</li>
 </ul>
 <p>To compile <code>libFDP</code></p>
 <pre><code>$ git clone --depth 1 https://github.com/thalium/icebox
@@ -487,6 +515,7 @@ $ sudo mv libFDP.so /usr/local/lib/
 <ul>
 <li>memflow connector <a href="https://github.com/memflow/memflow">project setup</a></li>
 <li>root privileges</li>
+<li>Platform: Windows/Linux</li>
 </ul>
 <h2 id="initialization-parameters-3"><a class="header" href="#initialization-parameters-3">Initialization parameters</a></h2>
 <ul>
@@ -843,11 +872,13 @@ a Rust library's <a href="https://doc.rust-lang.org/nomicon/ffi.html">FFI</a>.</
 </code></pre>
 <h2 id="building-mem-dump-c-example"><a class="header" href="#building-mem-dump-c-example">Building mem-dump C example</a></h2>
 <pre><code>$ cd c_examples/
-$ make mem-dump
+$ cmake -B build .
+$ cmake --build build --target mem-dump
 </code></pre>
 <h2 id="running-the-example-1"><a class="header" href="#running-the-example-1">Running the example</a></h2>
 <p>Next, let's run the example on your domain <code>&lt;vm_name&gt;</code>:</p>
-<pre><code>$ sudo LD_LIBRARY_PATH=&quot;$LD_LIBRARY_PATH:../target/debug&quot; ./mem-dump &lt;vm_name&gt;
+<pre><code>cd build
+$ sudo LD_LIBRARY_PATH=&quot;$LD_LIBRARY_PATH:../target/debug&quot; ./mem-dump &lt;vm_name&gt;
 </code></pre>
 <p>⚠️ Note: <code>libmicrovmi.so</code> has been generated by cargo into <code>target/debug</code>.
 We have to set <code>LD_LIBRARY_PATH</code> so that <code>mem-dump</code> is able to find the libary.</p>
