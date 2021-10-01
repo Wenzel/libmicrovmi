@@ -3,6 +3,7 @@
 ## Requirements
 
 - QEMU and KVM needs to be modified: [KVM-VMI setup](https://kvm-vmi.github.io/kvm-vmi/master/)
+- Platform: Linux
 
 ## Initialization parameters
 

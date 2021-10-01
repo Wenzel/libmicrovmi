@@ -12,6 +12,7 @@ It has multiple connectors which can be used to access physical memory:
 
 - memflow connector [project setup](https://github.com/memflow/memflow)
 - root privileges
+- Platform: Windows/Linux
 
 ## Initialization parameters
 

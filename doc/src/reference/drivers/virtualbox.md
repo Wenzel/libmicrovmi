@@ -3,6 +3,7 @@
 ## Requirements
 
 - virtualbox modified via [icebox](https://github.com/thalium/icebox) project
+- Platform: Windows/Linux
 
 To compile `libFDP`
 ~~~
