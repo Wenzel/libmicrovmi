@@ -3,7 +3,7 @@
 # Tutorials
 
 - [Installation](./tutorial/installation.md)
-- [Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux)](./tutorial/memprocfs_qemu.md)
+- [Listing Windows 10 Services using MemProcFS on QEMU (Linux)](./tutorial/memprocfs_qemu.md)
 - [Listing Windows 10 Processes using Volatility3 on Xen](./tutorial/volatility3_xen.md)
 - [Run LibVMI fork on memflow](./tutorial/libvmi.md)
 
