@@ -94,14 +94,18 @@ with libmicrovmi.
         </tr>
         <tr>
             <td>
-                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/rust_api.html">✅ Rust</a></li>
-                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/c_api.html">✅ C</a></li>
-                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/python_api.html">✅ Python</a></li>
+                <ul>
+                    <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/rust_api.html">✅ Rust</a></li>
+                    <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/c_api.html">✅ C</a></li>
+                    <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/python_api.html">✅ Python</a></li>
+                </ul>
             </td>
             <td>
-                <li>✅ Linux</li>
-                <li>✅ Windows</li>
-                <li>🔲 MacOS</li>
+                <ul>
+                    <li>✅ Linux</li>
+                    <li>✅ Windows</li>
+                    <li>🔲 MacOS</li>
+                </ul>
             </td>
         </tr>
     </tbody>
