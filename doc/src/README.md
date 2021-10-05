@@ -33,6 +33,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Project Status](#project-status)
 - [Getting Started](#getting-started)
 - [Documentation](#documentation)
 - [Maintainers](#maintainers)
@@ -51,9 +52,65 @@ yet the ecosystem is still heavily fragmented and lacks standards as well as int
 The main objective is to provide the simplest virtual machine introspection abstraction, offering a standard API to interact with
 any VMI provider, with a high degree of compatibility and composability to be integrated with any high-level VMI application.
 
-The documentation keeps track of libmicrovmi's [integration status](https://wenzel.github.io/libmicrovmi/reference/integration_status.html) for each VMI apps.
-
 ![libmicrovmi_image](https://user-images.githubusercontent.com/964610/110927584-1dfc4500-8326-11eb-9ed5-a0732296082b.png)
+
+## Project Status
+
+Below you can find a table describing the apps and drivers that can be used
+with libmicrovmi.
+
+<table>
+  <tbody>
+    <tr>
+        <th align="center">App</th>
+        <th align="center">Driver</th>
+    </tr>
+    <tr>
+        <td>
+            <ul>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/integration/leechcore.html">✅ MemProcFS / LeechCore</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/integration/volatility3.html">✅ volatility3</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/integration/libvmi.html">🟧 LibVMI</a></li>
+                <li><a href="https://github.com/Wenzel/libmicrovmi/issues/139">🔲 HyperDBG</a></li>
+            </ul>
+        </td>
+        <td>
+            <ul>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/drivers/xen.html">🟧 Xen</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/drivers/kvm.html">🟧 KVM</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/drivers/virtualbox.html">🟧 VirtualBox</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/drivers/memflow.html">✅ memflow</a></li>
+            </ul>
+        </td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+    <tbody>
+        <tr>
+            <th align="center">API</th>
+            <th align="center">Platform</th>
+        </tr>
+        <tr>
+            <td>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/rust_api.html">✅ Rust</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/c_api.html">✅ C</a></li>
+                <li><a href="https://wenzel.github.io/libmicrovmi/reference/api/python_api.html">✅ Python</a></li>
+            </td>
+            <td>
+                <li>✅ Linux</li>
+                <li>✅ Windows</li>
+                <li>🔲 MacOS</li>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+Legend:
+- ✅: full support
+- 🟧: partial support
+- 🔲: TODO
 
 ## Getting Started
 
