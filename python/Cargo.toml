@@ -36,9 +36,6 @@ microvmi = { path = "../" }
 version = "0.14.5"
 features = ["extension-module"]
 
-[profile.release]
-debug = true
-
 [package.metadata.release]
 # releases are managed by cargo release, but publication is done on the CI
 # this metadata prevents a misuse when --skip-publish flag is missing from cargo
