@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux) - Libmicrovmi Documentation</title>
+        <title>Listing Windows 10 Services using MemProcFS on QEMU (Linux) - Libmicrovmi Documentation</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
@@ -75,7 +75,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../tutorial/memprocfs_qemu.html" class="active"><strong aria-hidden="true">2.</strong> Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux)</a></li><li class="chapter-item expanded "><a href="../tutorial/volatility3_xen.html"><strong aria-hidden="true">3.</strong> Listing Windows 10 Processes using Volatility3 on Xen</a></li><li class="chapter-item expanded "><a href="../tutorial/libvmi.html"><strong aria-hidden="true">4.</strong> Run LibVMI fork on memflow</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/integration.html"><strong aria-hidden="true">5.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/integration/libvmi.html"><strong aria-hidden="true">5.1.</strong> LibVMI</a></li><li class="chapter-item expanded "><a href="../reference/integration/volatility3.html"><strong aria-hidden="true">5.2.</strong> volatility3</a></li><li class="chapter-item expanded "><a href="../reference/integration/leechcore.html"><strong aria-hidden="true">5.3.</strong> LeechCore</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/drivers/xen.html"><strong aria-hidden="true">6.1.</strong> Xen</a></li><li class="chapter-item expanded "><a href="../reference/drivers/kvm.html"><strong aria-hidden="true">6.2.</strong> KVM</a></li><li class="chapter-item expanded "><a href="../reference/drivers/virtualbox.html"><strong aria-hidden="true">6.3.</strong> VirtualBox</a></li><li class="chapter-item expanded "><a href="../reference/drivers/memflow.html"><strong aria-hidden="true">6.4.</strong> memflow</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">7.</strong> API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/api/rust_api.html"><strong aria-hidden="true">7.1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="../reference/api/python_api.html"><strong aria-hidden="true">7.2.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/api/c_api.html"><strong aria-hidden="true">7.3.</strong> C API</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/source.html"><strong aria-hidden="true">11.</strong> Source installation</a></li><li class="chapter-item expanded "><a href="../developer/intro_mem_dump.html"><strong aria-hidden="true">12.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../developer/mem_dump/rust.html"><strong aria-hidden="true">12.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/c.html"><strong aria-hidden="true">12.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/python.html"><strong aria-hidden="true">12.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">13.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">14.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">15.</strong> Release</a></li><li class="chapter-item expanded "><a href="../developer/credits.html"><strong aria-hidden="true">16.</strong> Credits</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../tutorial/memprocfs_qemu.html" class="active"><strong aria-hidden="true">2.</strong> Listing Windows 10 Services using MemProcFS on QEMU (Linux)</a></li><li class="chapter-item expanded "><a href="../tutorial/volatility3_xen.html"><strong aria-hidden="true">3.</strong> Listing Windows 10 Processes using Volatility3 on Xen</a></li><li class="chapter-item expanded "><a href="../tutorial/libvmi.html"><strong aria-hidden="true">4.</strong> Run LibVMI fork on memflow</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/integration.html"><strong aria-hidden="true">5.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/integration/libvmi.html"><strong aria-hidden="true">5.1.</strong> LibVMI</a></li><li class="chapter-item expanded "><a href="../reference/integration/volatility3.html"><strong aria-hidden="true">5.2.</strong> volatility3</a></li><li class="chapter-item expanded "><a href="../reference/integration/leechcore.html"><strong aria-hidden="true">5.3.</strong> LeechCore</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/drivers/xen.html"><strong aria-hidden="true">6.1.</strong> Xen</a></li><li class="chapter-item expanded "><a href="../reference/drivers/kvm.html"><strong aria-hidden="true">6.2.</strong> KVM</a></li><li class="chapter-item expanded "><a href="../reference/drivers/virtualbox.html"><strong aria-hidden="true">6.3.</strong> VirtualBox</a></li><li class="chapter-item expanded "><a href="../reference/drivers/memflow.html"><strong aria-hidden="true">6.4.</strong> memflow</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/api.html"><strong aria-hidden="true">7.</strong> API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/api/rust_api.html"><strong aria-hidden="true">7.1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="../reference/api/python_api.html"><strong aria-hidden="true">7.2.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/api/c_api.html"><strong aria-hidden="true">7.3.</strong> C API</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">8.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">9.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">10.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/source.html"><strong aria-hidden="true">11.</strong> Source installation</a></li><li class="chapter-item expanded "><a href="../developer/intro_mem_dump.html"><strong aria-hidden="true">12.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../developer/mem_dump/rust.html"><strong aria-hidden="true">12.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/c.html"><strong aria-hidden="true">12.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/python.html"><strong aria-hidden="true">12.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">13.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">14.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">15.</strong> Release</a></li><li class="chapter-item expanded "><a href="../developer/credits.html"><strong aria-hidden="true">16.</strong> Credits</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -134,8 +134,54 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="listing-loaded-windows-10-drivers-using-memprocfs-on-qemu-linux"><a class="header" href="#listing-loaded-windows-10-drivers-using-memprocfs-on-qemu-linux">Listing loaded Windows 10 drivers using MemProcFS on QEMU (Linux)</a></h1>
-<p>TODO</p>
+                        <h1 id="listing-windows-10-services-using-memprocfs-on-qemu-linux"><a class="header" href="#listing-windows-10-services-using-memprocfs-on-qemu-linux">Listing Windows 10 Services using MemProcFS on QEMU (Linux)</a></h1>
+<p>In this tutorial we will list the running services on a Windows 10 VM running in QEMU,
+either fully-emulated or hardware accelerated.</p>
+<p>Via the memflow driver, QEMU doesn't need to be modified and we can
+inspect its memory content to perform guest intropsection.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li><a href="./installation.html">libmicrovmi</a> installed on the system, via debian package</li>
+<li>Windows 10 VM running in QEMU</li>
+</ul>
+<h2 id="1---download-the-latest-memprocfs-release"><a class="header" href="#1---download-the-latest-memprocfs-release">1 - Download the latest MemProcFS release</a></h2>
+<p>Download the latest <a href="https://github.com/ufrisk/MemProcFS/releases/latest">MemProcFS</a> release for Linux,
+and extract the archive content</p>
+<h2 id="2---install-leechcore-microvmi-plugin"><a class="header" href="#2---install-leechcore-microvmi-plugin">2 - Install LeechCore Microvmi plugin</a></h2>
+<p>Compile and install the plugin:</p>
+<pre><code>git clone https://github.com/mtarral/LeechCore-plugins
+cd LeechCore-plugins
+make
+cp files/leechcore_device_microvmi.so &lt;memprocfs_extract_dir&gt;/
+</code></pre>
+<h2 id="3---mount-guest-memory-as-filesystem-via-memprocfs-and-list-services"><a class="header" href="#3---mount-guest-memory-as-filesystem-via-memprocfs-and-list-services">3 - Mount guest memory as filesystem via MemProcFS and list services</a></h2>
+<pre><code>cd &lt;memprocfs_extract_dir&gt;
+mkdir mount # create mount directory
+sudo -E ./memprocfs -mount `realpath mount` -device 'microvmi://memflow_connector_name=qemu_procfs'
+</code></pre>
+<p>At this point, you should be able to open another shell and browser <code>mount</code> as root.
+To list the services:</p>
+<pre><code>cd mount
+ls -l sys/services/by-name
+drwxr-xr-x 2 root root 0 oct.   5 11:12 1394ohci-1
+drwxr-xr-x 2 root root 0 oct.   5 11:12 3ware-2
+drwxr-xr-x 2 root root 0 oct.   5 11:12 AarSvc_130f7f-615
+drwxr-xr-x 2 root root 0 oct.   5 11:12 AarSvc-3
+drwxr-xr-x 2 root root 0 oct.   5 11:12 ACPI-4
+drwxr-xr-x 2 root root 0 oct.   5 11:12 AcpiDev-5
+drwxr-xr-x 2 root root 0 oct.   5 11:12 acpiex-6
+drwxr-xr-x 2 root root 0 oct.   5 11:12 acpipagr-7
+drwxr-xr-x 2 root root 0 oct.   5 11:12 AcpiPmi-8
+drwxr-xr-x 2 root root 0 oct.   5 11:12 acpitime-9
+drwxr-xr-x 2 root root 0 oct.   5 11:12 Acx01000-10
+drwxr-xr-x 2 root root 0 oct.   5 11:12 ADP80XX-11
+drwxr-xr-x 2 root root 0 oct.   5 11:12 AFD-12
+drwxr-xr-x 2 root root 0 oct.   5 11:12 afunix-13
+drwxr-xr-x 2 root root 0 oct.   5 11:12 ahcache-14
+...
+</code></pre>
+<p>Note: Use <code>MemProcFS</code> verbosity options to toggle debugging: <code>-v </code>-vv `-vvv</p>
+<p>Note2: Use <code>export RUST_LOG=debug</code> to toggle libmicrovmi logging</p>
 
                     </main>
 
