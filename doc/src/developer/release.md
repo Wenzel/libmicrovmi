@@ -18,7 +18,7 @@ Release CI related jobs
 Release and tags are managed using the [cargo-release](https://github.com/sunng87/cargo-release) tool.
 
 ~~~
-$ cargo release --no-dev-version --workspace --skip-push  --execute
+$ cargo release --no-dev-version --workspace --skip-push  --execute <major/minor/patch>
 ~~~
 
 We skip-push the commit because there is a [bug](https://github.com/crate-ci/cargo-release/issues/222) in cargo-release when working
