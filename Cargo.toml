@@ -55,7 +55,7 @@ colored = "2.0"
 mockall = "0.10.2"
 test-case = "1"
 indicatif = "0.16.2"
-inventory = "0.1.10"
+inventory = "0.2.0"
 
 [build-dependencies]
 cbindgen = "0.20.0"
