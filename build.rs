@@ -38,8 +38,5 @@ fn main() {
 
     println!("cargo:rerun-if-changed=src/capi.rs");
     // if it has been removed
-    println!(
-        "{}",
-        format!("cargo:rerun-if-changed={}", &out_path.display())
-    );
+    println!("cargo:rerun-if-changed={}", &out_path.display());
 }
