@@ -1,6 +1,6 @@
 [package]
 name = "microvmi"
-version = "0.3.11"
+version = "0.3.12"
 authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
 edition = "2018"
 description = "A cross-platform, unified, low-level VM introspection API supporting multiple hypervisors"
@@ -59,7 +59,7 @@ ntapi = { version = "0.3", optional = true }
 vid-sys = { version = "=0.3.0", features = [
     "deprecated-apis",
 ], optional = true }
-memflow = { version = "0.1.5", optional = true }
+memflow = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
 utilities = { path = "utilities" }
