@@ -11,7 +11,7 @@ nox.options.sessions = ["fmt", "lint", "type", "test"]
 
 @nox.session
 def fmt(session):
-    session.install("black==20.8b1")
+    session.install("black==24.2.0")
     # note: black doesn't support setup.cfg
     # so we hardcode the config here
     session.run("black", "--line-length", "120", ".")
