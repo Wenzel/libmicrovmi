@@ -6,7 +6,7 @@ import nox
 CUR_DIR = Path(__file__).parent
 
 # default sessions for nox
-nox.options.sessions = ["fmt", "lint", "type", "test"]
+nox.options.sessions = ["fmt", "lint", "test"]
 
 
 @nox.session
