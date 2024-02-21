@@ -37,11 +37,11 @@ cmake --build build
 
 The following example is based on `memflow`, but any libmicrovmi driver can be used.
 
-Assuming memflow connector `qemu_procfs` is installed and a QEMU VM is running:
+Assuming memflow connector `qemu` is installed and a QEMU VM is running:
 ~~~
 sudo -E ./examples/vmi-win-guid name <vm name>
 ~~~
 
-Note: memflow `qemu_procfs` connector requires to be root.
+Note: memflow `qemu` connector requires to be root.
 Note2: `RUST_LOG=info` or `RUST_LOG=debug` will give you extra info about libmicrovmi searching for available drivers.
-Note3: at this point, the `qemu_procfs` connector is hardcoded in LibVMI, but extending the command line argument and `vmi_init` function should be an easy task.
+Note3: at this point, the `qemu` connector is hardcoded in LibVMI, but extending the command line argument and `vmi_init` function should be an easy task.

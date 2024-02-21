@@ -2,8 +2,9 @@ use crate::api::params::{DriverInitParams, MemflowConnectorParams};
 use crate::api::{DriverType, Introspectable};
 use std::error::Error;
 
-use memflow::connector::{ConnectorArgs, ConnectorInstance, ConnectorInventory};
-use memflow::{PhysicalAddress, PhysicalMemory};
+use memflow::mem::PhysicalMemory;
+use memflow::plugins::{Args, ConnectorArgs, ConnectorInstanceArcBox, Inventory};
+use memflow::types::PhysicalAddress;
 use std::cell::RefCell;
 
 #[derive(thiserror::Error, Debug)]
@@ -14,12 +15,12 @@ pub enum MemflowDriverError {
     InvalidConnectorArgument(String),
 }
 
-const QEMU_PROCFS_CONNECTOR_NAME: &str = "qemu_procfs";
+const QEMU_PROCFS_CONNECTOR_NAME: &str = "qemu";
 
 pub struct Memflow {
     // refcell required because read methods are mutable
     // contrary to our read_frame signature
-    connector: RefCell<ConnectorInstance>,
+    connector: RefCell<ConnectorInstanceArcBox<'static>>,
 }
 
 impl Memflow {
@@ -29,20 +30,16 @@ impl Memflow {
         let memflow_init_params = init_params
             .memflow
             .ok_or(MemflowDriverError::MissingConnectorParameter)?;
-        // create inventory
-        let inventory = unsafe { ConnectorInventory::scan() };
         // parse connector args
-        let mut create_connector_args = ConnectorArgs::new();
-
+        let mut extra_args = Args::new();
         // reuse some of the common parameters in init_params
         #[allow(clippy::single_match)]
         match memflow_init_params.connector_name.as_str() {
             QEMU_PROCFS_CONNECTOR_NAME => {
-                // if init_params.common.vm_name exists and connector_name is qemu_procfs
+                // if init_params.common.vm_name exists and connector_name is qemu
                 // then insert vm_name value as 'name' connector args
                 if init_params.common.is_some() {
-                    create_connector_args =
-                        create_connector_args.insert("name", &init_params.common.unwrap().vm_name);
+                    extra_args = extra_args.insert("name", &init_params.common.unwrap().vm_name);
                 }
             }
             _ => {}
@@ -56,17 +53,21 @@ impl Memflow {
                 let (key, value) = s
                     .split_once('=')
                     .ok_or_else(|| MemflowDriverError::InvalidConnectorArgument(s.clone()))?;
-                // push it into memflow ConnectorArgs type
-                create_connector_args = create_connector_args.insert(key, value);
+                // push it into memflow Args type
+                extra_args = extra_args.insert(key, value);
             }
         }
         // display final connector args
-        debug!("Memflow connector args: {:#?}", create_connector_args);
+        debug!("Memflow connector args: {:#?}", extra_args);
+        let create_connector_args = ConnectorArgs::new(None, extra_args, None);
+        // create inventory
+        let inventory = Inventory::scan();
         // create memflow connector
-        let connector = unsafe {
-            inventory
-                .create_connector(&memflow_init_params.connector_name, &create_connector_args)?
-        };
+        let connector = inventory.create_connector(
+            &memflow_init_params.connector_name,
+            None,
+            Some(&create_connector_args),
+        )?;
         Ok(Memflow {
             connector: RefCell::new(connector),
         })
@@ -88,7 +89,7 @@ impl Introspectable for Memflow {
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        Ok(self.connector.borrow_mut().metadata().size as u64)
+        Ok(self.connector.borrow_mut().metadata().max_address.to_umem())
     }
 
     fn get_driver_type(&self) -> DriverType {

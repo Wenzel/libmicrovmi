@@ -18,7 +18,7 @@ pub enum KVMInitParams {
 /// This enumeration reflects the possibilities to initialize Memflow
 /// - default: will simply forward the string arguments to the connector
 // TODO
-// - [`qemu_procfs`](https://github.com/memflow/memflow-qemu-procfs)
+// - [`qemu`](https://github.com/memflow/memflow-qemu)
 // - [`kvm`](https://github.com/memflow/memflow-kvm)
 // - [`pcileech`](https://github.com/memflow/memflow-pcileech)
 // - [`coredump`](https://github.com/memflow/memflow-coredump)
@@ -97,7 +97,7 @@ pub struct CommonInitParams {
 /// // memflow.connector_name: mandatory
 /// // memflow.connector_args: optional
 /// let init_params = DriverInitParams {
-///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu_procfs"), ///
+///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"), ///
 ///         ..Default::default()}),
 ///     ..Default::default()
 /// };
