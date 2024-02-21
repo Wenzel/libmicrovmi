@@ -42,7 +42,7 @@ impl Memflow {
                 // then insert vm_name value as 'name' connector args
                 if init_params.common.is_some() {
                     create_connector_args =
-                        create_connector_args.insert("name", &*init_params.common.unwrap().vm_name);
+                        create_connector_args.insert("name", &init_params.common.unwrap().vm_name);
                 }
             }
             _ => {}
@@ -54,7 +54,7 @@ impl Memflow {
             // for each string, split at '=' to get key, value
             for s in args.iter() {
                 let (key, value) = s
-                    .split_once("=")
+                    .split_once('=')
                     .ok_or_else(|| MemflowDriverError::InvalidConnectorArgument(s.clone()))?;
                 // push it into memflow ConnectorArgs type
                 create_connector_args = create_connector_args.insert(key, value);

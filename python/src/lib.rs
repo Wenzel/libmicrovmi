@@ -118,9 +118,9 @@ impl MicrovmiExt {
         size: usize,
     ) -> PyResult<(&'p PyBytes, u64)> {
         let mut bytes_read: u64 = 0;
-        let pybuffer: &PyBytes = PyBytes::new_with(py, size, |mut buffer| {
+        let pybuffer: &PyBytes = PyBytes::new_with(py, size, |buffer| {
             self.driver
-                .read_physical(paddr, &mut buffer, &mut bytes_read)
+                .read_physical(paddr, buffer, &mut bytes_read)
                 .ok();
             Ok(())
         })?;

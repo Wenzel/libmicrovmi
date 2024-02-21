@@ -1,9 +1,6 @@
-use std::convert::From;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::error::Error;
-use std::mem;
-use std::vec::Vec;
 
 use kvmi::constants::PAGE_SIZE;
 #[cfg(test)] // only needed for tests
@@ -130,7 +127,7 @@ impl<T: KVMIntrospectable> Kvm<T> {
 
         // set vec_events size
         let vcpu_count = kvm.get_vcpu_count()?;
-        kvm.vec_events.resize_with(vcpu_count.try_into()?, || None);
+        kvm.vec_events.resize_with(vcpu_count.into(), || None);
 
         // enable CR event intercept by default
         // (interception will take place when CR register will be specified)
@@ -323,7 +320,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                 };
 
                 let vcpu = kvmi_event.vcpu;
-                let vcpu_index: usize = vcpu.try_into()?;
+                let vcpu_index: usize = vcpu.into();
                 self.vec_events[vcpu_index] = Some(kvmi_event);
 
                 Ok(Some(Event {
@@ -343,9 +340,9 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             EventReplyType::Continue => KVMiEventReply::Continue,
         };
         // get KVMiEvent associated with this VCPU
-        let vcpu_index: usize = event.vcpu.try_into()?;
-        let kvmi_event = mem::replace(&mut self.vec_events[vcpu_index], None).unwrap();
-        Ok(self.kvmi.reply(&kvmi_event, kvm_reply_type)?)
+        let vcpu_index: usize = event.vcpu.into();
+        let kvmi_event = &mut self.vec_events[vcpu_index].take().unwrap();
+        Ok(self.kvmi.reply(kvmi_event, kvm_reply_type)?)
     }
 
     fn get_driver_type(&self) -> DriverType {

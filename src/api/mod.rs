@@ -8,18 +8,22 @@ pub mod events;
 pub mod params;
 pub mod registers;
 
-bitflags! {
-    pub struct Access: u32 {
-        const R=0b00000001;
-        const W=0b00000010;
-        const X=0b00000100;
-        const NIL=0b00000000;
-        const RW=Self::R.bits | Self::W.bits;
-        const WX=Self::W.bits | Self::X.bits;
-        const RX=Self::R.bits | Self::X.bits;
-        const RWX=Self::R.bits | Self::W.bits | Self::X.bits;
+#[allow(clippy::bad_bit_mask)]
+mod flags {
+    bitflags! {
+        pub struct Access: u32 {
+            const NIL=0b00000000;
+            const R=0b00000001;
+            const W=0b00000010;
+            const X=0b00000100;
+            const RW=Self::R.bits | Self::W.bits;
+            const WX=Self::W.bits | Self::X.bits;
+            const RX=Self::R.bits | Self::X.bits;
+            const RWX=Self::R.bits | Self::W.bits | Self::X.bits;
+        }
     }
 }
+pub use flags::Access;
 
 ///Represents the available hypervisor VMI drivers supported by libmicrovmi
 #[repr(C)]

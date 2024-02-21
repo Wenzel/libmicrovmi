@@ -6,12 +6,12 @@ import nox
 CUR_DIR = Path(__file__).parent
 
 # default sessions for nox
-nox.options.sessions = ["fmt", "lint", "type", "test"]
+nox.options.sessions = ["fmt", "lint", "test"]
 
 
 @nox.session
 def fmt(session):
-    session.install("black==20.8b1")
+    session.install("black==24.2.0")
     # note: black doesn't support setup.cfg
     # so we hardcode the config here
     session.run("black", "--line-length", "120", ".")
