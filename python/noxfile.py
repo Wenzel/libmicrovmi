@@ -109,7 +109,7 @@ def test_volatility_kvm(session):
 def test_volatility_memflow(session):
     """Run the PsList volatility plugin on the memflow connector specified by the URL"""
     # example:
-    # nox -r -s test_volatility_memflow -- vmi:///?memflow_connector_name=qemu_procfs
+    # nox -r -s test_volatility_memflow -- vmi:///?memflow_connector_name=qemu
     args = session.posargs
     if not args:
         raise RuntimeError("URL required. Example: nox -r -s test_volatility_memflow -- vmi:///...")
