@@ -30,7 +30,7 @@ pub struct Xen {
     xc: XenControl,
     xev: XenEventChannel,
     xen_fgn: XenForeignMem,
-    dom_name: String,
+    _dom_name: String,
     domid: u32,
     back_ring: vm_event_back_ring,
 }
@@ -110,7 +110,7 @@ impl Xen {
             xc,
             xev,
             xen_fgn,
-            dom_name: domain_name,
+            _dom_name: domain_name,
             domid: cand_domid,
             back_ring,
         };
@@ -142,7 +142,7 @@ impl Introspectable for Xen {
                 .map(self.domid, PROT_READ, gfn)
                 .map_err(XenDriverError::from)?;
             // determine how much we can read
-            let read_len = if (page_offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+            let read_len = if (page_offset + count_mut) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - page_offset
             } else {
                 count_mut
@@ -182,10 +182,10 @@ impl Introspectable for Xen {
                 .map(self.domid, PROT_WRITE, pfn)
                 .map_err(XenDriverError::from)?;
             // determine how much we can write
-            let write_len = if (offset + count_mut as u64) > u64::from(PAGE_SIZE) {
+            let write_len = if (offset + count_mut) > u64::from(PAGE_SIZE) {
                 u64::from(PAGE_SIZE) - offset
             } else {
-                count_mut as u64
+                count_mut
             };
 
             // do the write
@@ -204,6 +204,7 @@ impl Introspectable for Xen {
             .xc
             .domain_maximum_gpfn(self.domid)
             .map_err(XenDriverError::from)?;
+
         Ok(max_gpfn << PAGE_SHIFT)
     }
 
@@ -211,10 +212,9 @@ impl Introspectable for Xen {
         let domain_info = self
             .xc
             .domain_getinfo(self.domid)
-            .map_err(XenDriverError::from)?;
-        Ok((domain_info.max_vcpu_id + 1)
-            .try_into()
-            .map_err(XenDriverError::from)?)
+            .map_err(XenDriverError::from)?
+            .ok_or("Domain info not found")?;
+        Ok((domain_info.max_vcpu_id + 1).try_into().unwrap())
     }
 
     fn read_registers(&self, vcpu: u16) -> Result<Registers, Box<dyn Error>> {
@@ -345,41 +345,13 @@ impl Introspectable for Xen {
                 cpu.gs_limit = x86_registers.gs.limit;
                 cpu.ss_limit = x86_registers.ss.limit;
                 cpu.tr_limit = x86_registers.tr.limit;
-                cpu.cs_sel = x86_registers
-                    .cs
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.ds_sel = x86_registers
-                    .ds
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.es_sel = x86_registers
-                    .es
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.fs_sel = x86_registers
-                    .fs
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.gs_sel = x86_registers
-                    .gs
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.ss_sel = x86_registers
-                    .ss
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
-                cpu.tr_sel = x86_registers
-                    .tr
-                    .selector
-                    .try_into()
-                    .map_err(XenDriverError::from)?;
+                cpu.cs_sel = x86_registers.cs.selector.into();
+                cpu.ds_sel = x86_registers.ds.selector.into();
+                cpu.es_sel = x86_registers.es.selector.into();
+                cpu.fs_sel = x86_registers.fs.selector.into();
+                cpu.gs_sel = x86_registers.gs.selector.into();
+                cpu.ss_sel = x86_registers.ss.selector.into();
+                cpu.tr_sel = x86_registers.tr.selector.into();
             }
         }
         self.xc.domain_hvm_setcontext(
