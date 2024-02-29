@@ -1,3 +1,2 @@
 # cargo release config file
 consolidate-commits = true
-consolidate-pushes = true

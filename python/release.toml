@@ -1,4 +1,4 @@
 # cargo-release config file
 
 # don't create pymicrovmi-vxxx tag
-disable-tag = true
+tag = false
