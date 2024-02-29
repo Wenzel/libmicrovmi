@@ -38,6 +38,6 @@ features = ["extension-module"]
 
 [package.metadata.release]
 # releases are managed by cargo release, but publication is done on the CI
-# this metadata prevents a misuse when --skip-publish flag is missing from cargo
+# this metadata prevents a misuse when --no-publish flag is missing from cargo
 # release command line
-disable-publish = true
+publish = false
