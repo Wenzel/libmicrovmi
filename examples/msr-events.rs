@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use std::u32;
 
 use clap::{App, Arg, ArgMatches};
 use colored::*;
