@@ -6,6 +6,9 @@ set -ex
 
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
 export PATH="$HOME/.cargo/bin:$PATH"
+# libclang is in non standard path
+export LIBCLANG_PATH=/opt/rh/llvm-toolset-7.0/root/usr/lib64
+export LD_LIBRARY_PATH=$LIBCLANG_PATH:$LD_LIBRARY_PATH
 
 # map libmicrovmi root dir to /io
 cd /io/python
