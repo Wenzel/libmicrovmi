@@ -9,6 +9,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # libclang is in non standard path
 export LIBCLANG_PATH=/opt/rh/llvm-toolset-7.0/root/usr/lib64
 export LD_LIBRARY_PATH=$LIBCLANG_PATH:$LD_LIBRARY_PATH
+# c stdlib headers
+export BINDGEN_EXTRA_CLANG_ARGS="-I/opt/rh/devtoolset-10/root/usr/lib/gcc/x86_64-redhat-linux/10/include -I/usr/include"
+
 
 # map libmicrovmi root dir to /io
 cd /io/python
