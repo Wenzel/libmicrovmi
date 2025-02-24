@@ -10,7 +10,7 @@ on:
 
 jobs:
   format:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: install stable toolchain with rustfmt
@@ -27,7 +27,7 @@ jobs:
           args: -- --check
 
   xen:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: install Xen headers and libraries
@@ -52,7 +52,7 @@ jobs:
           args: --features xen -- -D warnings
 
   kvm:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: clone libkvmi
@@ -125,7 +125,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-20.04, windows-2022 ]
+        os: [ ubuntu-22.04, windows-2022 ]
 
     steps:
       - name: install stable toolchain with clippy
@@ -148,7 +148,7 @@ jobs:
           args: --features mflow -- -D warnings
 
   virtualbox_linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: clone Icebox repository
@@ -232,7 +232,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2022]
+        os: [ubuntu-22.04, windows-2022]
 
     steps:
       - name: install stable toolchain
@@ -258,7 +258,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2022]
+        os: [ubuntu-22.04, windows-2022]
     steps:
       - name: install stable toolchain with clippy
         uses: actions-rs/toolchain@v1
@@ -279,7 +279,7 @@ jobs:
   release_python:
     # build a libmicrovmi python bindings release
     # and upload it as artifact
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: install stable toolchain with clippy
         uses: actions-rs/toolchain@v1
@@ -338,7 +338,7 @@ jobs:
     # create a debian package with libmicrovmi release
     # and upload it as artifact
     needs: [format, xen, kvm, virtualbox_linux, memflow]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v1
@@ -472,7 +472,7 @@ jobs:
     # - push on master
     # - tag starts with 'v*'
     needs: [c_api, examples, release_python, release_debian_package, release_windows]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     # output these value to be used by other jobs so they can add assets
     outputs:
       upload_url: ${{ steps.step_upload_url.outputs.upload_url }}
@@ -509,7 +509,7 @@ jobs:
   publish_debian_package:
     # publish the debian package in the Github Release
     needs: github_release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       # the deploy action below depends on a checkout of the repo
@@ -543,7 +543,7 @@ jobs:
 
   publish_windows:
     # publish the windows release on Github Release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: github_release
     steps:
       - uses: actions/checkout@v1
@@ -574,7 +574,7 @@ jobs:
   publish_book:
     # build and publish the book on Github pages
     needs: github_release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v1
@@ -603,7 +603,7 @@ jobs:
 
   publish_crates_io:
     needs: github_release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     # publish on crates.io
     # this should be triggered by cargo release, which creates a new tag and pushes to the repo
@@ -622,7 +622,7 @@ jobs:
 
   publish_pypi:
     needs: github_release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v2
