@@ -13,18 +13,13 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: install stable toolchain with rustfmt
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: rustfmt
       - uses: actions/checkout@v1
       - name: rustfmt check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check
+        run: cargo fmt --check
 
   xen:
     runs-on: ubuntu-22.04
@@ -32,24 +27,15 @@ jobs:
     steps:
       - name: install Xen headers and libraries
         run: sudo apt-get install -y libxen-dev
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
       - uses: actions/checkout@v1
-      - name: build Xen driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features xen
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy xen
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features xen -- -D warnings
+      - name: build and check Xen driver
+        run: |
+          cargo build --features xen
+          cargo clippy --features xen -- -D warnings
 
   kvm:
     runs-on: ubuntu-22.04
@@ -70,35 +56,20 @@ jobs:
           sudo make install
         working-directory: libkvmi
 
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
       - uses: actions/checkout@v1
-      - name: build KVM driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features kvm
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy kvm
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features kvm -- -D warnings
-      - name: remove compilation artifacts from stable toolchain
-        uses: actions-rs/cargo@v1
-        with:
-          command: clean
+      - name: build and check KVM driver
+        run: |
+          cargo build --features kvm
+          cargo clippy --features kvm -- -D warnings
+      - name: remove compilation artifacts
+        run: cargo clean
 
       - name: test KVM driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          # --lib only unit tests in the library, avoid integration tests
-          args: --lib --features kvm
+        run: cargo test --lib --features kvm
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
@@ -128,24 +99,15 @@ jobs:
         os: [ ubuntu-22.04, windows-2022 ]
 
     steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
       - uses: actions/checkout@v1
-      - name: build Memflow driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features mflow
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy memflow
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features mflow -- -D warnings
+      - name: build and check Memflow driver
+        run: |
+          cargo build --features mflow
+          cargo clippy --features mflow -- -D warnings
 
   virtualbox_linux:
     runs-on: ubuntu-22.04
@@ -159,34 +121,23 @@ jobs:
           g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt
           sudo cp include/* /usr/local/include
           sudo cp libFDP.so /usr/local/lib
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
       - uses: actions/checkout@v1
-      - name: build VirtualBox driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --features virtualbox
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy virtualbox
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features virtualbox -- -D warnings
+      - name: build and check VirtualBox driver
+        run: |
+          cargo build --features virtualbox
+          cargo clippy --features virtualbox -- -D warnings
 
   virtualbox_windows:
     runs-on: windows-2022
 
     steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
 
       - name: Clone Icebox repository
@@ -220,10 +171,7 @@ jobs:
         run: choco install llvm
 
       - name: build VirtualBox driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox
+        run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox
         env:
           BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
           CARGO_BUILD_RUSTFLAGS: -L C:\FDP
@@ -235,18 +183,13 @@ jobs:
         os: [ubuntu-22.04, windows-2022]
 
     steps:
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - uses: actions/checkout@v1
 
       - name: build libmicrovmi
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+        run: cargo build
 
       - name: build C API
         run: |
@@ -260,32 +203,24 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-2022]
     steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
 
       - uses: actions/checkout@v1
 
-      - name: build examples with clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy examples
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --examples -- -D warnings
+      - name: check examples with clippy
+        run: cargo clippy --examples -- -D warnings
 
   release_python:
     # build a libmicrovmi python bindings release
     # and upload it as artifact
     runs-on: ubuntu-22.04
     steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
 
       - name: Set up Python 3.8 🐍
@@ -301,18 +236,10 @@ jobs:
           nox -r
         working-directory: python
 
-      - name: build Python extension
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: -p pymicrovmi
-
-      - name: annotate commit with clippy warnings
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy python
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: -p pymicrovmi -- -D warnings
+      - name: build Python extension and check with clippy
+        run: |
+          cargo build -p pymicrovmi
+          cargo clippy -p pymicrovmi -- -D warnings
 
       - name: install Python package
         run: |
@@ -407,11 +334,9 @@ jobs:
     needs: [virtualbox_windows, memflow]
     runs-on: windows-2022
     steps:
-      - name: install stable toolchain with clippy
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
 
       - name: Clone Icebox repository
@@ -445,10 +370,7 @@ jobs:
         run: choco install llvm
 
       - name: build libmicrovmi with virtualbox and memflow driver
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow --release
+        run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow --release
         env:
           BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
           CARGO_BUILD_RUSTFLAGS: -L C:\FDP
@@ -604,6 +526,9 @@ jobs:
         run: sudo apt-get install -y libxen-dev
 
       - uses: actions/checkout@v1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Publish
         shell: bash
