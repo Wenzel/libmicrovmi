@@ -1,5 +1,5 @@
 <!DOCTYPE HTML>
-<html lang="en" class="light" dir="ltr">
+<html lang="en" class="light sidebar-visible" dir="ltr">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
@@ -7,7 +7,7 @@
 
 
         <!-- Custom HTML head -->
-        
+
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
@@ -30,15 +30,17 @@
 
         <!-- Custom theme stylesheets -->
 
-    </head>
-    <body class="sidebar-visible no-js">
-    <div id="body-container">
+
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
-
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -60,19 +62,16 @@
             var theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
+            const html = document.documentElement;
             html.classList.remove('light')
             html.classList.add(theme);
-            var body = document.querySelector('body');
-            body.classList.remove('no-js')
-            body.classList.add('js');
+            html.classList.add("js");
         </script>
 
         <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var body = document.querySelector('body');
             var sidebar = null;
             var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
@@ -82,45 +81,25 @@
                 sidebar = 'hidden';
             }
             sidebar_toggle.checked = sidebar === 'visible';
-            body.classList.remove('sidebar-visible');
-            body.classList.add("sidebar-" + sidebar);
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="../tutorial/installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../tutorial/memprocfs_qemu.html"><strong aria-hidden="true">3.</strong> Listing Windows 10 Services using MemProcFS on QEMU (Linux)</a></li><li class="chapter-item expanded "><a href="../tutorial/volatility3_xen.html"><strong aria-hidden="true">4.</strong> Listing Windows 10 Processes using Volatility3 on Xen</a></li><li class="chapter-item expanded "><a href="../tutorial/libvmi.html"><strong aria-hidden="true">5.</strong> Run LibVMI fork on memflow</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="../reference/integration.html"><strong aria-hidden="true">6.</strong> Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/integration/libvmi.html"><strong aria-hidden="true">6.1.</strong> LibVMI</a></li><li class="chapter-item expanded "><a href="../reference/integration/volatility3.html"><strong aria-hidden="true">6.2.</strong> volatility3</a></li><li class="chapter-item expanded "><a href="../reference/integration/leechcore.html"><strong aria-hidden="true">6.3.</strong> LeechCore</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/drivers.html"><strong aria-hidden="true">7.</strong> Drivers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/drivers/xen.html"><strong aria-hidden="true">7.1.</strong> Xen</a></li><li class="chapter-item expanded "><a href="../reference/drivers/kvm.html"><strong aria-hidden="true">7.2.</strong> KVM</a></li><li class="chapter-item expanded "><a href="../reference/drivers/virtualbox.html"><strong aria-hidden="true">7.3.</strong> VirtualBox</a></li><li class="chapter-item expanded "><a href="../reference/drivers/memflow.html"><strong aria-hidden="true">7.4.</strong> memflow</a></li></ol></li><li class="chapter-item expanded "><a href="../reference/api.html" class="active"><strong aria-hidden="true">8.</strong> API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../reference/api/rust_api.html"><strong aria-hidden="true">8.1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="../reference/api/python_api.html"><strong aria-hidden="true">8.2.</strong> Python API</a></li><li class="chapter-item expanded "><a href="../reference/api/c_api.html"><strong aria-hidden="true">8.3.</strong> C API</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Explanation</li><li class="chapter-item expanded "><a href="../explanation/vmi_api.html"><strong aria-hidden="true">9.</strong> VMI API</a></li><li class="chapter-item expanded "><a href="../explanation/vmi_ecosystem.html"><strong aria-hidden="true">10.</strong> VMI Fragmentation</a></li><li class="chapter-item expanded affix "><li class="part-title">Developer</li><li class="chapter-item expanded "><a href="../developer/libmicrovmi.html"><strong aria-hidden="true">11.</strong> libmicrovmi</a></li><li class="chapter-item expanded "><a href="../developer/source.html"><strong aria-hidden="true">12.</strong> Source installation</a></li><li class="chapter-item expanded "><a href="../developer/intro_mem_dump.html"><strong aria-hidden="true">13.</strong> Memory dump example on Xen</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../developer/mem_dump/rust.html"><strong aria-hidden="true">13.1.</strong> Rust</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/c.html"><strong aria-hidden="true">13.2.</strong> C</a></li><li class="chapter-item expanded "><a href="../developer/mem_dump/python.html"><strong aria-hidden="true">13.3.</strong> Python</a></li></ol></li><li class="chapter-item expanded "><a href="../developer/python.html"><strong aria-hidden="true">14.</strong> Python</a></li><li class="chapter-item expanded "><a href="../developer/tests.html"><strong aria-hidden="true">15.</strong> Tests</a></li><li class="chapter-item expanded "><a href="../developer/release.html"><strong aria-hidden="true">16.</strong> Release</a></li><li class="chapter-item expanded "><a href="../developer/credits.html"><strong aria-hidden="true">17.</strong> Credits</a></li></ol>
-            </div>
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <!-- Track and set sidebar scroll position -->
-        <script>
-            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
-            sidebarScrollbox.addEventListener('click', function(e) {
-                if (e.target.tagName === 'A') {
-                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
-                }
-            }, { passive: true });
-            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-            sessionStorage.removeItem('sidebar-scroll');
-            if (sidebarScrollTop) {
-                // preserve sidebar scroll position when navigating via links within sidebar
-                sidebarScrollbox.scrollTop = sidebarScrollTop;
-            } else {
-                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
-                var activeSection = document.querySelector('#sidebar .active');
-                if (activeSection) {
-                    activeSection.scrollIntoView({ block: 'center' });
-                }
-            }
-        </script>
-
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
                         <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
