@@ -40,7 +40,7 @@ def test(session):
     # can't use pip install
     # see: https://github.com/PyO3/maturin/issues/330
     session.run(f'{CUR_DIR / "setup.py"}', "develop")
-    session.install("pytest==6.0.2", "coverage==5.3")
+    session.install("pytest==8.3.4", "coverage==5.3")
     session.run("coverage", "run", "-m", "pytest", "-v", "-k", "unit", *args)
     session.run("coverage", "report")
 
