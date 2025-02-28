@@ -428,9 +428,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         id: download
         with:
           name: microvmi_deb
@@ -453,16 +453,15 @@ jobs:
           asset_name: ${{ steps.artefact.outputs.name }}
           asset_content_type: application/vnd.debian.binary-package
 
-
   publish_windows:
     # publish the windows release on Github Release
     runs-on: ubuntu-22.04
     needs: github_release
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       # download artifacts
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         id: download
         with:
           # download to tmp_dir
@@ -490,7 +489,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
         with:
@@ -525,7 +524,7 @@ jobs:
       - name: Install Xen headers and libraries
         run: sudo apt-get install -y libxen-dev
 
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -535,16 +534,15 @@ jobs:
         run: |
           cargo publish --features xen --token ${{ secrets.CRATES_TOKEN }}
 
-
   publish_pypi:
     needs: github_release
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # download all wheels into a new manylinux directory
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         id: download
         with:
           name: python_wheels
