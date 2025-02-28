@@ -15,7 +15,7 @@ use params::{CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, MemflowIni
 
 /// microvmi Python module declaration
 #[pymodule]
-fn pymicrovmi(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pymicrovmi(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // init the env logger at module init
     env_logger::init();
 
@@ -64,7 +64,7 @@ impl MicrovmiExt {
     ///     driver_type (int, optional): the hypervisor driver type on which the library should be initialized.
     ///     init_param (DriverInitParamPy, optional): initialization parameters for driver initialization
     #[new]
-    #[args(driver_type = "None", init_params = "None")]
+    #[pyo3(signature = (driver_type=None, init_params=None))]
     fn new(driver_type: Option<u32>, init_params: Option<DriverInitParamsPy>) -> PyResult<Self> {
         info!("Microvmi Python init");
         debug!(
@@ -116,9 +116,9 @@ impl MicrovmiExt {
         py: Python<'p>,
         paddr: u64,
         size: usize,
-    ) -> PyResult<(&'p PyBytes, u64)> {
+    ) -> PyResult<(Bound<'p, PyBytes>, u64)> {
         let mut bytes_read: u64 = 0;
-        let pybuffer: &PyBytes = PyBytes::new_with(py, size, |buffer| {
+        let pybuffer = PyBytes::new_bound_with(py, size, |buffer| {
             self.driver
                 .read_physical(paddr, buffer, &mut bytes_read)
                 .ok();
@@ -133,7 +133,7 @@ impl MicrovmiExt {
     /// Args:
     ///     paddr (int): the physical address to start reading from
     ///     buffer (bytearray): the buffer to read into
-    fn read_physical_into(&self, paddr: u64, buffer: &PyByteArray) -> u64 {
+    fn read_physical_into(&self, paddr: u64, buffer: &Bound<'_, PyByteArray>) -> u64 {
         let mut_buf: &mut [u8] = unsafe { buffer.as_bytes_mut() };
         let mut bytes_read: u64 = 0;
         // ignore read error
