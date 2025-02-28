@@ -74,12 +74,12 @@ jobs:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
 
-      - name: install grcov
-        uses: actions-rs/install@v0.1
-        with:
-          crate: grcov
-          version: latest
-          use-tool-cache: true
+      # - name: install grcov
+      #   uses: actions-rs/install@v0.1
+      #   with:
+      #     crate: grcov
+      #     version: latest
+      #     use-tool-cache: true
 
       # - name: generate coverage report
       #   id: coverage
