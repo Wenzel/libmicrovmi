@@ -88,20 +88,28 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
                 MemflowConnectorParamsFFI::Default {
                     args_arr,
                     args_arr_len,
-                } => unsafe {
-                    // build array slice
-                    let args = std::slice::from_raw_parts(args_arr, args_arr_len);
-                    // convert each C string to Rust owned String
-                    let mut args_vec = Vec::new();
-                    for s in args.iter() {
-                        args_vec.push(CStr::from_ptr(*s).to_owned().into_string()?);
+                } => {
+                    // Only call from_raw_parts if args_arr is non-null and args_arr_len > 0
+                    if !args_arr.is_null() && args_arr_len > 0 {
+                        // build array slice
+                        let args = unsafe { std::slice::from_raw_parts(args_arr, args_arr_len) };
+                        // convert each C string to Rust owned String
+                        let mut args_vec = Vec::with_capacity(args.len());
+                        for s in args.iter() {
+                            args_vec.push(unsafe { CStr::from_ptr(*s) }.to_owned().into_string()?);
+                        }
+                        Some(MemflowConnectorParams::Default { args: args_vec })
+                    } else {
+                        // no args provided
+                        Some(MemflowConnectorParams::Default { args: vec![] })
                     }
-                    args_vec
-                },
+                }
             };
             Some(MemflowInitParams {
-                connector_name: unsafe { CStr::from_ptr(connector_name).to_owned().into_string()? },
-                connector_args: Some(MemflowConnectorParams::Default { args }),
+                connector_name: unsafe { CStr::from_ptr(connector_name) }
+                    .to_owned()
+                    .into_string()?,
+                connector_args: args,
             })
         };
         Ok(DriverInitParams {
