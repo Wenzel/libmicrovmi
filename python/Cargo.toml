@@ -33,7 +33,7 @@ thiserror = "2.0.11"
 microvmi = { path = "../" }
 
 [dependencies.pyo3]
-version = "0.21.0"
+version = "0.24.1"
 features = ["extension-module", "abi3-py39"]
 
 [package.metadata.release]
