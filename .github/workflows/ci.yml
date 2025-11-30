@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - '*'
+      - "*"
   pull_request:
 
 jobs:
@@ -96,7 +96,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-22.04, windows-2022 ]
+        os: [ubuntu-22.04, windows-2022]
 
     steps:
       - name: Install Rust toolchain
@@ -130,6 +130,9 @@ jobs:
         run: |
           cargo build --features virtualbox
           cargo clippy --features virtualbox -- -D warnings
+        env:
+          LIBRARY_PATH: /usr/local/lib
+          LD_LIBRARY_PATH: /usr/local/lib
 
   virtualbox_windows:
     runs-on: windows-2022
@@ -223,10 +226,10 @@ jobs:
         with:
           components: clippy
 
-      - name: Set up Python 3.9 🐍
+      - name: Set up Python 🐍
         uses: actions/setup-python@v1
         with:
-          python-version: '3.9'
+          python-version: "3.14"
 
       - uses: actions/checkout@v1
 
@@ -389,7 +392,8 @@ jobs:
           path: libmicrovmi/output/*
 
   github_release:
-    needs: [c_api, examples, release_python, release_debian_package, release_windows]
+    needs:
+      [c_api, examples, release_python, release_debian_package, release_windows]
     runs-on: ubuntu-22.04
     outputs:
       upload_url: ${{ steps.step_upload_url.outputs.upload_url }}

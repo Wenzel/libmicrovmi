@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-cargo-mdbook
 
       - name: install mdbook
-        run: cargo install mdbook
+        run: cargo install mdbook@0.4.52
 
       - name: build doc
         run: mdbook build doc
