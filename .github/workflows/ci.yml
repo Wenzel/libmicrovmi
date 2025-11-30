@@ -8,6 +8,10 @@ on:
       - "*"
   pull_request:
 
+permissions:
+  # to create releases
+  contents: write
+
 jobs:
   format:
     runs-on: ubuntu-22.04
