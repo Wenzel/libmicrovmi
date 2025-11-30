@@ -16,7 +16,7 @@ export BINDGEN_EXTRA_CLANG_ARGS="-I/opt/rh/devtoolset-10/root/usr/lib/gcc/x86_64
 # map libmicrovmi root dir to /io
 cd /io/python
 
-for PYBIN in /opt/python/cp{39,310,311,312}*/bin; do
+for PYBIN in /opt/python/cp{39,310,311,312,313,314}*/bin; do
     "${PYBIN}/pip" install -r requirements.txt
     "${PYBIN}/python" setup.py bdist_wheel $@
 done
