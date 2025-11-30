@@ -1,4 +1,4 @@
-FROM quay.io/pypa/manylinux2014_x86_64:latest@sha256:de0a3338f5564eb9b3645122e4c12eb4f64d63f0ce6867c9cb8e96f75eb95c5b
+FROM quay.io/pypa/manylinux2014_x86_64:latest@sha256:3eee053a02bd2372799fe1fdbc256245996f66dff5d4d47173429ae7d09dd9bf
 
 # install libclang 7.0
 RUN yum -y install llvm-toolset-7.0-clang llvm-toolset-7.0-clang-devel
