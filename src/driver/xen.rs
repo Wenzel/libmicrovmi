@@ -211,7 +211,7 @@ impl Introspectable for Xen {
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         let domain_info = self
             .xc
-            .domain_getinfo(self.domid)
+            .domain_getinfolist(self.domid)
             .map_err(XenDriverError::from)?
             .ok_or("Domain info not found")?;
         Ok((domain_info.max_vcpu_id + 1).try_into().unwrap())
