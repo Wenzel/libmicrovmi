@@ -7,7 +7,7 @@ RUN yum -y install llvm-toolset-7.0-clang llvm-toolset-7.0-clang-devel
 # Note: the first sed disables a compiler flag that would be treated as an error
 # the second sed disabled the compilation of qemu, which is very long and also
 # had errors, and we don't need it anyway
-RUN git clone -b RELEASE-4.17.0 --depth 1 https://github.com/xen-project/xen \
+RUN git clone -b RELEASE-4.18.0 --depth 1 https://github.com/xen-project/xen \
         && cd xen \
         && yum install -y flex ninja-build dev86 xz-devel python3-devel gettext-devel iasl \
         ncurses-devel pixman-devel wget yajl-devel zlib-devel \
