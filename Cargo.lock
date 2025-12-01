@@ -1490,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "pymicrovmi"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "env_logger 0.11.6",
  "log",
@@ -2391,9 +2391,9 @@ dependencies = [
 
 [[package]]
 name = "xenctrl"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3a182dfb8299ff24a1661e8dbd0cc7e570f48d7a12fdd903295e540dba9a7be"
+checksum = "fd41eb1118b7171c6bf72f5ad020bcec4d1ff2dda2fcbb196211dfcd6e8d94cc"
 dependencies = [
  "libloading 0.9.0",
  "log",
