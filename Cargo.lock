@@ -2375,8 +2375,6 @@ dependencies = [
 [[package]]
 name = "xenctrl"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd4779a5676c5b1cd7eeef5010c3abe401c2704af3db6174b4df209af09a6b0"
 dependencies = [
  "libloading 0.8.6",
  "log",

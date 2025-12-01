@@ -1,0 +1,26 @@
+[package]
+name = "xenctrl"
+version = "0.7.0"
+authors = ["Mathieu Tarral <mathieu.tarral@protonmail.com>"]
+edition = "2018"
+description = "Safe bindings to xenctrl"
+readme = "README.md"
+homepage = "https://github.com/Wenzel/xenctrl"
+repository = "https://github.com/Wenzel/xenctrl"
+license = "GPL-3.0-only"
+keywords = ["xen", "xenctrl"]
+categories = ["api-bindings"]
+
+[dependencies]
+libloading = "0.8.6"
+log = "0.4.26"
+xenctrl-sys = "0.2.0"
+xenvmevent-sys = "0.2.0"
+num_enum = "0.7.3"
+num-traits = "0.2.19"
+
+[package.metadata.release]
+# releases are managed by cargo release, but publication is done on the CI
+# this metadata prevents a misuse when --skip-publish flag is missing from cargo
+# release command line
+publish = false
