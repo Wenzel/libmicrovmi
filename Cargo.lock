@@ -1171,6 +1171,7 @@ dependencies = [
  "test-case",
  "thiserror 1.0.69",
  "utilities",
+ "vboxapi",
  "vid-sys",
  "widestring",
  "winapi",
@@ -2062,6 +2063,15 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "microvmi",
+]
+
+[[package]]
+name = "vboxapi"
+version = "0.1.0"
+source = "git+https://github.com/Wenzel/rs-vboxapi?rev=2197a7bca9a73b41877318e2a39fe01b5351ae88#2197a7bca9a73b41877318e2a39fe01b5351ae88"
+dependencies = [
+ "libloading 0.8.6",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

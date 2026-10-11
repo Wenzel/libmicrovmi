@@ -53,9 +53,14 @@ pub struct MemflowInitParams {
     pub connector_args: Option<MemflowConnectorParams>,
 }
 
-/// VirtualBox initialization parameters
+/// VirtualBox initialization parameters: selects the access method
+///
+/// The VM is named by `common.vm_name`. Without these parameters, the legacy FDP access method is used.
 #[derive(Debug, Clone, PartialEq)]
-pub enum VBoxInitParams {}
+pub enum VBoxInitParams {
+    /// MachineDebugger access method (`virtualbox-api` feature): VirtualBox's `IMachineDebugger` API
+    MachineDebugger,
+}
 
 /// Common initialization parameters
 ///
@@ -74,7 +79,7 @@ pub struct CommonInitParams {
 /// ```no_run
 /// // Xen
 /// // common.vm_name: mandatory
-/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams};
+/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams, VBoxInitParams};
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
 ///     ..Default::default()
@@ -87,17 +92,24 @@ pub struct CommonInitParams {
 ///     kvm: Some(KVMInitParams::UnixSocket { path: String::from("/tmp/introspector")}),
 ///     ..Default::default()
 /// };
-/// // VirtualBox
+/// // VirtualBox, FDP access method
 /// // common.vm_name: mandatory
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     ..Default::default()
+/// };
+/// // VirtualBox, MachineDebugger access method
+/// // common.vm_name: mandatory
+/// let init_params = DriverInitParams {
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     virtualbox: Some(VBoxInitParams::MachineDebugger),
 ///     ..Default::default()
 /// };
 /// // Memflow
 /// // memflow.connector_name: mandatory
 /// // memflow.connector_args: optional
 /// let init_params = DriverInitParams {
-///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"), ///
+///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"),
 ///         ..Default::default()}),
 ///     ..Default::default()
 /// };

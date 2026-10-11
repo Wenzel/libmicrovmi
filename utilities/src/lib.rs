@@ -2,6 +2,7 @@
 use clap::{Arg, ArgMatches};
 use microvmi::api::params::{
     CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+    VBoxInitParams,
 };
 
 /// This trait allows to convert a struct to Clap's command line arguments
@@ -35,6 +36,10 @@ impl Clappable for DriverInitParams {
                 .long("memflow_connector_args")
                 .multiple(true)
                 .min_values(1),
+            // virtualbox
+            Arg::with_name("vbox_machinedebugger")
+                .long("vbox_machinedebugger")
+                .help("Driver parameter (VirtualBox): use the MachineDebugger access method"),
         ]
     }
 
@@ -57,10 +62,14 @@ impl Clappable for DriverInitParams {
                     }
                 }),
             });
+        let virtualbox = matches
+            .is_present("vbox_machinedebugger")
+            .then_some(VBoxInitParams::MachineDebugger);
         DriverInitParams {
             common,
             kvm,
             memflow,
+            virtualbox,
             ..Default::default()
         }
     }
