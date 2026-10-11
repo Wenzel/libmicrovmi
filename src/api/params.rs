@@ -55,11 +55,11 @@ pub struct MemflowInitParams {
 
 /// VirtualBox initialization parameters: selects the access method
 ///
-/// Without them, the legacy FDP access method is used, with `common.vm_name`.
+/// The VM is named by `common.vm_name`. Without these parameters, the legacy FDP access method is used.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VBoxInitParams {
-    /// MachineDebugger access method (`virtualbox-api` feature): `IMachineDebugger` API of the running VM `vm_name`
-    MachineDebugger { vm_name: String },
+    /// MachineDebugger access method (`virtualbox-api` feature): VirtualBox's `IMachineDebugger` API
+    MachineDebugger,
 }
 
 /// Common initialization parameters
@@ -99,8 +99,10 @@ pub struct CommonInitParams {
 ///     ..Default::default()
 /// };
 /// // VirtualBox, MachineDebugger access method
+/// // common.vm_name: mandatory
 /// let init_params = DriverInitParams {
-///     virtualbox: Some(VBoxInitParams::MachineDebugger { vm_name: String::from("windows10")}),
+///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     virtualbox: Some(VBoxInitParams::MachineDebugger),
 ///     ..Default::default()
 /// };
 /// // Memflow

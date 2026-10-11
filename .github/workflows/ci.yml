@@ -134,6 +134,8 @@ jobs:
         run: |
           cargo build --features virtualbox
           cargo clippy --features virtualbox -- -D warnings
+          cargo build --features virtualbox-api
+          cargo clippy --features virtualbox-api -- -D warnings
         env:
           LIBRARY_PATH: /usr/local/lib
           LD_LIBRARY_PATH: /usr/local/lib

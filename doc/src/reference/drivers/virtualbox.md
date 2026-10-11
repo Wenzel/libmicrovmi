@@ -1,17 +1,21 @@
 # VirtualBox
 
-The VirtualBox driver offers two access methods, selected at init time by `DriverInitParams.virtualbox`:
+The VirtualBox driver offers two access methods, selected at init time by `DriverInitParams.virtualbox`. Both name the VM with `common.vm_name`.
 
 | Access method | Cargo feature | Selected by |
 |---------------|---------------|-------------|
-| MachineDebugger | `virtualbox-api` | `VBoxInitParams::MachineDebugger { vm_name }` |
-| FDP (legacy) | `virtualbox` | no `virtualbox` parameter, `common.vm_name` |
+| MachineDebugger | `virtualbox-api` | `VBoxInitParams::MachineDebugger` |
+| FDP (legacy) | `virtualbox` | no `virtualbox` parameter |
 
 ## MachineDebugger method
 
 Uses VirtualBox's public `IMachineDebugger` API, loaded at runtime from the VirtualBox installation (no build-time dependency on VirtualBox).
 
 Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included).
+A read that hits an unreadable page (e.g. an MMIO hole) fails, with `bytes_read` set to the bytes read before that page.
+
+Not implemented yet: pause/resume ([#277](https://github.com/Wenzel/libmicrovmi/issues/277)), registers, writes, vCPU count.
+Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`), so they read the memory of a running guest, which may change during the dump.
 
 ### Requirements
 
@@ -23,12 +27,16 @@ Supported: reading guest physical memory, max physical address (end of the highe
 
 ### Initialization parameters
 
-- `virtualbox`: `VBoxInitParams::MachineDebugger { vm_name }`, the name of the VM
+- `vm_name`: required
+- `virtualbox`: `VBoxInitParams::MachineDebugger`
 
 ~~~
 $ cargo build --features virtualbox-api --examples
-$ ./target/debug/examples/mem-dump --vbox_machinedebugger <vm_name> --no-pause
+$ ./target/debug/examples/mem-dump --vm_name <vm_name> --vbox_machinedebugger --no-pause
 ~~~
+
+The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:
+`cargo build --features virtualbox-api --config 'patch."https://github.com/Wenzel/rs-vboxapi".vboxapi.path="../rs-vboxapi"'`
 
 ## FDP method (legacy)
 

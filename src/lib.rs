@@ -140,14 +140,24 @@ fn init_driver(
 fn init_virtualbox(
     init_params: DriverInitParams,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
-    match &init_params.virtualbox {
+    use api::params::VBoxInitParams;
+    match init_params.virtualbox {
         #[cfg(feature = "virtualbox-api")]
-        Some(api::params::VBoxInitParams::MachineDebugger { vm_name }) => {
-            Ok(Box::new(VBoxApi::new(vm_name)?))
-        }
+        Some(VBoxInitParams::MachineDebugger) => Ok(Box::new(VBoxApi::new(init_params)?)),
+        #[cfg(not(feature = "virtualbox-api"))]
+        Some(VBoxInitParams::MachineDebugger) => Err(MicrovmiError::AccessMethodNotCompiled {
+            driver: DriverType::VirtualBox,
+            method: "MachineDebugger",
+            feature: "virtualbox-api",
+        }),
         #[cfg(feature = "virtualbox")]
         None => Ok(Box::new(VBox::new(init_params)?)),
-        #[allow(unreachable_patterns)]
-        _ => Err(MicrovmiError::DriverNotCompiled(DriverType::VirtualBox)),
+        // FDP is the default when no access method is selected
+        #[cfg(not(feature = "virtualbox"))]
+        None => Err(MicrovmiError::AccessMethodNotCompiled {
+            driver: DriverType::VirtualBox,
+            method: "FDP",
+            feature: "virtualbox",
+        }),
     }
 }

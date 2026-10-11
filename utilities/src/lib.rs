@@ -39,9 +39,7 @@ impl Clappable for DriverInitParams {
             // virtualbox
             Arg::with_name("vbox_machinedebugger")
                 .long("vbox_machinedebugger")
-                .takes_value(true)
-                .value_name("VM_NAME")
-                .help("Driver parameter (VirtualBox): use the MachineDebugger access method on this VM"),
+                .help("Driver parameter (VirtualBox): use the MachineDebugger access method"),
         ]
     }
 
@@ -64,12 +62,9 @@ impl Clappable for DriverInitParams {
                     }
                 }),
             });
-        let virtualbox =
-            matches
-                .value_of("vbox_machinedebugger")
-                .map(|name| VBoxInitParams::MachineDebugger {
-                    vm_name: name.to_string(),
-                });
+        let virtualbox = matches
+            .is_present("vbox_machinedebugger")
+            .then_some(VBoxInitParams::MachineDebugger);
         DriverInitParams {
             common,
             kvm,
