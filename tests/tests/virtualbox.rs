@@ -11,7 +11,7 @@ use log::debug;
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
 use super::IntegrationTest;
-use crate::common::virtualbox::{core_path, vboxmanage, vm_info, vm_name};
+use crate::common::virtualbox::{core_path, try_vboxmanage, vboxmanage, vm_info, vm_name};
 
 const PAGE: u64 = PAGE_SIZE as u64;
 const CHUNK: u64 = 1 << 20;
@@ -282,18 +282,33 @@ inventory::submit!(IntegrationTest {
     test_fn: pause_idempotent_and_visible
 });
 
-/// Writes zeros back to the test's pages, all zero before it, also when it panics.
-struct RestoreZeros<'a> {
+/// Restores the original page contents and the running VM state, including during unwinding.
+struct RestorePages<'a> {
     drv: &'a dyn Introspectable,
-    pages: &'a [u64],
+    pages: &'a [(u64, Vec<u8>)],
+    armed: bool,
 }
 
-impl Drop for RestoreZeros<'_> {
-    fn drop(&mut self) {
-        for &page in self.pages {
-            // errors are caught by the core check after the restore
-            let _ = self.drv.write_physical(page, &[0; PAGE as usize]);
+impl RestorePages<'_> {
+    /// The test keeps the VM paused before calling this.
+    fn restore(&mut self) {
+        for (page, original) in self.pages.iter() {
+            self.drv.write_physical(*page, original).unwrap();
         }
+    }
+}
+
+impl Drop for RestorePages<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            let vm = vm_name();
+            let _ = try_vboxmanage(&["controlvm", &vm, "pause"]);
+            for (page, original) in self.pages.iter() {
+                let _ = self.drv.write_physical(*page, original);
+            }
+        }
+        let vm = vm_name();
+        let _ = try_vboxmanage(&["controlvm", &vm, "resume"]);
     }
 }
 
@@ -328,16 +343,25 @@ fn zero_pages(core: &Core, ranges: &[Range<u64>]) -> Vec<u64> {
     pages
 }
 
-/// With the VM paused, a random pattern written to RAM pages through the driver reads back, is in
-/// a fresh core (where the rest of RAM is unchanged, so writes outside RAM wrote nothing), and is
-/// still there after a resume/re-pause cycle. The pages are zeroed back after the test, checked in
-/// a last core. `VBOX_TEST_SEED` replays a pattern.
+/// With the VM paused, a random pattern written to RAM pages through the driver reads back and is
+/// present in a fresh core, where the rest of RAM is unchanged. A second fresh core verifies the
+/// patterns after a resume/re-pause cycle. The exact original bytes and running state are restored
+/// on success and during unwinding. `VBOX_TEST_SEED` replays a pattern.
 fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
     let vm = vm_name();
     vboxmanage(&["controlvm", &vm, "pause"]);
     let ranges = ram_ranges();
     let before = Core::dump();
-    let pages = zero_pages(&before, &ranges);
+    let page_addrs = zero_pages(&before, &ranges);
+    let pages: Vec<(u64, Vec<u8>)> = page_addrs
+        .iter()
+        .map(|&page| (page, before.ram(page, PAGE)))
+        .collect();
+    let mut restore = RestorePages {
+        drv: &*drv,
+        pages: &pages,
+        armed: true,
+    };
     let seed = env::var("VBOX_TEST_SEED").map_or_else(
         |_| {
             let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
@@ -345,7 +369,7 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
         },
         |s| s.parse().expect("VBOX_TEST_SEED is not a u64"),
     );
-    let hex: Vec<String> = pages.iter().map(|p| format!("{:#x}", p)).collect();
+    let hex: Vec<String> = page_addrs.iter().map(|p| format!("{:#x}", p)).collect();
     print!("seed {} pages {} ", seed, hex.join(" "));
     let mut state = seed | 1; // xorshift64: nonzero state
     let mut random_byte = || {
@@ -354,7 +378,7 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
         state ^= state << 17;
         state as u8
     };
-    let patterns: Vec<Vec<u8>> = pages
+    let patterns: Vec<Vec<u8>> = page_addrs
         .iter()
         .map(|_| (0..PAGE).map(|_| random_byte()).collect())
         .collect();
@@ -369,16 +393,12 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
         );
     }
 
-    let restore = RestoreZeros {
-        drv: &*drv,
-        pages: &pages,
-    };
     let read_page = |page| {
         let mut buf = vec![0; PAGE as usize];
         drv.read_physical(page, &mut buf, &mut 0).unwrap();
         buf
     };
-    for (&page, pattern) in pages.iter().zip(&patterns) {
+    for (&page, pattern) in page_addrs.iter().zip(&patterns) {
         drv.write_physical(page, pattern).unwrap();
         assert!(
             read_page(page) == *pattern,
@@ -394,7 +414,7 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
             let (paddr, _, size) = before.load(addr);
             let len = CHUNK.min(range.end.min(paddr + size) - addr);
             let mut expected = before.ram(addr, len);
-            for (&page, pattern) in pages.iter().zip(&patterns) {
+            for (&page, pattern) in page_addrs.iter().zip(&patterns) {
                 if (addr..addr + len).contains(&page) {
                     let at = (page - addr) as usize;
                     expected[at..at + PAGE as usize].copy_from_slice(pattern);
@@ -414,23 +434,27 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
 
     vboxmanage(&["controlvm", &vm, "resume"]);
     vboxmanage(&["controlvm", &vm, "pause"]);
-    for (&page, pattern) in pages.iter().zip(&patterns) {
+    let resumed = Core::dump();
+    for (&page, pattern) in page_addrs.iter().zip(&patterns) {
         assert!(
-            read_page(page) == *pattern,
+            resumed.ram(page, PAGE) == *pattern,
             "page {:#x} changed over resume",
             page
         );
     }
+    drop(resumed);
 
-    drop(restore);
+    restore.restore();
     let restored = Core::dump();
-    for &page in &pages {
-        assert!(
-            restored.ram(page, PAGE).iter().all(|&b| b == 0),
+    for (page, original) in &pages {
+        assert_eq!(
+            restored.ram(*page, PAGE),
+            *original,
             "page {:#x} not restored",
             page
         );
     }
+    restore.armed = false;
 }
 
 inventory::submit!(IntegrationTest {
