@@ -8,6 +8,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
 use log::debug;
+use microvmi::api::registers::{Registers, X86Registers};
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
 use super::IntegrationTest;
@@ -495,4 +496,229 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "virtualbox_write_physical_matches_core",
     test_fn: write_physical_matches_core
+});
+
+fn x86_registers(drv: &dyn Introspectable, vcpu: u16) -> X86Registers {
+    let Registers::X86(regs) = drv.read_registers(vcpu).unwrap();
+    regs
+}
+
+/// Keeps a paused VM's original registers and restores them before resuming, including while a
+/// failing assertion unwinds the test.
+struct RegisterRestore {
+    drv: Box<dyn Introspectable>,
+    vcpu: u16,
+    original: X86Registers,
+    active: bool,
+}
+
+impl RegisterRestore {
+    fn new(mut drv: Box<dyn Introspectable>) -> Self {
+        drv.pause().unwrap();
+        let vcpu = drv.get_vcpu_count().unwrap() - 1;
+        let original = x86_registers(drv.as_ref(), vcpu);
+        RegisterRestore {
+            drv,
+            vcpu,
+            original,
+            active: true,
+        }
+    }
+
+    fn finish(mut self) {
+        self.drv
+            .write_registers(self.vcpu, Registers::X86(self.original.clone()))
+            .unwrap();
+        assert_eq!(x86_registers(self.drv.as_ref(), self.vcpu), self.original);
+        self.drv.resume().unwrap();
+        self.active = false;
+    }
+}
+
+impl Drop for RegisterRestore {
+    fn drop(&mut self) {
+        if self.active {
+            if let Err(error) = self
+                .drv
+                .write_registers(self.vcpu, Registers::X86(self.original.clone()))
+            {
+                eprintln!("failed to restore vCPU {} registers: {}", self.vcpu, error);
+            }
+            if let Err(error) = self.drv.resume() {
+                eprintln!("failed to resume VM after register test: {}", error);
+            }
+        }
+    }
+}
+
+/// While paused, two reads of every vCPU's registers are identical, not all zero, and RFLAGS
+/// is architecturally valid. The multi-vCPU check needs `VBOX_TEST_CPUS=2`.
+fn registers_unchanged_while_paused(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        let first = x86_registers(drv.as_ref(), vcpu);
+        sleep(Duration::from_millis(500));
+        let second = x86_registers(drv.as_ref(), vcpu);
+        assert_eq!(first, second);
+        assert_ne!(first, X86Registers::default());
+        // architectural RFLAGS: bit 1 always set, bits 63:22 reserved (zero)
+        assert_eq!(first.rflags & !0x3f_ffff, 0, "rflags {:#x}", first.rflags);
+        assert_ne!(first.rflags & 2, 0, "rflags {:#x}", first.rflags);
+    }
+    drv.resume().unwrap();
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_registers_unchanged_while_paused",
+    test_fn: registers_unchanged_while_paused
+});
+
+/// Guest-physical address that the 4-level page tables at `cr3` map `vaddr` to, if mapped.
+fn translate(drv: &dyn Introspectable, cr3: u64, vaddr: u64) -> Option<u64> {
+    const ADDR_MASK: u64 = 0x000f_ffff_ffff_f000;
+    let mut table = cr3 & ADDR_MASK;
+    // PML4, PDPT, PD, PT
+    for shift in [39, 30, 21, 12] {
+        let mut entry = [0; 8];
+        let mut bytes_read = 0;
+        drv.read_physical(
+            table + ((vaddr >> shift) & 0x1ff) * 8,
+            &mut entry,
+            &mut bytes_read,
+        )
+        .ok()?;
+        let entry = u64::from_le_bytes(entry);
+        if entry & 1 == 0 {
+            return None;
+        }
+        // 1 GiB and 2 MiB pages
+        let large = shift != 39 && shift != 12 && entry & 0x80 != 0;
+        if large || shift == 12 {
+            let offset_mask = (1 << shift) - 1;
+            return Some((entry & ADDR_MASK & !offset_mask) | (vaddr & offset_mask));
+        }
+        table = entry & ADDR_MASK;
+    }
+    unreachable!()
+}
+
+/// The registers make sense against guest memory: walking each vCPU's page tables from CR3
+/// translates RIP and the IDT base to readable guest-physical RAM, and the Linux banner is in RAM.
+fn registers_match_guest_memory(mut drv: Box<dyn Introspectable>) {
+    // a cold-booted guest (VBOX_TEST_CPUS, VBOX_TEST_MEMORY_MB) may still be booting
+    let long_mode = |drv: &dyn Introspectable| {
+        (0..drv.get_vcpu_count().unwrap())
+            .all(|vcpu| x86_registers(drv, vcpu).efer & (1 << 10) != 0)
+    };
+    for _ in 0..30 {
+        if long_mode(drv.as_ref()) {
+            break;
+        }
+        sleep(Duration::from_millis(500));
+    }
+    drv.pause().unwrap();
+    let max_addr = drv.get_max_physical_addr().unwrap();
+    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+        let regs = x86_registers(drv.as_ref(), vcpu);
+        assert_ne!(regs.efer & (1 << 10), 0, "vCPU {} not in long mode", vcpu);
+        assert_eq!(regs.cr4 & (1 << 12), 0, "vCPU {}: 5-level paging", vcpu);
+        for (what, vaddr) in [("RIP", regs.rip), ("IDT base", regs.idt.base)] {
+            let paddr = translate(drv.as_ref(), regs.cr3, vaddr)
+                .unwrap_or_else(|| panic!("vCPU {}: {} {:#x} is not mapped", vcpu, what, vaddr));
+            assert!(paddr < max_addr, "{} maps to {:#x}", what, paddr);
+            let mut page = vec![0; PAGE as usize];
+            let mut bytes_read = 0;
+            drv.read_physical(paddr & !(PAGE - 1), &mut page, &mut bytes_read)
+                .unwrap_or_else(|e| panic!("{} page at {:#x}: {}", what, paddr, e));
+            assert!(page.iter().any(|&b| b != 0), "{} page is all zeros", what);
+            print!("vCPU {} {} {:#x} -> {:#x}, ", vcpu, what, vaddr, paddr);
+        }
+    }
+
+    let banner = b"Linux version ";
+    let mut buf = vec![0; CHUNK as usize];
+    let found = (0..max_addr).step_by(CHUNK as usize).find_map(|addr| {
+        let len = CHUNK.min(max_addr - addr) as usize;
+        let mut bytes_read = 0;
+        // MMIO holes are unreadable: search the readable prefix
+        let _ = drv.read_physical(addr, &mut buf[..len], &mut bytes_read);
+        // shortcut: a banner straddling two chunks is missed, fine for a fixed test guest
+        buf[..bytes_read as usize]
+            .windows(banner.len())
+            .position(|w| w == banner)
+            .map(|i| addr + i as u64)
+    });
+    let found = found.expect("no Linux banner in guest RAM");
+    let mut line = vec![0; 80];
+    let mut bytes_read = 0;
+    drv.read_physical(found, &mut line, &mut bytes_read)
+        .unwrap();
+    let line = String::from_utf8_lossy(&line);
+    print!("{:?} at {:#x} ", line.split('\0').next().unwrap(), found);
+    drv.resume().unwrap();
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_registers_match_guest_memory",
+    test_fn: registers_match_guest_memory
+});
+
+/// While paused, representative registers from every writable group are changed and read back,
+/// including through `VBoxManage`; the guard restores the complete original set before resuming
+/// and also restores it if an assertion fails.
+fn write_registers_reads_back(drv: Box<dyn Introspectable>) {
+    let restore = RegisterRestore::new(drv);
+    let vcpu = restore.vcpu;
+    let mut expected = restore.original.clone();
+
+    expected.r12 ^= 0x5a5a_5a5a_5a5a_5a5a;
+    expected.rip ^= 1;
+    expected.rflags ^= 1; // CF
+    expected.cr0 ^= 1 << 3; // TS
+    expected.cr2 ^= 1 << 12;
+    expected.cr3 ^= 1 << 3; // PWT
+    expected.cr4 ^= 1 << 8; // PCE
+    expected.cs.selector ^= 1;
+    expected.cs.base ^= 1 << 12;
+    expected.cs.limit ^= 1;
+    expected.tr.selector ^= 1;
+    expected.tr.base ^= 8;
+    expected.tr.limit ^= 1;
+    expected.ldt.selector ^= 1;
+    expected.ldt.base ^= 8;
+    expected.ldt.limit ^= 1;
+    expected.gdt.base ^= 8;
+    expected.gdt.limit ^= 1;
+    expected.idt.base ^= 8;
+    expected.idt.limit ^= 1;
+    expected.sysenter_cs ^= 1;
+    expected.sysenter_esp ^= 8;
+    expected.sysenter_eip ^= 8;
+    expected.msr_efer ^= 1; // SCE
+    expected.efer = expected.msr_efer;
+    expected.msr_star ^= 1 << 32;
+    expected.msr_lstar ^= 1;
+
+    restore
+        .drv
+        .write_registers(vcpu, Registers::X86(expected.clone()))
+        .unwrap();
+    assert_eq!(x86_registers(restore.drv.as_ref(), vcpu), expected);
+
+    let vbox = vboxmanage(&[
+        "debugvm",
+        &vm_name(),
+        "getregisters",
+        "--cpu",
+        &vcpu.to_string(),
+        "r12",
+    ]);
+    assert_eq!(vbox.trim(), format!("r12 = {:#018x}", expected.r12));
+
+    restore.finish();
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_write_registers_reads_back",
+    test_fn: write_registers_reads_back
 });
