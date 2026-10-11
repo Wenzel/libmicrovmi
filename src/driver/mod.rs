@@ -4,5 +4,7 @@ pub mod kvm;
 pub mod memflow;
 #[cfg(feature = "virtualbox")]
 pub mod virtualbox;
+#[cfg(feature = "virtualbox-api")]
+pub mod virtualbox_api;
 #[cfg(feature = "xen")]
 pub mod xen;

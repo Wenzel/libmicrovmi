@@ -1171,6 +1171,7 @@ dependencies = [
  "test-case",
  "thiserror 1.0.69",
  "utilities",
+ "vboxapi",
  "vid-sys",
  "widestring",
  "winapi",
@@ -2062,6 +2063,14 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "microvmi",
+]
+
+[[package]]
+name = "vboxapi"
+version = "0.1.0"
+dependencies = [
+ "libloading 0.8.6",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

@@ -53,9 +53,14 @@ pub struct MemflowInitParams {
     pub connector_args: Option<MemflowConnectorParams>,
 }
 
-/// VirtualBox initialization parameters
+/// VirtualBox initialization parameters: selects the access method
+///
+/// Without them, the legacy FDP access method is used, with `common.vm_name`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum VBoxInitParams {}
+pub enum VBoxInitParams {
+    /// MachineDebugger access method (`virtualbox-api` feature): `IMachineDebugger` API of the running VM `vm_name`
+    MachineDebugger { vm_name: String },
+}
 
 /// Common initialization parameters
 ///
@@ -74,7 +79,7 @@ pub struct CommonInitParams {
 /// ```no_run
 /// // Xen
 /// // common.vm_name: mandatory
-/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams};
+/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams, VBoxInitParams};
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
 ///     ..Default::default()
@@ -87,17 +92,22 @@ pub struct CommonInitParams {
 ///     kvm: Some(KVMInitParams::UnixSocket { path: String::from("/tmp/introspector")}),
 ///     ..Default::default()
 /// };
-/// // VirtualBox
+/// // VirtualBox, FDP access method
 /// // common.vm_name: mandatory
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     ..Default::default()
+/// };
+/// // VirtualBox, MachineDebugger access method
+/// let init_params = DriverInitParams {
+///     virtualbox: Some(VBoxInitParams::MachineDebugger { vm_name: String::from("windows10")}),
 ///     ..Default::default()
 /// };
 /// // Memflow
 /// // memflow.connector_name: mandatory
 /// // memflow.connector_args: optional
 /// let init_params = DriverInitParams {
-///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"), ///
+///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"),
 ///         ..Default::default()}),
 ///     ..Default::default()
 /// };

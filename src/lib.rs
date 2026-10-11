@@ -27,6 +27,8 @@ use driver::kvm::Kvm;
 use driver::memflow::Memflow;
 #[cfg(feature = "virtualbox")]
 use driver::virtualbox::VBox;
+#[cfg(feature = "virtualbox-api")]
+use driver::virtualbox_api::VBoxApi;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
 use errors::MicrovmiError;
@@ -124,11 +126,28 @@ fn init_driver(
         DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi()?, _init_params)?)),
         #[cfg(feature = "mflow")]
         DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
-        #[cfg(feature = "virtualbox")]
-        DriverType::VirtualBox => Ok(Box::new(VBox::new(_init_params)?)),
+        #[cfg(any(feature = "virtualbox", feature = "virtualbox-api"))]
+        DriverType::VirtualBox => init_virtualbox(_init_params),
         #[cfg(feature = "xen")]
         DriverType::Xen => Ok(Box::new(Xen::new(_init_params)?)),
         #[allow(unreachable_patterns)]
         _ => Err(MicrovmiError::DriverNotCompiled(driver_type)),
+    }
+}
+
+/// Initialize the VirtualBox driver with the access method selected by `init_params.virtualbox`
+#[cfg(any(feature = "virtualbox", feature = "virtualbox-api"))]
+fn init_virtualbox(
+    init_params: DriverInitParams,
+) -> Result<Box<dyn Introspectable>, MicrovmiError> {
+    match &init_params.virtualbox {
+        #[cfg(feature = "virtualbox-api")]
+        Some(api::params::VBoxInitParams::MachineDebugger { vm_name }) => {
+            Ok(Box::new(VBoxApi::new(vm_name)?))
+        }
+        #[cfg(feature = "virtualbox")]
+        None => Ok(Box::new(VBox::new(init_params)?)),
+        #[allow(unreachable_patterns)]
+        _ => Err(MicrovmiError::DriverNotCompiled(DriverType::VirtualBox)),
     }
 }
