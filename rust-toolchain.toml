@@ -1,0 +1,4 @@
+# keep in sync with dtolnay/rust-toolchain@<version> in .github/workflows/ci.yml and python/build-wheels.sh
+[toolchain]
+channel = "1.99.0"
+components = ["clippy", "rustfmt"]
