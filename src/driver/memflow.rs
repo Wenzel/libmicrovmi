@@ -38,16 +38,13 @@ impl Memflow {
             QEMU_PROCFS_CONNECTOR_NAME => {
                 // if init_params.common.vm_name exists and connector_name is qemu
                 // then insert vm_name value as 'name' connector args
-                if init_params.common.is_some() {
-                    extra_args = extra_args.insert("name", &init_params.common.unwrap().vm_name);
+                if let Some(common) = init_params.common {
+                    extra_args = extra_args.insert("name", &common.vm_name);
                 }
             }
             _ => {}
         };
-        if memflow_init_params.connector_args.is_some() {
-            let MemflowConnectorParams::Default { args } =
-                memflow_init_params.connector_args.unwrap();
-
+        if let Some(MemflowConnectorParams::Default { args }) = memflow_init_params.connector_args {
             // for each string, split at '=' to get key, value
             for s in args.iter() {
                 let (key, value) = s

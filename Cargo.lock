@@ -978,7 +978,7 @@ dependencies = [
  "mockall 0.13.1",
  "nix 0.29.0",
  "num-traits 0.2.19",
- "thiserror 2.0.11",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1496,7 +1496,7 @@ dependencies = [
  "log",
  "microvmi",
  "pyo3",
- "thiserror 2.0.11",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1834,6 +1834,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01016da373cd8f7ef12624f796309f5c31ba8d646dd08856c02cd741d823c622"
+dependencies = [
+ "proc-macro2",
+ "quote 1.0.38",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synom"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1916,11 +1927,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.11"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
- "thiserror-impl 2.0.11",
+ "thiserror-impl 2.0.21",
 ]
 
 [[package]]
@@ -1936,13 +1947,13 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.11"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote 1.0.38",
- "syn 2.0.98",
+ "syn 3.0.8",
 ]
 
 [[package]]
@@ -2440,7 +2451,7 @@ checksum = "fcd6993267e4b45208b68e805732ed7de1001cb3c456791c72c35f2ce670fdea"
 dependencies = [
  "libloading 0.8.6",
  "log",
- "thiserror 2.0.11",
+ "thiserror 2.0.21",
  "xenforeignmemory-sys",
 ]
 

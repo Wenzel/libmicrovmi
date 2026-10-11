@@ -299,6 +299,8 @@ impl Introspectable for Xen {
         }))
     }
 
+    // FIXME(#295): `cpu` is a copy, so these writes never reach `buffer`; write_registers is a no-op.
+    #[allow(unused_variables, unused_assignments)]
     fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
         let (buffer, mut cpu, size) = self.xc.domain_hvm_getcontext(self.domid, vcpu)?;
         match reg {
