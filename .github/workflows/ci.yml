@@ -138,6 +138,8 @@ jobs:
           cargo clippy --features virtualbox-api -- -D warnings
           cargo build --features virtualbox-vmi
           cargo clippy --features virtualbox-vmi -- -D warnings
+          cargo clippy --features virtualbox-api,virtualbox-vmi --tests -- -D warnings
+          cargo test --features virtualbox-vmi --test virtualbox_errors
         env:
           LIBRARY_PATH: /usr/local/lib
           LD_LIBRARY_PATH: /usr/local/lib

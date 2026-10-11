@@ -99,6 +99,17 @@ fn power_off_and_restore() {
     });
 }
 
+impl VirtualBox {
+    /// Driver params for the test VM and `method`.
+    pub fn init_params(&self) -> DriverInitParams {
+        DriverInitParams {
+            common: Some(CommonInitParams { vm_name: vm_name() }),
+            virtualbox: Some(self.method.clone()),
+            ..Default::default()
+        }
+    }
+}
+
 impl Context for VirtualBox {
     /// restore the snapshot and start the VM headless
     fn setup(&self) {
@@ -143,15 +154,8 @@ impl Context for VirtualBox {
     }
 
     fn init_driver(&self) -> Box<dyn Introspectable> {
-        init(
-            Some(DriverType::VirtualBox),
-            Some(DriverInitParams {
-                common: Some(CommonInitParams { vm_name: vm_name() }),
-                virtualbox: Some(self.method.clone()),
-                ..Default::default()
-            }),
-        )
-        .expect("Failed to init libmicrovmi")
+        init(Some(DriverType::VirtualBox), Some(self.init_params()))
+            .expect("Failed to init libmicrovmi")
     }
 
     /// power off and restore the snapshot, undoing any `VBOX_TEST_MEMORY_MB`/`VBOX_TEST_CPUS` change
