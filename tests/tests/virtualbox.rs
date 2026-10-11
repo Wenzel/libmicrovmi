@@ -1,6 +1,7 @@
 //! VirtualBox tests checking the driver against ground truth from `VBoxManage`, for any access method.
 use std::convert::TryInto;
 use std::fs::{self, File};
+use std::ops::Range;
 use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
 
@@ -8,11 +9,11 @@ use log::debug;
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
 use super::IntegrationTest;
-use crate::common::virtualbox::{vboxmanage, vm_info, vm_name};
+use crate::common::virtualbox::{core_path, vboxmanage, vm_info, vm_name};
 
 const PAGE: u64 = PAGE_SIZE as u64;
 const CHUNK: u64 = 1 << 20;
-const GIB: u64 = 1 << 30;
+const FOUR_GIB: u64 = 4 << 30;
 
 /// `dumpvmcore` ELF core, deleted on drop.
 struct Core {
@@ -24,8 +25,8 @@ struct Core {
 
 impl Core {
     fn dump() -> Core {
-        let path = std::env::temp_dir().join(format!("microvmi-test-{}.core", std::process::id()));
-        // the VM process writes the file, which needs an absolute path
+        // absolute: the VM process writes the file
+        let path = core_path();
         let _ = fs::remove_file(&path);
         vboxmanage(&[
             "debugvm",
@@ -56,14 +57,12 @@ impl Core {
         for phdr in phdrs.chunks(phentsize as usize) {
             // PT_LOAD: p_paddr is the guest-physical address
             if u32::from_le_bytes(phdr[..4].try_into().unwrap()) == 1 {
+                let load = (u64_at(phdr, 0x18), u64_at(phdr, 0x08), u64_at(phdr, 0x20));
                 debug!(
                     "core PT_LOAD paddr {:#x} offset {:#x} size {:#x}",
-                    u64_at(phdr, 0x18),
-                    u64_at(phdr, 0x08),
-                    u64_at(phdr, 0x20)
+                    load.0, load.1, load.2
                 );
-                core.loads
-                    .push((u64_at(phdr, 0x18), u64_at(phdr, 0x08), u64_at(phdr, 0x20)));
+                core.loads.push(load);
             }
         }
         core
@@ -84,67 +83,94 @@ impl Drop for Core {
     }
 }
 
-/// Every guest page in the core below the driver's max physical address reads the same through
-/// the driver. The core also holds non-RAM ranges (e.g. VRAM, MMIO2) that the driver may refuse:
-/// pages it reports unreadable are skipped, but at least the VM's configured RAM must match.
+/// The guest's RAM ranges from VirtualBox's PGM (`info phys verbose`), independently of the driver:
+/// the indented `{first:016x}-{last:016x} {type}` page runs of type `RAM`.
+fn ram_ranges() -> Vec<Range<u64>> {
+    let info = vboxmanage(&["debugvm", &vm_name(), "info", "phys", "verbose"]);
+    let ranges: Vec<Range<u64>> = info
+        .lines()
+        .filter(|l| l.starts_with(' '))
+        .filter_map(|l| {
+            let mut words = l.split_whitespace();
+            let (first, last) = words.next()?.split_once('-')?;
+            (words.next()? == "RAM").then(|| {
+                let hex = |s| u64::from_str_radix(s, 16).expect("bad address in info phys");
+                hex(first)..hex(last) + 1
+            })
+        })
+        .collect();
+    assert!(!ranges.is_empty(), "no RAM range in info phys:\n{}", info);
+    ranges
+}
+
+/// With the VM paused, every page of every RAM range reads through the driver, byte-identical to
+/// the core. Non-RAM ranges in the core (ROM, VRAM, MMIO2) are not compared.
 fn read_physical_matches_core(drv: Box<dyn Introspectable>) {
     // pause through VBoxManage, not the driver, so the core and the reads see the same RAM
     vboxmanage(&["controlvm", &vm_name(), "pause"]);
+    let ranges = ram_ranges();
     let core = Core::dump();
     let max_addr = drv.get_max_physical_addr().unwrap();
-    let ram_size = vm_info("memory").parse::<u64>().unwrap() << 20;
-    if ram_size > 4 * GIB {
-        assert!(
-            max_addr > 4 * GIB,
-            "max physical address {:#x} below 4 GiB",
-            max_addr
-        );
+    assert_eq!(max_addr, ranges.iter().map(|r| r.end).max().unwrap());
+    let ram_above_4g: u64 = ranges
+        .iter()
+        .map(|r| r.end.max(FOUR_GIB) - r.start.max(FOUR_GIB))
+        .sum();
+    if vm_info("memory").parse::<u64>().unwrap() > 4096 {
+        assert!(max_addr > FOUR_GIB, "max physical address {:#x}", max_addr);
+        assert!(ram_above_4g > 0, "no RAM range above 4 GiB");
     }
 
-    let (mut matched, mut skipped) = (0u64, 0u64);
-    let mut compare = |paddr: u64, buf: &[u8], expected: &[u8]| {
-        assert!(buf == expected, "page {:#x} differs from the core", paddr);
-        matched += buf.len() as u64;
-    };
-    for &(paddr, offset, size) in &core.loads {
-        let end = (paddr + size).min(max_addr);
-        let mut addr = paddr;
-        while addr < end {
-            let len = CHUNK.min(end - addr);
+    let (mut matched, mut matched_above_4g) = (0u64, 0u64);
+    let mut unreadable = Vec::new();
+    for range in &ranges {
+        let mut addr = range.start;
+        while addr < range.end {
+            let &(paddr, offset, size) = core
+                .loads
+                .iter()
+                .find(|(p, _, s)| (*p..p + s).contains(&addr))
+                .unwrap_or_else(|| panic!("RAM page {:#x} is not in the core", addr));
+            // RAM ranges don't straddle 4 GiB (MMIO hole), nor do these chunks
+            let len = CHUNK.min(range.end.min(paddr + size) - addr);
             let expected = core.read(offset + addr - paddr, len as usize);
             let mut buf = vec![0; len as usize];
             let mut bytes_read = 0;
-            if drv.read_physical(addr, &mut buf, &mut bytes_read).is_ok() {
-                compare(addr, &buf, &expected);
-            } else {
-                // page by page, to skip only the unreadable pages
-                for (page, expected) in (addr..)
-                    .step_by(PAGE as usize)
-                    .zip(expected.chunks(PAGE as usize))
-                {
-                    let mut buf = vec![0; expected.len()];
-                    match drv.read_physical(page, &mut buf, &mut bytes_read) {
-                        Ok(()) => compare(page, &buf, expected),
-                        Err(_) => skipped += expected.len() as u64,
-                    }
-                }
+            let read = drv.read_physical(addr, &mut buf, &mut bytes_read);
+            // on error, compare the readable prefix and resume after the unreadable page
+            let n = if read.is_ok() { len } else { bytes_read };
+            assert!(
+                buf[..n as usize] == expected[..n as usize],
+                "RAM at {:#x}..{:#x} differs from the core",
+                addr,
+                addr + n
+            );
+            matched += n;
+            if addr >= FOUR_GIB {
+                matched_above_4g += n;
             }
-            addr += len;
+            if read.is_err() {
+                unreadable.push(addr + n);
+                addr += n + PAGE;
+            } else {
+                addr += len;
+            }
         }
     }
     println!(
-        "compared {} MiB, skipped {} KiB unreadable, max physical address {:#x}",
+        "compared {} MiB ({} MiB above 4 GiB), max physical address {:#x}",
         matched >> 20,
-        skipped >> 10,
+        matched_above_4g >> 20,
         max_addr
     );
-    // shortcut: 1 MiB slack for the legacy VGA/ROM area below 1 MiB, absent from the core's RAM
     assert!(
-        matched + (1 << 20) >= ram_size,
-        "only {:#x} bytes matched of {:#x} RAM",
-        matched,
-        ram_size
+        unreadable.is_empty(),
+        "{} unreadable RAM pages, first {:#x?}",
+        unreadable.len(),
+        &unreadable[..unreadable.len().min(8)]
     );
+    assert_eq!(matched, ranges.iter().map(|r| r.end - r.start).sum::<u64>());
+    assert_eq!(matched_above_4g, ram_above_4g);
 }
 
 inventory::submit!(IntegrationTest {

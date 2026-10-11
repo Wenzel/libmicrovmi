@@ -1,9 +1,9 @@
 use super::IntegrationTest;
-use crate::common::config::VM_VCPU_COUNT;
+use crate::common::context::init_context;
 use microvmi::api::Introspectable;
 
 fn get_vcpu_count(drv: Box<dyn Introspectable>) {
-    assert_eq!(VM_VCPU_COUNT, drv.get_vcpu_count().unwrap());
+    assert_eq!(init_context().vcpu_count(), drv.get_vcpu_count().unwrap());
 }
 
 inventory::submit!(IntegrationTest {

@@ -2,5 +2,5 @@ pub mod config;
 pub mod context;
 #[cfg(feature = "kvm")]
 mod kvm;
-#[cfg(feature = "virtualbox-api")]
+#[cfg(all(feature = "virtualbox-api", not(feature = "kvm")))]
 pub mod virtualbox;

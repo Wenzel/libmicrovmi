@@ -5,6 +5,8 @@
 //!   off or saved VM and an online snapshot of it, restored before each test
 //! - `VBOX_TEST_MEMORY_MB`: if set, the snapshot's saved state is discarded and the guest cold boots
 //!   with that much RAM; teardown restores the snapshot, so the VM's configuration is unchanged
+//! - `VBOX_TEST_CORE_DIR` (default: the temp dir): where tests write core dumps, as large as the
+//!   guest's RAM (avoid a RAM-backed tmpfs for big guests); deleted at teardown
 use std::env;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -16,6 +18,7 @@ use microvmi::api::params::{CommonInitParams, DriverInitParams, VBoxInitParams};
 use microvmi::api::{DriverType, Introspectable};
 use microvmi::init;
 
+use crate::common::config::TIMEOUT;
 use crate::common::context::Context;
 
 /// The VM lifecycle is the same for every access method; only `init_driver` uses `method`.
@@ -62,28 +65,36 @@ pub fn vm_info(key: &str) -> String {
         .to_string()
 }
 
-fn wait_for(what: &str, mut cond: impl FnMut() -> bool) {
+/// Core dump path, known to teardown so it is deleted even if a test times out.
+pub fn core_path() -> PathBuf {
+    let dir = env::var_os("VBOX_TEST_CORE_DIR").map_or_else(env::temp_dir, PathBuf::from);
+    dir.join(format!("microvmi-test-{}.core", vm_name()))
+}
+
+/// Retries `f` until it succeeds, panics with its last error after 60s.
+fn wait_for(what: &str, mut f: impl FnMut() -> Result<(), String>) {
     let start = Instant::now();
-    while !cond() {
-        assert!(
-            start.elapsed() < Duration::from_secs(30),
-            "timeout: {}",
-            what
-        );
+    while let Err(e) = f() {
+        if start.elapsed() > Duration::from_secs(60) {
+            panic!("timeout: {}: {}", what, e);
+        }
         sleep(Duration::from_millis(500));
     }
 }
 
-/// Powers the VM off if it is running, then restores the snapshot.
+/// Powers the VM off, then restores the snapshot.
 fn power_off_and_restore() {
     let vm = vm_name();
-    if matches!(vm_info("VMState").as_str(), "running" | "paused") {
-        vboxmanage(&["controlvm", &vm, "poweroff"]);
-    }
-    // poweroff returns before VBoxHeadless exits and unlocks the machine, which restore needs.
     let snapshot = env::var("VBOX_TEST_SNAPSHOT").unwrap_or_else(|_| String::from("base"));
-    wait_for("snapshot restore", || {
-        try_vboxmanage(&["snapshot", &vm, "restore", &snapshot]).is_ok()
+    // Retried: transient states (starting, saving, ...) must settle first, and poweroff returns
+    // before VBoxHeadless exits and unlocks the machine, which restore needs.
+    wait_for("power off and restore snapshot", || {
+        let state = vm_info("VMState");
+        if matches!(state.as_str(), "running" | "paused" | "stuck") {
+            try_vboxmanage(&["controlvm", &vm, "poweroff"])?;
+            return Err(format!("VM was {}", state));
+        }
+        try_vboxmanage(&["snapshot", &vm, "restore", &snapshot]).map(drop)
     });
 }
 
@@ -110,9 +121,11 @@ impl Context for VirtualBox {
         // list runningvms takes no machine lock, so it can't race VBoxHeadless' own.
         let running = format!("\"{}\" ", vm);
         wait_for("VM running", || {
-            vboxmanage(&["list", "runningvms"])
-                .lines()
-                .any(|l| l.starts_with(&running))
+            let vms = vboxmanage(&["list", "runningvms"]);
+            match vms.lines().any(|l| l.starts_with(&running)) {
+                true => Ok(()),
+                false => Err(format!("not in list runningvms: {:?}", vms)),
+            }
         });
     }
 
@@ -132,5 +145,16 @@ impl Context for VirtualBox {
     fn teardown(&self) {
         debug!("teardown test");
         power_off_and_restore();
+        let _ = std::fs::remove_file(core_path());
+    }
+
+    /// Scaled with RAM size: a test may dump and read all of it.
+    fn timeout(&self) -> Duration {
+        let mib: u64 = vm_info("memory").parse().unwrap();
+        Duration::from_secs(TIMEOUT + 10 * mib / 1024)
+    }
+
+    fn vcpu_count(&self) -> u16 {
+        vm_info("cpus").parse().unwrap()
     }
 }

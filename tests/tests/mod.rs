@@ -4,7 +4,8 @@ pub mod events;
 pub mod get;
 pub mod init;
 pub mod pause;
-#[cfg(feature = "virtualbox-api")]
+// same condition as init_context picking the VirtualBox context
+#[cfg(all(feature = "virtualbox-api", not(feature = "kvm")))]
 pub mod virtualbox;
 
 #[derive(Debug)]
