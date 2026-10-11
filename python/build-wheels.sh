@@ -4,7 +4,7 @@
 
 set -ex
 
-curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.99.0 -y
 export PATH="$HOME/.cargo/bin:$PATH"
 # libclang is in non standard path
 export LIBCLANG_PATH=/opt/rh/llvm-toolset-7.0/root/usr/lib64
