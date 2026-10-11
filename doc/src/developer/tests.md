@@ -77,3 +77,14 @@ MICROVMI_TEST_FILTER=virtualbox_ VBOX_APP_HOME=/path/to/VirtualBox/bin target/de
 
 If the VM is shared, serialize runs with `flock -o <lockfile> <command>`: `-o` keeps the lock file
 descriptor out of `VBoxHeadless` and `VBoxSVC`, which would otherwise hold the lock after the run.
+
+**Misconfiguration errors** (`tests/virtualbox_errors.rs`, standard test harness): `init` must fail
+with an error naming the cause. The VBoxVMI cases (socket missing, also through `init(None, ..)`,
+protocol version mismatch, bad magic) need no VM: a fake server sends the greeting. The MachineDebugger
+case starts the VM with a stock VirtualBox; it is ignored by default, run it with `VBOX_APP_HOME` set to
+the stock bin directory (kill a `VBoxSVC` of another build first):
+
+~~~
+cargo test --features virtualbox-vmi --test virtualbox_errors
+VBOX_APP_HOME=/path/to/stock/VirtualBox/bin cargo test --features virtualbox-api --test virtualbox_errors -- --ignored
+~~~

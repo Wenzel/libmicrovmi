@@ -45,7 +45,7 @@ use kvmi::create_kvmi;
 /// For complete documentation on driver init params, please check [DriverInitParams](struct.DriverInitParams.html) struct.
 ///
 /// # Arguments
-/// * `driver_type`: optional driver type to initialize. If None, all compiled drivers will be initialized one by one. The first that succeeds will be returned.
+/// * `driver_type`: optional driver type to initialize. If None, all compiled drivers will be initialized one by one. The first that succeeds will be returned; if `init_params.virtualbox` is set, a VirtualBox driver error is returned rather than trying the next driver.
 /// * `init_params`: optional driver initialization parameters
 ///
 /// # Examples
@@ -90,6 +90,13 @@ pub fn init(
                     Ok(driver) => {
                         info!("Driver initialized: {:?}", driver.get_driver_type());
                         return Ok(driver);
+                    }
+                    // VirtualBox params select an access method: the caller targets VirtualBox.
+                    Err(e)
+                        if drv_type == DriverType::VirtualBox
+                            && init_params.as_ref().is_some_and(|p| p.virtualbox.is_some()) =>
+                    {
+                        return Err(e)
                     }
                     Err(e) => {
                         debug!("{:?} driver initialization failed: {}", drv_type, e);
