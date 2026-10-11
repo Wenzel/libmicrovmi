@@ -6,7 +6,6 @@ use std::thread;
 use std::time::Duration;
 
 use colored::*;
-use env_logger;
 
 use common::config::TIMEOUT;
 use common::context::init_context;
@@ -18,8 +17,17 @@ mod tests;
 fn main() {
     // init logger
     env_logger::builder().is_test(true).init();
+    // like libtest: run only the tests whose name contains the first non-flag argument
+    let filter = std::env::args().skip(1).find(|a| !a.starts_with('-'));
+    let mut failed = 0;
     // for each test
     for test in inventory::iter::<IntegrationTest> {
+        if filter
+            .as_ref()
+            .is_some_and(|f| !test.name.contains(f.as_str()))
+        {
+            continue;
+        }
         print!("Test {} ... ", test.name);
         io::stdout().flush().expect("Failed to flush stdout");
         // get setup / teardown context
@@ -41,11 +49,16 @@ fn main() {
         });
 
         // wait for test to complete until timeout
-        let timeout = Duration::from_secs(TIMEOUT);
+        let timeout =
+            Duration::from_secs(std::env::var("MICROVMI_TEST_TIMEOUT").map_or(TIMEOUT, |t| {
+                t.parse().expect("MICROVMI_TEST_TIMEOUT: seconds")
+            }));
         let timeout_result = done_rx.recv_timeout(timeout).map(|_| handle.join());
         // cleanup test environment
         ctx.teardown();
         // check results
+        let ok = matches!(timeout_result, Ok(Ok(Ok(_))));
+        failed += usize::from(!ok);
         match timeout_result {
             Err(_) => println!("{}: {}", "Failed".red(), "Timeout".yellow()),
             Ok(join_result) => match join_result {
@@ -60,5 +73,9 @@ fn main() {
                 },
             },
         }
+    }
+    if failed > 0 {
+        println!("{} test(s) failed", failed);
+        std::process::exit(1);
     }
 }
