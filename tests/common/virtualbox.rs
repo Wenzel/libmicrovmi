@@ -42,7 +42,7 @@ pub(crate) fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
     let out = Command::new(bin("VBoxManage"))
         .args(args)
         .output()
-        .expect("Failed to start VBoxManage");
+        .map_err(|e| format!("Failed to start VBoxManage: {}", e))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
