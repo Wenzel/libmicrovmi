@@ -4,6 +4,9 @@ pub mod events;
 pub mod get;
 pub mod init;
 pub mod pause;
+// same condition as init_context picking the VirtualBox context
+#[cfg(all(feature = "virtualbox-api", not(feature = "kvm")))]
+pub mod virtualbox;
 
 #[derive(Debug)]
 pub struct IntegrationTest {
