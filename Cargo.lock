@@ -1172,6 +1172,7 @@ dependencies = [
  "thiserror 1.0.69",
  "utilities",
  "vboxapi",
+ "vboxvmi",
  "vid-sys",
  "widestring",
  "winapi",
@@ -2071,6 +2072,15 @@ version = "0.1.0"
 source = "git+https://github.com/Wenzel/rs-vboxapi?rev=2197a7bca9a73b41877318e2a39fe01b5351ae88#2197a7bca9a73b41877318e2a39fe01b5351ae88"
 dependencies = [
  "libloading 0.8.6",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "vboxvmi"
+version = "0.1.0"
+source = "git+https://github.com/Wenzel/rs-vboxvmi?rev=73d3994183553acb303cf452718b076273d8f7d6#73d3994183553acb303cf452718b076273d8f7d6"
+dependencies = [
+ "libc",
  "thiserror 1.0.69",
 ]
 

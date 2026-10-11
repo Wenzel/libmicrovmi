@@ -29,6 +29,8 @@ use driver::memflow::Memflow;
 use driver::virtualbox::VBox;
 #[cfg(feature = "virtualbox-api")]
 use driver::virtualbox_api::VBoxApi;
+#[cfg(feature = "virtualbox-vmi")]
+use driver::virtualbox_vmi::VBoxVmi;
 #[cfg(feature = "xen")]
 use driver::xen::Xen;
 use errors::MicrovmiError;
@@ -126,7 +128,11 @@ fn init_driver(
         DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi()?, _init_params)?)),
         #[cfg(feature = "mflow")]
         DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
-        #[cfg(any(feature = "virtualbox", feature = "virtualbox-api"))]
+        #[cfg(any(
+            feature = "virtualbox",
+            feature = "virtualbox-api",
+            feature = "virtualbox-vmi"
+        ))]
         DriverType::VirtualBox => init_virtualbox(_init_params),
         #[cfg(feature = "xen")]
         DriverType::Xen => Ok(Box::new(Xen::new(_init_params)?)),
@@ -136,7 +142,11 @@ fn init_driver(
 }
 
 /// Initialize the VirtualBox driver with the access method selected by `init_params.virtualbox`
-#[cfg(any(feature = "virtualbox", feature = "virtualbox-api"))]
+#[cfg(any(
+    feature = "virtualbox",
+    feature = "virtualbox-api",
+    feature = "virtualbox-vmi"
+))]
 fn init_virtualbox(
     init_params: DriverInitParams,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
@@ -149,6 +159,16 @@ fn init_virtualbox(
             driver: DriverType::VirtualBox,
             method: "MachineDebugger",
             feature: "virtualbox-api",
+        }),
+        #[cfg(feature = "virtualbox-vmi")]
+        Some(VBoxInitParams::VBoxVMI { ref socket_path }) => {
+            Ok(Box::new(VBoxVmi::new(socket_path)?))
+        }
+        #[cfg(not(feature = "virtualbox-vmi"))]
+        Some(VBoxInitParams::VBoxVMI { .. }) => Err(MicrovmiError::AccessMethodNotCompiled {
+            driver: DriverType::VirtualBox,
+            method: "VBoxVMI",
+            feature: "virtualbox-vmi",
         }),
         #[cfg(feature = "virtualbox")]
         None => Ok(Box::new(VBox::new(init_params)?)),

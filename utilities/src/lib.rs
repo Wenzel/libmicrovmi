@@ -40,6 +40,13 @@ impl Clappable for DriverInitParams {
             Arg::with_name("vbox_machinedebugger")
                 .long("vbox_machinedebugger")
                 .help("Driver parameter (VirtualBox): use the MachineDebugger access method"),
+            Arg::with_name("vbox_vmi")
+                .long("vbox_vmi")
+                .takes_value(true)
+                .conflicts_with("vbox_machinedebugger")
+                .help(
+                    "Driver parameter (VirtualBox): use the VBoxVMI access method on this socket",
+                ),
         ]
     }
 
@@ -63,8 +70,15 @@ impl Clappable for DriverInitParams {
                 }),
             });
         let virtualbox = matches
-            .is_present("vbox_machinedebugger")
-            .then_some(VBoxInitParams::MachineDebugger);
+            .value_of("vbox_vmi")
+            .map(|path| VBoxInitParams::VBoxVMI {
+                socket_path: String::from(path),
+            })
+            .or_else(|| {
+                matches
+                    .is_present("vbox_machinedebugger")
+                    .then_some(VBoxInitParams::MachineDebugger)
+            });
         DriverInitParams {
             common,
             kvm,
@@ -79,7 +93,9 @@ impl Clappable for DriverInitParams {
 mod tests {
     use super::Clappable;
     use clap::App;
-    use microvmi::api::params::{DriverInitParams, KVMInitParams, MemflowConnectorParams};
+    use microvmi::api::params::{
+        DriverInitParams, KVMInitParams, MemflowConnectorParams, VBoxInitParams,
+    };
 
     #[test]
     fn test_common_vm_name() {
@@ -103,6 +119,21 @@ mod tests {
                 path: String::from("/tmp/introspector")
             },
             params.kvm.unwrap()
+        );
+    }
+
+    #[test]
+    fn test_vbox_vmi() {
+        let cmdline = vec!["test", "--vbox_vmi=/tmp/vm.sock"];
+        let matches = App::new("test")
+            .args(DriverInitParams::to_clap_args().as_ref())
+            .get_matches_from(cmdline);
+        let params = DriverInitParams::from_matches(&matches);
+        assert_eq!(
+            VBoxInitParams::VBoxVMI {
+                socket_path: String::from("/tmp/vm.sock")
+            },
+            params.virtualbox.unwrap()
         );
     }
 
