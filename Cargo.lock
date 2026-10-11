@@ -2044,7 +2044,7 @@ dependencies = [
 [[package]]
 name = "vboxapi"
 version = "0.1.0"
-source = "git+https://github.com/Wenzel/rs-vboxapi?rev=a8b54f9ae2eb40f929a67c5c508bb3a8dce39b11#a8b54f9ae2eb40f929a67c5c508bb3a8dce39b11"
+source = "git+https://github.com/Wenzel/rs-vboxapi?rev=2c8292dbd48c576aa65d8a2bd12a907c860a5e62#2c8292dbd48c576aa65d8a2bd12a907c860a5e62"
 dependencies = [
  "libloading 0.8.6",
  "log",
