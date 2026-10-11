@@ -1,11 +1,44 @@
 # VirtualBox
 
-The VirtualBox driver offers two access methods, selected at init time by `DriverInitParams.virtualbox`. Both name the VM with `common.vm_name`.
+The VirtualBox driver offers three access methods, selected at init time by `DriverInitParams.virtualbox`.
+MachineDebugger and FDP name the VM with `common.vm_name`; VBoxVMI names it by its socket.
 
 | Access method | Cargo feature | Selected by |
 |---------------|---------------|-------------|
+| VBoxVMI | `virtualbox-vmi` | `VBoxInitParams::VBoxVMI { socket_path }` |
 | MachineDebugger | `virtualbox-api` | `VBoxInitParams::MachineDebugger` |
 | FDP (legacy) | `virtualbox` | no `virtualbox` parameter |
+
+## VBoxVMI method
+
+Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
+It is the fast path, and the way towards VMI events.
+
+Supported: connecting and the protocol handshake. Memory, registers, pause/resume and vCPU count are not implemented yet ([#282](https://github.com/Wenzel/libmicrovmi/issues/282)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
+
+### Requirements
+
+- Platform: Linux
+- A VirtualBox built with VBoxVMI (`VBOX_WITH_VMI`, branch `vmi/vboxvmi` of [Wenzel/virtualbox](https://github.com/Wenzel/virtualbox); protocol and design in its `doc/technical/VBoxVMI-*.md`).
+- VBoxVMI enabled on the VM before it starts: `VBoxManage setextradata <vm> VBoxInternal/VMI/Enabled 1`.
+  The socket is `<VirtualBox user home>/vmi/<VM UUID>.sock` (e.g. `~/.config/VirtualBox/vmi/`), or the path set in `VBoxInternal/VMI/SocketPath`.
+- libmicrovmi runs as the user running the VM (the socket is mode 0600 and the server checks the peer's uid; root is refused too).
+- A custom `SocketPath` must be absolute, in a directory owned by that user and not writable by group or others (unless sticky); otherwise the VM refuses to start.
+- One client per VM at a time: a second client gets a "another VBoxVMI client is already connected" error.
+
+### Initialization parameters
+
+- `vm_name`: ignored (the socket belongs to one VM)
+- `virtualbox`: `VBoxInitParams::VBoxVMI { socket_path }`
+
+The examples take `--vbox_vmi <socket>`. Until memory reads land (#282) they stop at their first VM access with the "not implemented yet" error, which already shows that init (connect and handshake) succeeded:
+~~~
+$ cargo build --features virtualbox-vmi --examples
+$ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock
+~~~
+
+The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate. To build against a local checkout of it:
+`cargo build --features virtualbox-vmi --config 'patch."https://github.com/Wenzel/rs-vboxvmi".vboxvmi.path="../rs-vboxvmi"'`
 
 ## MachineDebugger method
 
