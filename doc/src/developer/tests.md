@@ -47,6 +47,7 @@ configured `cpus`.
 - `VBOX_TEST_VM` (default `microvmi-alpine`), `VBOX_TEST_SNAPSHOT` (default `base`)
 - `VBOX_TEST_MEMORY_MB`: discard the snapshot's saved state and cold boot the guest with this much RAM
   (e.g. `5120`, to test above 4 GiB). Teardown restores the snapshot, which restores the VM's RAM size.
+- `VBOX_TEST_CPUS`: same, with this many vCPUs (e.g. `2`, to test the vCPU count of a multi-vCPU guest).
 - `VBOX_TEST_CORE_DIR` (default: the temp dir): where core dumps go. A core is as large as the guest's RAM
   (over 5 GiB for a 5 GiB guest): avoid a RAM-backed tmpfs `/tmp` for big guests. Deleted at teardown.
 
@@ -62,6 +63,7 @@ Run the generic tests the method supports, or the VirtualBox ones:
 ~~~
 MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
+MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
 ~~~
 
 If cargo runs in a container without VirtualBox, build the test binary there and run it on the host:

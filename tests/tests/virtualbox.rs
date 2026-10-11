@@ -177,3 +177,26 @@ inventory::submit!(IntegrationTest {
     name: "virtualbox_read_physical_matches_core",
     test_fn: read_physical_matches_core
 });
+
+/// Pause is VirtualBox's own, visible to `VBoxManage` as soon as it returns, and idempotent, also
+/// when another client paused or resumed the VM: one resume undoes any number of pauses.
+fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
+    drv.pause().unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
+    drv.resume().unwrap();
+    assert_eq!(vm_info("VMState"), "running");
+    drv.resume().unwrap();
+    assert_eq!(vm_info("VMState"), "running");
+
+    vboxmanage(&["controlvm", &vm_name(), "pause"]);
+    drv.pause().unwrap();
+    drv.resume().unwrap();
+    assert_eq!(vm_info("VMState"), "running");
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_pause_idempotent_and_visible",
+    test_fn: pause_idempotent_and_visible
+});
