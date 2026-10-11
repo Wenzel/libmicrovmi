@@ -5,7 +5,7 @@ import logging
 from contextlib import contextmanager, nullcontext
 from typing import Optional
 
-from microvmi import CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, Microvmi, VBoxInitParamsPy
+from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, Microvmi, VBoxInitParamsPy
 from rich import print
 from rich.progress import BarColumn, Progress, TextColumn
 
@@ -52,10 +52,13 @@ def dump_mem(
         kvm = KVMInitParamsPy()
         kvm.unix_socket = kvm_unix_socket
         init_params.kvm = kvm
+    driver_type = None
     if vbox_machinedebugger:
         init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+        # explicit driver type: surfaces the VirtualBox init error instead of NoDriverAvailable
+        driver_type = DriverType.VirtualBox
     # init libmicrovmi
-    micro = Microvmi(None, init_params)
+    micro = Microvmi(driver_type, init_params)
     destination = output_file.format(vm_name=vm_name)
     with nullcontext() if no_pause else pause_ctxt(micro):
         max_addr = micro.max_addr

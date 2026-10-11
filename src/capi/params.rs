@@ -3,7 +3,8 @@ use crate::api::params::{
     VBoxInitParams,
 };
 use std::convert::TryFrom;
-use std::ffi::{CStr, IntoStringError};
+use std::error::Error;
+use std::ffi::CStr;
 use std::os::raw::c_char;
 
 /// equivalent of `CommonInitParams` with C compatibility
@@ -40,24 +41,20 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
-/// VirtualBox access method, C tag for `VBoxInitParams`
-///
-/// cbindgen:prefix-with-name
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VBoxAccessMethodFFI {
-    /// no `VBoxInitParams`: the driver's default access method (FDP)
-    Default = 0,
-    MachineDebugger,
-}
+/// `VBoxInitParamsFFI.access_method`: no `VBoxInitParams` (the VirtualBox driver's default access method)
+pub const VBOX_ACCESS_METHOD_NONE: u32 = 0;
+/// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
+pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
 
 /// equivalent of `Option<VBoxInitParams>` with C compatibility
 ///
-/// A zero-initialized struct selects the default access method.
+/// A zero-initialized struct means no `VBoxInitParams`.
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct VBoxInitParamsFFI {
-    pub access_method: VBoxAccessMethodFFI,
+    /// one of the `VBOX_ACCESS_METHOD_*` constants
+    // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
+    pub access_method: u32,
 }
 
 /// equivalent of `DriverInitParam` with C compatibility
@@ -72,7 +69,7 @@ pub struct DriverInitParamsFFI {
 
 // convert from FFI type to Rust type
 impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
-    type Error = IntoStringError;
+    type Error = Box<dyn Error>;
 
     fn try_from(value: DriverInitParamsFFI) -> Result<Self, Self::Error> {
         // build common params
@@ -135,8 +132,9 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
             })
         };
         let virtualbox = match value.virtualbox.access_method {
-            VBoxAccessMethodFFI::Default => None,
-            VBoxAccessMethodFFI::MachineDebugger => Some(VBoxInitParams::MachineDebugger),
+            VBOX_ACCESS_METHOD_NONE => None,
+            VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
+            other => return Err(format!("unknown VirtualBox access method: {}", other).into()),
         };
         Ok(DriverInitParams {
             common,

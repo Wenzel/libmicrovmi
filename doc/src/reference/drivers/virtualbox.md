@@ -30,7 +30,7 @@ Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`),
 - `vm_name`: required
 - `virtualbox`: `VBoxInitParams::MachineDebugger`
   - Python: `init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()`
-  - C: `.virtualbox = { .access_method = VBoxAccessMethodFFI_MachineDebugger }` (a zero-initialized `virtualbox` selects FDP)
+  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_MACHINE_DEBUGGER }` (`VBOX_ACCESS_METHOD_NONE`, the zero value, means no `VBoxInitParams`; see `c_examples/vbox-read-page.c`)
 
 ~~~
 $ cargo build --features virtualbox-api --examples

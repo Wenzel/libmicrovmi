@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 from urllib.request import BaseHandler, Request
 
 from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, MemflowInitParamsPy, Microvmi
+from microvmi.pymicrovmi import VBoxInitParamsPy
 
 # to be used by volatility, the VMIHandler should inherit from VolatilityHandler
 # in order to be non cacheable
@@ -102,6 +103,7 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
     common = None
     kvm = None
     memflow = None
+    virtualbox = None
     for param, list_value in url_params.items():
         if param == "vm_name":
             common = CommonInitParamsPy()
@@ -115,10 +117,17 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
             if memflow is None:
                 raise MicrovmiHandlerError("memflow connector args received but no connector name specified")
             memflow.connector_args = list_value
+        elif param == "vbox_access_method":
+            if list_value[0] != "machinedebugger":
+                raise MicrovmiHandlerError(
+                    f"Unknown VirtualBox access method: {list_value[0]} (supported: machinedebugger)"
+                )
+            virtualbox = VBoxInitParamsPy.MachineDebugger()
         else:
             raise MicrovmiHandlerError(f"Unknown driver initialization parameter: {param}")
     init_params = DriverInitParamsPy()
     init_params.common = common
     init_params.kvm = kvm
     init_params.memflow = memflow
+    init_params.virtualbox = virtualbox
     return init_params

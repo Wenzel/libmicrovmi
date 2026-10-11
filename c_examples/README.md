@@ -47,3 +47,6 @@ You need to adjust your `LD_LIBRARY_PATH`
 cd build
 LD_LIBRARY_PATH="$LD_LIBRARY_PATH:../../target/debug" <example> <vm_name>
 ~~~
+
+`vbox-read-page <vm_name> [physical_address]` selects the VirtualBox MachineDebugger access method
+(build libmicrovmi with `--features virtualbox-api`) and prints one page of guest physical memory.

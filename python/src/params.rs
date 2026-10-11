@@ -81,6 +81,8 @@ pub enum VBoxInitParamsPy {
 /// init_params = DriverInitParamsPy()
 /// init_params.common = common
 /// init_params.kvm = kvm
+/// # or select the VirtualBox MachineDebugger access method
+/// init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
 /// ```
 #[pyclass]
 #[derive(Default, Debug, Clone)]

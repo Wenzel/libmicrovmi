@@ -30,7 +30,8 @@ class Microvmi:
             init_params (DriverInitParamsPy, optional): initialization parameters for driver initialization
 
         Examples:
-            from microvmi import Microvmi, DriverInitParamsPy, CommonInitParamsPy, KVMInitParamsPy
+            from microvmi import Microvmi, DriverType, DriverInitParamsPy, CommonInitParamsPy, KVMInitParamsPy
+            from microvmi import VBoxInitParamsPy
             # setup common params
             common = CommonInitParamsPy()
             common.vm_name = "windows10"
@@ -43,6 +44,10 @@ class Microvmi:
             init_params.kvm = kvm
             # init
             m = Microvmi(None, init_params)
+
+            # VirtualBox: select the MachineDebugger access method
+            init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+            m = Microvmi(DriverType.VirtualBox, init_params)
         """
         drv_type_ext: Optional[int] = driver_type.value if driver_type is not None else None
         self._micro = MicrovmiExt(drv_type_ext, init_params)
