@@ -5,7 +5,7 @@ CWD := $(shell pwd)
 
 .PHONY: all clean
 
-all: mem-dump pause regs-dump
+all: mem-dump pause regs-dump vbox-read-page
 
 libmicrovmi.h: ../target/debug/libmicrovmi.so
 	cd ..; \
@@ -20,5 +20,8 @@ pause: libmicrovmi.h pause.c
 regs-dump: libmicrovmi.h regs-dump.c
 	$(CC) $(CFLAGS) regs-dump.c -o $@ $(LDFLAGS)
 
+vbox-read-page: libmicrovmi.h vbox-read-page.c
+	$(CC) $(CFLAGS) vbox-read-page.c -o $@ $(LDFLAGS)
+
 clean:
-	rm -f libmicrovmi.h mem-dump pause regs-dump
+	rm -f libmicrovmi.h mem-dump pause regs-dump vbox-read-page

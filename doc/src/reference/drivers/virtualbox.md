@@ -29,10 +29,18 @@ Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`),
 
 - `vm_name`: required
 - `virtualbox`: `VBoxInitParams::MachineDebugger`
+  - Python: `init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()`
+  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_MACHINE_DEBUGGER }` (`VBOX_ACCESS_METHOD_NONE`, the zero value, means no `VBoxInitParams`; see `c_examples/vbox-read-page.c`)
 
 ~~~
 $ cargo build --features virtualbox-api --examples
 $ ./target/debug/examples/mem-dump --vm_name <vm_name> --vbox_machinedebugger --no-pause
+~~~
+
+Python (build the bindings with `--features virtualbox-api`):
+
+~~~
+$ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger --no-pause
 ~~~
 
 The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:

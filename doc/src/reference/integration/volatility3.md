@@ -33,6 +33,10 @@ To pass the KVMi socket:
 
     vmi:///?vm_name=windows10&kvm_unix_socket=/tmp/introspector
 
+To use VirtualBox's MachineDebugger access method:
+
+    vmi://VirtualBox/?vm_name=windows10&vbox_access_method=machinedebugger
+
 URL parameters:
 
 | name                     | description            |
@@ -40,6 +44,7 @@ URL parameters:
 | `vm_name`                | Name of the VM         |
 | `kvm_unix_socket`        | KVMi UNIX socket       |
 | `memflow_connector_name` | memflow connector name |
+| `vbox_access_method`     | VirtualBox access method: `machinedebugger` |
 
 ## Running volatility3
 

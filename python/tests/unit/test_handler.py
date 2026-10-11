@@ -1,5 +1,5 @@
 import pytest
-from microvmi import DriverType
+from microvmi import DriverType, VBoxInitParamsPy
 from microvmi.volatility.vmi_handler import MicrovmiHandlerError, url_to_driver_parameters
 
 
@@ -61,5 +61,17 @@ def test_parse_init_param_unknown_key():
     key = "unkown_config_key"
     socket = "/tmp/introspector"
     url = f"vmi://?{key}={socket}"
+    with pytest.raises(MicrovmiHandlerError):
+        url_to_driver_parameters(url)
+
+
+def test_parse_init_param_vbox_access_method():
+    url = "vmi://VirtualBox/?vbox_access_method=machinedebugger"
+    _, init_params = url_to_driver_parameters(url)
+    assert isinstance(init_params.virtualbox, VBoxInitParamsPy.MachineDebugger)
+
+
+def test_parse_init_param_vbox_access_method_unknown():
+    url = "vmi:///?vbox_access_method=unknown"
     with pytest.raises(MicrovmiHandlerError):
         url_to_driver_parameters(url)

@@ -1,8 +1,10 @@
 use crate::api::params::{
     CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+    VBoxInitParams,
 };
 use std::convert::TryFrom;
-use std::ffi::{CStr, IntoStringError};
+use std::error::Error;
+use std::ffi::CStr;
 use std::os::raw::c_char;
 
 /// equivalent of `CommonInitParams` with C compatibility
@@ -39,6 +41,22 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
+/// `VBoxInitParamsFFI.access_method`: no `VBoxInitParams` (the VirtualBox driver's default access method)
+pub const VBOX_ACCESS_METHOD_NONE: u32 = 0;
+/// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
+pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
+
+/// equivalent of `Option<VBoxInitParams>` with C compatibility
+///
+/// A zero-initialized struct means no `VBoxInitParams`.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct VBoxInitParamsFFI {
+    /// one of the `VBOX_ACCESS_METHOD_*` constants
+    // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
+    pub access_method: u32,
+}
+
 /// equivalent of `DriverInitParam` with C compatibility
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -46,11 +64,12 @@ pub struct DriverInitParamsFFI {
     pub common: CommonInitParamsFFI,
     pub kvm: KVMInitParamsFFI,
     pub memflow: MemflowInitParamsFFI,
+    pub virtualbox: VBoxInitParamsFFI,
 }
 
 // convert from FFI type to Rust type
 impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
-    type Error = IntoStringError;
+    type Error = Box<dyn Error>;
 
     fn try_from(value: DriverInitParamsFFI) -> Result<Self, Self::Error> {
         // build common params
@@ -112,10 +131,16 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
                 connector_args: args,
             })
         };
+        let virtualbox = match value.virtualbox.access_method {
+            VBOX_ACCESS_METHOD_NONE => None,
+            VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
+            other => return Err(format!("unknown VirtualBox access method: {}", other).into()),
+        };
         Ok(DriverInitParams {
             common,
             kvm,
             memflow,
+            virtualbox,
             ..Default::default()
         })
     }

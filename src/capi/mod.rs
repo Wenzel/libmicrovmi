@@ -47,15 +47,12 @@ pub unsafe extern "C" fn microvmi_init(
     };
     // check init params
     let optional_init_params = if init_params.is_null() {
-        None
+        Ok(None)
     } else {
-        Some(
-            DriverInitParams::try_from(init_params.read())
-                .expect("Failed to convert DriverInitParam C struct to Rust"),
-        )
+        DriverInitParams::try_from(init_params.read()).map(Some)
     };
 
-    match init(optional_driver_type, optional_init_params) {
+    match optional_init_params.and_then(|p| Ok(init(optional_driver_type, p)?)) {
         Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
         Err(err) => {
             if !init_error.is_null() {
