@@ -37,7 +37,7 @@ fn bin(name: &str) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(name))
 }
 
-fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
+pub(crate) fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
     debug!("VBoxManage {}", args.join(" "));
     let out = Command::new(bin("VBoxManage"))
         .args(args)
