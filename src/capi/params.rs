@@ -1,5 +1,6 @@
 use crate::api::params::{
     CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+    VBoxInitParams,
 };
 use std::convert::TryFrom;
 use std::ffi::{CStr, IntoStringError};
@@ -39,6 +40,26 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
+/// VirtualBox access method, C tag for `VBoxInitParams`
+///
+/// cbindgen:prefix-with-name
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VBoxAccessMethodFFI {
+    /// no `VBoxInitParams`: the driver's default access method (FDP)
+    Default = 0,
+    MachineDebugger,
+}
+
+/// equivalent of `Option<VBoxInitParams>` with C compatibility
+///
+/// A zero-initialized struct selects the default access method.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct VBoxInitParamsFFI {
+    pub access_method: VBoxAccessMethodFFI,
+}
+
 /// equivalent of `DriverInitParam` with C compatibility
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -46,6 +67,7 @@ pub struct DriverInitParamsFFI {
     pub common: CommonInitParamsFFI,
     pub kvm: KVMInitParamsFFI,
     pub memflow: MemflowInitParamsFFI,
+    pub virtualbox: VBoxInitParamsFFI,
 }
 
 // convert from FFI type to Rust type
@@ -112,10 +134,15 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
                 connector_args: args,
             })
         };
+        let virtualbox = match value.virtualbox.access_method {
+            VBoxAccessMethodFFI::Default => None,
+            VBoxAccessMethodFFI::MachineDebugger => Some(VBoxInitParams::MachineDebugger),
+        };
         Ok(DriverInitParams {
             common,
             kvm,
             memflow,
+            virtualbox,
             ..Default::default()
         })
     }

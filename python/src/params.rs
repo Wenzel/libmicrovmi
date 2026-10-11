@@ -54,6 +54,16 @@ impl MemflowInitParamsPy {
     }
 }
 
+/// equivalent of `VBoxInitParams` for Python: selects the VirtualBox access method
+///
+/// Usage from Python: `VBoxInitParamsPy.MachineDebugger()`
+#[pyclass]
+#[derive(Debug, Clone)]
+pub enum VBoxInitParamsPy {
+    // struct variant (not unit) so variants with fields can be added without changing the Python API
+    MachineDebugger {},
+}
+
 /// equivalent of `DriverInitParams` for Python
 ///
 /// # Examples
@@ -81,6 +91,8 @@ pub struct DriverInitParamsPy {
     pub kvm: Option<KVMInitParamsPy>,
     #[pyo3(get, set)]
     pub memflow: Option<MemflowInitParamsPy>,
+    #[pyo3(get, set)]
+    pub virtualbox: Option<VBoxInitParamsPy>,
 }
 
 #[pymethods]

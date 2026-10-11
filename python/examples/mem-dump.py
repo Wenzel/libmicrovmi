@@ -2,10 +2,10 @@
 
 import argparse
 import logging
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Optional
 
-from microvmi import CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, Microvmi
+from microvmi import CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, Microvmi, VBoxInitParamsPy
 from rich import print
 from rich.progress import BarColumn, Progress, TextColumn
 
@@ -25,12 +25,24 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--vm_name", type=str, help="The VM name to dump memory from")
     parser.add_argument("-k", "--kvm-unix-socket", type=str, help="The Unix socket path for the KVM driver")
+    parser.add_argument(
+        "--vbox-machinedebugger",
+        action="store_true",
+        help="Use the VirtualBox driver's MachineDebugger access method",
+    )
+    parser.add_argument("--no-pause", action="store_true", help="Do not pause the VM while dumping")
     parser.add_argument("-o", "--output-file", help="Dump file path", default="{vm_name}.dump")
     args = parser.parse_args()
     return args
 
 
-def dump_mem(vm_name: Optional[str], kvm_unix_socket: Optional[str], output_file: Optional[str]):
+def dump_mem(
+    vm_name: Optional[str],
+    kvm_unix_socket: Optional[str],
+    vbox_machinedebugger: bool,
+    no_pause: bool,
+    output_file: Optional[str],
+):
     # prepare drivers init params
     init_params = DriverInitParamsPy()
     common = CommonInitParamsPy()
@@ -40,10 +52,12 @@ def dump_mem(vm_name: Optional[str], kvm_unix_socket: Optional[str], output_file
         kvm = KVMInitParamsPy()
         kvm.unix_socket = kvm_unix_socket
         init_params.kvm = kvm
+    if vbox_machinedebugger:
+        init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
     # init libmicrovmi
     micro = Microvmi(None, init_params)
     destination = output_file.format(vm_name=vm_name)
-    with pause_ctxt(micro):
+    with nullcontext() if no_pause else pause_ctxt(micro):
         max_addr = micro.max_addr
         print(f"Dumping physical memory on {vm_name} until 0x{max_addr:X} to {destination}")
         with open(destination, "wb") as f:
@@ -72,7 +86,7 @@ def main():
         vm_name = args.vm_name
         kvm_unix_socket = args.kvm_unix_socket
         output_file = args.output_file
-        dump_mem(vm_name, kvm_unix_socket, output_file)
+        dump_mem(vm_name, kvm_unix_socket, args.vbox_machinedebugger, args.no_pause, output_file)
     except KeyboardInterrupt:
         logging.critical("Cancelled by CTRL-C")
 
