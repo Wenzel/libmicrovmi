@@ -105,15 +105,21 @@ impl Context for VirtualBox {
         debug!("setup test");
         power_off_and_restore();
         let vm = vm_name();
-        // a saved state can't change hardware: cold boot instead
+        let mut modify = Vec::new();
         for (var, option) in [
             ("VBOX_TEST_MEMORY_MB", "--memory"),
             ("VBOX_TEST_CPUS", "--cpus"),
         ] {
             if let Ok(value) = env::var(var) {
-                vboxmanage(&["discardstate", &vm]);
-                vboxmanage(&["modifyvm", &vm, option, &value]);
+                modify.extend([option.to_string(), value]);
             }
+        }
+        if !modify.is_empty() {
+            // a saved state can't change hardware: cold boot instead
+            vboxmanage(&["discardstate", &vm]);
+            let mut args = vec!["modifyvm", &vm];
+            args.extend(modify.iter().map(String::as_str));
+            vboxmanage(&args);
         }
         // VBoxHeadless directly, not `startvm`, so it is the binary from VBOX_APP_HOME.
         let mut headless = Command::new(bin("VBoxHeadless"))

@@ -4,6 +4,8 @@ use std::fs::{self, File};
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
 
 use log::debug;
 use microvmi::api::{Introspectable, PAGE_SIZE};
@@ -178,6 +180,69 @@ inventory::submit!(IntegrationTest {
     test_fn: read_physical_matches_core
 });
 
+/// Per-vCPU statistic `/TM/CPU/<n>/<name>` of the VMM, in vCPU order.
+fn vcpu_stats(name: &str) -> Vec<u64> {
+    let pattern = format!("/TM/CPU/*/{}", name);
+    let xml = vboxmanage(&["debugvm", &vm_name(), "statistics", "--pattern", &pattern]);
+    // <U64 val="123" unit="ns" name="/TM/CPU/00/cNsExecuting"/>
+    let stats: Vec<u64> = xml
+        .lines()
+        .filter(|l| l.contains(&format!("/{}\"", name)))
+        .map(|l| {
+            let val = l.split("val=\"").nth(1).and_then(|v| v.split('"').next());
+            val.and_then(|v| v.parse().ok())
+                .unwrap_or_else(|| panic!("bad statistics line {:?}", l))
+        })
+        .collect();
+    assert!(!stats.is_empty(), "no {} statistic:\n{}", pattern, xml);
+    stats
+}
+
+/// The vCPU count matches the vCPUs the VMM really runs (one `/TM/CPU/<n>` statistics tree per
+/// vCPU), independently of the VM configuration. The multi-vCPU check needs `VBOX_TEST_CPUS=2`.
+fn vcpu_count_matches_vmm(drv: Box<dyn Introspectable>) {
+    let count = drv.get_vcpu_count().unwrap();
+    assert_eq!(usize::from(count), vcpu_stats("cNsTotal").len());
+    if let Ok(cpus) = std::env::var("VBOX_TEST_CPUS") {
+        assert_eq!(count.to_string(), cpus);
+    }
+    print!("{} vCPU(s) ", count);
+    if count == 1 {
+        print!("(set VBOX_TEST_CPUS=2 for the multi-vCPU check) ");
+    }
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_vcpu_count_matches_vmm",
+    test_fn: vcpu_count_matches_vmm
+});
+
+/// Pause stops every vCPU before it returns, independently of the state VirtualBox reports: each
+/// vCPU's guest-executing time is frozen while paused, and the total grows again after resume.
+fn pause_stops_vcpus(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    let paused = vcpu_stats("cNsExecuting");
+    sleep(Duration::from_secs(1));
+    assert_eq!(
+        vcpu_stats("cNsExecuting"),
+        paused,
+        "a vCPU executed while paused"
+    );
+    drv.resume().unwrap();
+    sleep(Duration::from_secs(1));
+    let resumed = vcpu_stats("cNsExecuting");
+    assert!(
+        resumed.iter().sum::<u64>() > paused.iter().sum::<u64>(),
+        "no vCPU executed after resume: {:?}",
+        resumed
+    );
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_pause_stops_vcpus",
+    test_fn: pause_stops_vcpus
+});
+
 /// Pause is VirtualBox's own, visible to `VBoxManage` as soon as it returns, and idempotent, also
 /// when another client paused or resumed the VM: one resume undoes any number of pauses.
 fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
@@ -192,6 +257,7 @@ fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
 
     vboxmanage(&["controlvm", &vm_name(), "pause"]);
     drv.pause().unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
     drv.resume().unwrap();
     assert_eq!(vm_info("VMState"), "running");
 }
