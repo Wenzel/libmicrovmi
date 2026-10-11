@@ -1,4 +1,5 @@
 //! VirtualBox driver, MachineDebugger access method: VirtualBox's `IMachineDebugger` API.
+use std::convert::TryFrom;
 use std::error::Error;
 
 use vboxapi::Vm;
@@ -61,6 +62,19 @@ impl Introspectable for VBoxApi {
             *bytes_read = offset as u64;
         }
         Ok(())
+    }
+
+    fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
+        Ok(u16::try_from(self.vm.cpu_count())?)
+    }
+
+    /// Synchronous and idempotent: one `resume` undoes any number of `pause`s.
+    fn pause(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(self.vm.pause()?)
+    }
+
+    fn resume(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(self.vm.resume()?)
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {

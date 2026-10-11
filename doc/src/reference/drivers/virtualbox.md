@@ -44,11 +44,14 @@ The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate.
 
 Uses VirtualBox's public `IMachineDebugger` API, loaded at runtime from the VirtualBox installation (no build-time dependency on VirtualBox).
 
-Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included).
+Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
 A read that hits an unreadable page (e.g. an MMIO hole) fails, with `bytes_read` set to the bytes read before that page.
+Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
+Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
+Pause and resume fail while a live snapshot or teleport is in progress, during which VirtualBox controls the VM's run state.
+With CPU hot-plug enabled, the vCPU count is the VM's maximum vCPU count, not the vCPUs currently plugged in.
 
-Not implemented yet: pause/resume ([#277](https://github.com/Wenzel/libmicrovmi/issues/277)), registers, writes, vCPU count.
-Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`), so they read the memory of a running guest, which may change during the dump.
+Not implemented yet: registers, writes.
 
 ### Requirements
 
@@ -67,13 +70,13 @@ Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`),
 
 ~~~
 $ cargo build --features virtualbox-api --examples
-$ ./target/debug/examples/mem-dump --vm_name <vm_name> --vbox_machinedebugger --no-pause
+$ ./target/debug/examples/mem-dump --vm_name <vm_name> --vbox_machinedebugger
 ~~~
 
 Python (build the bindings with `--features virtualbox-api`):
 
 ~~~
-$ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger --no-pause
+$ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger
 ~~~
 
 The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:

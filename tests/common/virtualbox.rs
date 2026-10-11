@@ -5,6 +5,7 @@
 //!   off or saved VM and an online snapshot of it, restored before each test
 //! - `VBOX_TEST_MEMORY_MB`: if set, the snapshot's saved state is discarded and the guest cold boots
 //!   with that much RAM; teardown restores the snapshot, so the VM's configuration is unchanged
+//! - `VBOX_TEST_CPUS`: same, with that many vCPUs
 //! - `VBOX_TEST_CORE_DIR` (default: the temp dir): where tests write core dumps, as large as the
 //!   guest's RAM (avoid a RAM-backed tmpfs for big guests); deleted at teardown
 use std::env;
@@ -104,9 +105,21 @@ impl Context for VirtualBox {
         debug!("setup test");
         power_off_and_restore();
         let vm = vm_name();
-        if let Ok(mb) = env::var("VBOX_TEST_MEMORY_MB") {
+        let mut modify = Vec::new();
+        for (var, option) in [
+            ("VBOX_TEST_MEMORY_MB", "--memory"),
+            ("VBOX_TEST_CPUS", "--cpus"),
+        ] {
+            if let Ok(value) = env::var(var) {
+                modify.extend([option.to_string(), value]);
+            }
+        }
+        if !modify.is_empty() {
+            // a saved state can't change hardware: cold boot instead
             vboxmanage(&["discardstate", &vm]);
-            vboxmanage(&["modifyvm", &vm, "--memory", &mb]);
+            let mut args = vec!["modifyvm", &vm];
+            args.extend(modify.iter().map(String::as_str));
+            vboxmanage(&args);
         }
         // VBoxHeadless directly, not `startvm`, so it is the binary from VBOX_APP_HOME.
         let mut headless = Command::new(bin("VBoxHeadless"))
@@ -141,7 +154,7 @@ impl Context for VirtualBox {
         .expect("Failed to init libmicrovmi")
     }
 
-    /// power off and restore the snapshot, undoing any `VBOX_TEST_MEMORY_MB` change
+    /// power off and restore the snapshot, undoing any `VBOX_TEST_MEMORY_MB`/`VBOX_TEST_CPUS` change
     fn teardown(&self) {
         debug!("teardown test");
         power_off_and_restore();
