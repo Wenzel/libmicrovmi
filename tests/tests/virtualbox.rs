@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
 use std::thread::sleep;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use log::debug;
 use microvmi::api::{Introspectable, PAGE_SIZE};
@@ -189,6 +189,41 @@ fn read_physical_matches_core(drv: Box<dyn Introspectable>) {
     assert_eq!(matched, ranges.iter().map(|r| r.end - r.start).sum::<u64>());
     assert_eq!(matched_above_4g, ram_above_4g);
 }
+
+/// Measures the end-to-end batched read path over all RAM, without core-dump I/O.
+fn read_physical_benchmark(drv: Box<dyn Introspectable>) {
+    vboxmanage(&["controlvm", &vm_name(), "pause"]);
+    let ranges = ram_ranges();
+    let start = Instant::now();
+    let mut bytes = 0u64;
+    let mut buf = vec![0; CHUNK as usize];
+    for range in ranges {
+        let mut addr = range.start;
+        while addr < range.end {
+            let len = CHUNK.min(range.end - addr) as usize;
+            let mut bytes_read = 0;
+            drv.read_physical(addr, &mut buf[..len], &mut bytes_read)
+                .unwrap_or_else(|e| {
+                    panic!("read at {:#x} after {} bytes: {}", addr, bytes_read, e)
+                });
+            assert_eq!(bytes_read, len as u64);
+            bytes += len as u64;
+            addr += len as u64;
+        }
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "read {} MiB in {:.3}s ({:.1} MiB/s)",
+        bytes >> 20,
+        elapsed.as_secs_f64(),
+        bytes as f64 / (1 << 20) as f64 / elapsed.as_secs_f64()
+    );
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_read_physical_benchmark",
+    test_fn: read_physical_benchmark
+});
 
 inventory::submit!(IntegrationTest {
     name: "virtualbox_read_physical_matches_core",

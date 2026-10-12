@@ -173,9 +173,7 @@ fn machinedebugger_unpatched_virtualbox() {
             self.0.teardown();
         }
     }
-    let ctx = Teardown(VirtualBox {
-        method: VBoxInitParams::MachineDebugger,
-    });
+    let ctx = Teardown(VirtualBox::new(VBoxInitParams::MachineDebugger));
     ctx.0.setup();
     let err = init_error(Some(DriverType::VirtualBox), ctx.0.init_params());
     assert!(

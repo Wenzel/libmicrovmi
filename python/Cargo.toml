@@ -24,6 +24,7 @@ kvm = ["microvmi/kvm"]
 # VirtualBox driver
 virtualbox = ["microvmi/virtualbox"]
 virtualbox-api = ["microvmi/virtualbox-api"]
+virtualbox-vmi = ["microvmi/virtualbox-vmi"]
 # memflow driver
 mflow = ["microvmi/mflow"]
 

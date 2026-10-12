@@ -101,6 +101,9 @@ impl MicrovmiExt {
             }),
             virtualbox: v.virtualbox.map(|k| match k {
                 VBoxInitParamsPy::MachineDebugger {} => rparams::VBoxInitParams::MachineDebugger,
+                VBoxInitParamsPy::VBoxVMI { socket_path } => {
+                    rparams::VBoxInitParams::VBoxVMI { socket_path }
+                }
             }),
             ..Default::default()
         });

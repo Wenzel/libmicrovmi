@@ -104,6 +104,8 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
     kvm = None
     memflow = None
     virtualbox = None
+    vbox_access_method = None
+    vbox_socket_path = None
     for param, list_value in url_params.items():
         if param == "vm_name":
             common = CommonInitParamsPy()
@@ -118,13 +120,23 @@ def _parse_driver_init_params(query: str) -> Optional[DriverInitParamsPy]:
                 raise MicrovmiHandlerError("memflow connector args received but no connector name specified")
             memflow.connector_args = list_value
         elif param == "vbox_access_method":
-            if list_value[0] != "machinedebugger":
-                raise MicrovmiHandlerError(
-                    f"Unknown VirtualBox access method: {list_value[0]} (supported: machinedebugger)"
-                )
-            virtualbox = VBoxInitParamsPy.MachineDebugger()
+            vbox_access_method = list_value[0]
+        elif param == "vbox_socket_path":
+            vbox_socket_path = list_value[0]
         else:
             raise MicrovmiHandlerError(f"Unknown driver initialization parameter: {param}")
+    if vbox_socket_path is not None and vbox_access_method != "vboxvmi":
+        raise MicrovmiHandlerError("vbox_socket_path requires vbox_access_method=vboxvmi")
+    if vbox_access_method == "machinedebugger":
+        virtualbox = VBoxInitParamsPy.MachineDebugger()
+    elif vbox_access_method == "vboxvmi":
+        if vbox_socket_path is None:
+            raise MicrovmiHandlerError("vbox_access_method=vboxvmi requires vbox_socket_path")
+        virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path=vbox_socket_path)
+    elif vbox_access_method is not None:
+        raise MicrovmiHandlerError(
+            f"Unknown VirtualBox access method: {vbox_access_method} (supported: machinedebugger, vboxvmi)"
+        )
     init_params = DriverInitParamsPy()
     init_params.common = common
     init_params.kvm = kvm
