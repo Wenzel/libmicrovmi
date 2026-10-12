@@ -56,14 +56,16 @@ The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate.
 
 Uses VirtualBox's public `IMachineDebugger` API, loaded at runtime from the VirtualBox installation (no build-time dependency on VirtualBox).
 
-Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
-A read that hits an unreadable page (e.g. an MMIO hole) fails, with `bytes_read` set to the bytes read before that page.
+Supported: reading guest physical memory, reading and writing the complete x86 register set,
+max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
+pause/resume, and vCPU count. A memory read that hits an unreadable page (e.g. an MMIO hole)
+fails, with `bytes_read` set to the bytes read before that page.
 Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
 Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
 Pause and resume fail while a live snapshot or teleport is in progress, during which VirtualBox controls the VM's run state.
 With CPU hot-plug enabled, the vCPU count is the VM's maximum vCPU count, not the vCPUs currently plugged in.
 
-Not implemented yet: registers, writes.
+Not implemented yet: writing guest physical memory.
 
 ### Requirements
 
