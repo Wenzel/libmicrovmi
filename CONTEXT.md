@@ -29,7 +29,23 @@ _Avoid_: "memory size" as a stand-in for max physical address
 Reading and writing guest physical memory and registers, pausing/resuming, and querying vCPU count and memory size. Phase 1 of the VirtualBox work.
 
 **VMI events**:
-Hypervisor-delivered notifications of guest activity (breakpoints, control-register writes, MSR writes, page-access violations) that libmicrovmi can intercept and reply to. Phase 2 of the VirtualBox work.
+Hypervisor-delivered notifications of guest activity (breakpoints, single steps, control-register writes, MSR writes, page-access violations) that libmicrovmi can intercept and reply to. Phase 2 of the VirtualBox work.
+
+**Intercept**:
+A client's request, for one vCPU, that one kind of guest activity be reported as a **VMI event**.
+_Avoid_: hook, trap, monitor
+
+**Parked vCPU**:
+A vCPU stopped by a **VMI event** until the client replies; the other vCPUs keep running.
+_Avoid_: paused vCPU (pause is VM-wide)
+
+**Reinjection**:
+Delivering an intercepted breakpoint to the guest after the reply, as if it had not been intercepted.
+_Avoid_: using "continue" for this
+
+**VirtualBox debugger**:
+A debugger attached to the VM through VirtualBox's own debugging facility (debugger console, GDB or KD stub, debugger GUI).
+_Avoid_: DBGF (the internal component name)
 
 ## Relationships
 
@@ -38,7 +54,11 @@ Hypervisor-delivered notifications of guest activity (breakpoints, control-regis
 - Both methods provide **VM state access**; only the **VBoxVMI method** is planned to provide **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
 - A **VBoxVMI** client that disconnects leaves no trace: intercepts are removed and anything it paused is resumed
+- **Intercepts** are set per vCPU; a **VBoxVMI** client can set none while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set
+- A **Parked vCPU** stays parked across a pause; a client that disconnects releases its **Parked vCPUs** without **reinjection**
+- Whether a breakpoint is **reinjected** is part of the client's reply, not a property of the hypervisor
 
 ## Flagged ambiguities
 
 - "VirtualBox driver" was used for both the libmicrovmi Driver and the patched hypervisor — resolved: **Driver** is always the libmicrovmi side; the hypervisor side is "patched VirtualBox".
+- `EventReplyType::Continue` meant **reinjection** on KVM and no reinjection on Xen — resolved: reinjection is an explicit part of the reply.
