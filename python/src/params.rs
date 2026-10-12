@@ -56,12 +56,14 @@ impl MemflowInitParamsPy {
 
 /// equivalent of `VBoxInitParams` for Python: selects the VirtualBox access method
 ///
-/// Usage from Python: `VBoxInitParamsPy.MachineDebugger()`
+/// Usage from Python: `VBoxInitParamsPy.MachineDebugger()` or
+/// `VBoxInitParamsPy.VBoxVMI(socket_path="/path/to/vm.sock")`
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum VBoxInitParamsPy {
     // struct variant (not unit) so variants with fields can be added without changing the Python API
     MachineDebugger {},
+    VBoxVMI { socket_path: String },
 }
 
 /// equivalent of `DriverInitParams` for Python
@@ -81,8 +83,9 @@ pub enum VBoxInitParamsPy {
 /// init_params = DriverInitParamsPy()
 /// init_params.common = common
 /// init_params.kvm = kvm
-/// # or select the VirtualBox MachineDebugger access method
+/// # or select a VirtualBox access method
 /// init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+/// init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="/path/to/vm.sock")
 /// ```
 #[pyclass]
 #[derive(Default, Debug, Clone)]

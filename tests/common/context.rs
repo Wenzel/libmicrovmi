@@ -23,15 +23,19 @@ pub fn init_context() -> Box<dyn Context> {
     Box::new(super::kvm::KVM {})
 }
 
-#[cfg(all(feature = "virtualbox-api", not(feature = "kvm")))]
+#[cfg(all(
+    any(feature = "virtualbox-api", feature = "virtualbox-vmi"),
+    not(feature = "kvm")
+))]
 pub fn init_context() -> Box<dyn Context> {
-    use microvmi::api::params::VBoxInitParams;
-    Box::new(super::virtualbox::VirtualBox {
-        method: VBoxInitParams::MachineDebugger,
-    })
+    Box::new(super::virtualbox::VirtualBox::from_env())
 }
 
-#[cfg(not(any(feature = "kvm", feature = "virtualbox-api")))]
+#[cfg(not(any(
+    feature = "kvm",
+    feature = "virtualbox-api",
+    feature = "virtualbox-vmi"
+)))]
 pub fn init_context() -> Box<dyn Context> {
     panic!("Integration tests need to be run with a specific driver enabled")
 }

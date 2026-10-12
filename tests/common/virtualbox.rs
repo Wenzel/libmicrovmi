@@ -8,7 +8,13 @@
 //! - `VBOX_TEST_CPUS`: same, with that many vCPUs
 //! - `VBOX_TEST_CORE_DIR` (default: the temp dir): where tests write core dumps, as large as the
 //!   guest's RAM (avoid a RAM-backed tmpfs for big guests); deleted at teardown
+//! - `VBOX_TEST_METHOD`: the access method, `machinedebugger` or `vboxvmi`. Unset selects an
+//!   access method compiled into the test binary. For `vboxvmi`, setup enables VBoxVMI on the VM
+//!   while preserving the prior extradata value. The socket honors `VBoxInternal/VMI/SocketPath`;
+//!   otherwise it is `<VirtualBox user home>/vmi/<VM UUID>.sock`.
+use parking_lot::Mutex;
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::thread::sleep;
@@ -25,7 +31,84 @@ use crate::common::context::Context;
 /// The VM lifecycle is the same for every access method; only `init_driver` uses `method`.
 pub struct VirtualBox {
     pub method: VBoxInitParams,
+    prior_vmi_enabled: Mutex<Option<Option<String>>>,
 }
+
+impl VirtualBox {
+    /// The context for the access method in `VBOX_TEST_METHOD`.
+    pub fn from_env() -> Self {
+        let method = match env::var("VBOX_TEST_METHOD").as_deref() {
+            Err(_) => default_method(),
+            Ok("machinedebugger") => VBoxInitParams::MachineDebugger,
+            Ok("vboxvmi") => VBoxInitParams::VBoxVMI {
+                socket_path: vboxvmi_socket(),
+            },
+            Ok(other) => panic!("unknown VBOX_TEST_METHOD {:?}", other),
+        };
+        VirtualBox::new(method)
+    }
+
+    /// The context for `method`.
+    pub fn new(method: VBoxInitParams) -> Self {
+        VirtualBox {
+            method,
+            prior_vmi_enabled: Mutex::new(None),
+        }
+    }
+
+    fn is_vboxvmi(&self) -> bool {
+        matches!(self.method, VBoxInitParams::VBoxVMI { .. })
+    }
+}
+
+#[cfg(feature = "virtualbox-api")]
+fn default_method() -> VBoxInitParams {
+    VBoxInitParams::MachineDebugger
+}
+
+#[cfg(all(not(feature = "virtualbox-api"), feature = "virtualbox-vmi"))]
+fn default_method() -> VBoxInitParams {
+    VBoxInitParams::VBoxVMI {
+        socket_path: vboxvmi_socket(),
+    }
+}
+
+/// The configured or default VBoxVMI socket path.
+fn vboxvmi_socket() -> String {
+    if let Some(path) = extradata(VMI_SOCKET) {
+        return path;
+    }
+    let home = env::var_os("VBOX_USER_HOME")
+        .map(PathBuf::from)
+        .map(|p| {
+            if p.is_absolute() {
+                p
+            } else {
+                env::current_dir().unwrap().join(p)
+            }
+        })
+        .unwrap_or_else(|| {
+            let home = PathBuf::from(env::var_os("HOME").expect("HOME is not set"));
+            let legacy = home.join(".VirtualBox");
+            if fs::metadata(&legacy).is_ok_and(|m| m.is_dir()) {
+                legacy
+            } else {
+                env::var_os("XDG_CONFIG_HOME")
+                    .map(PathBuf::from)
+                    .map(|p| if p.is_absolute() { p } else { home.join(p) })
+                    .unwrap_or_else(|| home.join(".config"))
+                    .join("VirtualBox")
+            }
+        });
+    home.join("vmi")
+        .join(format!("{}.sock", vm_info("UUID")))
+        .display()
+        .to_string()
+}
+
+const VMI_SOCKET: &str = "VBoxInternal/VMI/SocketPath";
+
+const VMI_ENABLED: &str = "VBoxInternal/VMI/Enabled";
 
 pub fn vm_name() -> String {
     env::var("VBOX_TEST_VM").unwrap_or_else(|_| String::from("microvmi-alpine"))
@@ -48,6 +131,14 @@ pub(crate) fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
     } else {
         Err(String::from_utf8_lossy(&out.stderr).into_owned())
     }
+}
+
+/// Returns an extradata value, or `None` when the key is unset.
+fn extradata(key: &str) -> Option<String> {
+    let output = vboxmanage(&["getextradata", &vm_name(), key]);
+    output
+        .strip_prefix("Value: ")
+        .map(|value| value.trim_end().to_string())
 }
 
 /// Runs `VBoxManage args` and returns its stdout, panics on failure.
@@ -132,6 +223,15 @@ impl Context for VirtualBox {
             args.extend(modify.iter().map(String::as_str));
             vboxmanage(&args);
         }
+        if self.is_vboxvmi() {
+            let mut prior = self.prior_vmi_enabled.lock();
+            assert!(
+                prior.is_none(),
+                "VBoxVMI setup called twice without teardown"
+            );
+            *prior = Some(extradata(VMI_ENABLED));
+            vboxmanage(&["setextradata", &vm, VMI_ENABLED, "1"]);
+        }
         // VBoxHeadless directly, not `startvm`, so it is the binary from VBOX_APP_HOME.
         let mut headless = Command::new(bin("VBoxHeadless"))
             .args(["--startvm", &vm])
@@ -162,6 +262,17 @@ impl Context for VirtualBox {
     fn teardown(&self) {
         debug!("teardown test");
         power_off_and_restore();
+        if self.is_vboxvmi() {
+            let prior = self
+                .prior_vmi_enabled
+                .lock()
+                .take()
+                .expect("VBoxVMI teardown called without setup");
+            match prior {
+                Some(value) => vboxmanage(&["setextradata", &vm_name(), VMI_ENABLED, &value]),
+                None => vboxmanage(&["setextradata", &vm_name(), VMI_ENABLED]),
+            };
+        }
         let _ = std::fs::remove_file(core_path());
     }
 

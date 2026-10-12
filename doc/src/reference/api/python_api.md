@@ -62,5 +62,7 @@ init_params = DriverInitParamsPy()
 init_params.common = common
 # MachineDebugger access method (requires the bindings built with the virtualbox-api feature)
 init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+# or the VBoxVMI access method (virtualbox-vmi feature), which names the VM by its socket
+init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="/home/user/.config/VirtualBox/vmi/<VM UUID>.sock")
 micro = Microvmi(DriverType.VirtualBox, init_params)
 ~~~
