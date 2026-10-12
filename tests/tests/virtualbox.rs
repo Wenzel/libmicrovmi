@@ -671,6 +671,46 @@ fn write_registers_reads_back(drv: Box<dyn Introspectable>) {
     let vcpu = restore.vcpu;
     let mut expected = restore.original.clone();
 
+    let cs_dpl = vboxmanage(&[
+        "debugvm",
+        &vm_name(),
+        "getregisters",
+        "--cpu",
+        &vcpu.to_string(),
+        "cs_attr.dpl",
+    ]);
+    let dpl = cs_dpl
+        .split_once('=')
+        .and_then(|(_, value)| {
+            let value = value.trim();
+            value.strip_prefix("0x").map_or_else(
+                || value.parse().ok(),
+                |hex| u8::from_str_radix(hex, 16).ok(),
+            )
+        })
+        .unwrap_or_else(|| panic!("unexpected cs_attr.dpl output: {:?}", cs_dpl));
+    assert!(dpl <= 3, "invalid CS DPL {}", dpl);
+
+    let rflags_error = try_vboxmanage(&[
+        "debugvm",
+        &vm_name(),
+        "setregisters",
+        "--cpu",
+        &vcpu.to_string(),
+        "rflags=0",
+    ])
+    .expect_err("an RFLAGS value with bit 1 clear was accepted");
+    assert!(
+        rflags_error.contains("VERR_INVALID_PARAMETER"),
+        "unexpected invalid-RFLAGS error: {}",
+        rflags_error
+    );
+    assert_eq!(
+        x86_registers(restore.drv.as_ref(), vcpu).rflags,
+        restore.original.rflags,
+        "invalid RFLAGS write changed the register"
+    );
+
     expected.r12 ^= 0x5a5a_5a5a_5a5a_5a5a;
     expected.rip ^= 1;
     expected.rflags ^= 1; // CF
