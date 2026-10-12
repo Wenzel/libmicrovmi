@@ -1,0 +1,5 @@
+# Keep the version in sync with ci.yml and python/build-wheels.sh. CI jobs install
+# their required clippy/rustfmt components explicitly.
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"

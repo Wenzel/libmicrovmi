@@ -1,3 +1,6 @@
+// shortcut: clippy 1.99 flags thiserror's #[from] expansion as redundant_field_names; drop once thiserror fixes it
+#![allow(clippy::redundant_field_names)]
+
 use std::convert::From;
 use std::error::Error;
 
