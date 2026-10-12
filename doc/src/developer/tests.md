@@ -34,7 +34,8 @@ The VirtualBox context restores a snapshot, starts the VM headless and creates t
 **access method** (currently the MachineDebugger method, `virtualbox-api` feature). VirtualBox tests
 (`virtualbox_*`) check the driver against `VBoxManage` as ground truth, e.g. every page of the guest's
 RAM ranges (`VBoxManage debugvm <vm> info phys verbose`) must read while the VM is paused, identical to a
-`VBoxManage debugvm <vm> dumpvmcore` core file. The generic `get_vcpu_count` test expects the VM's
+`VBoxManage debugvm <vm> dumpvmcore` core file, and a random pattern written to RAM pages must be
+in a fresh core and survive a resume/re-pause cycle. The generic `get_vcpu_count` test expects the VM's
 configured `cpus`.
 
 **Requirements**
@@ -50,6 +51,7 @@ configured `cpus`.
 - `VBOX_TEST_CPUS`: same, with this many vCPUs. The multi-vCPU checks (vCPU count, pause stopping
   every vCPU) need `VBOX_TEST_CPUS=2` or more; the snapshot's guest has one vCPU. Both variables can be
   combined.
+- `VBOX_TEST_SEED`: replay the write test's random pattern with the seed it printed
 - `VBOX_TEST_CORE_DIR` (default: the temp dir): where core dumps go. A core is as large as the guest's RAM
   (over 5 GiB for a 5 GiB guest): avoid a RAM-backed tmpfs `/tmp` for big guests. Deleted at teardown.
 

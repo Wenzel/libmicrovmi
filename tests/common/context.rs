@@ -5,9 +5,9 @@ use microvmi::api::Introspectable;
 use super::config::{TIMEOUT, VM_VCPU_COUNT};
 
 pub trait Context: Send {
-    fn setup(&self) -> ();
+    fn setup(&self);
     fn init_driver(&self) -> Box<dyn Introspectable>;
-    fn teardown(&self) -> ();
+    fn teardown(&self);
     /// Per-test timeout, after which the remaining tests are aborted.
     fn timeout(&self) -> Duration {
         Duration::from_secs(TIMEOUT)

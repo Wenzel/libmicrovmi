@@ -40,6 +40,12 @@ fn main() {
             continue;
         }
 
+        // before the test starts: VirtualBox's timeout queries the VM, racing the test's own sessions
+        let timeout = std::env::var("MICROVMI_TEST_TIMEOUT").map_or_else(
+            |_| ctx.timeout(),
+            |t| Duration::from_secs(t.parse().expect("MICROVMI_TEST_TIMEOUT: seconds")),
+        );
+
         // configure test execution in a thread
         let (done_tx, done_rx) = mpsc::channel();
         let handle = thread::spawn(move || {
@@ -54,9 +60,6 @@ fn main() {
         });
 
         // wait for test to complete until timeout
-        let timeout = std::env::var("MICROVMI_TEST_TIMEOUT").map_or(ctx.timeout(), |t| {
-            Duration::from_secs(t.parse().expect("MICROVMI_TEST_TIMEOUT: seconds"))
-        });
         let timeout_result = done_rx.recv_timeout(timeout).map(|_| handle.join());
         // cleanup test environment
         ctx.teardown();

@@ -37,12 +37,12 @@ fn bin(name: &str) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(name))
 }
 
-fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
+pub(crate) fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
     debug!("VBoxManage {}", args.join(" "));
     let out = Command::new(bin("VBoxManage"))
         .args(args)
         .output()
-        .expect("Failed to start VBoxManage");
+        .map_err(|e| format!("Failed to start VBoxManage: {}", e))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
