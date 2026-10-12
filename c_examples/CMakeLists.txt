@@ -57,7 +57,7 @@ if (NOT WIN32)
     # disable pause example for windows
     add_executable(pause pause.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
     target_link_libraries(pause PRIVATE microvmi)
-    # VirtualBox MachineDebugger access method (Linux only)
+    # VirtualBox access-method example
     add_executable(vbox-read-page vbox-read-page.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
     target_link_libraries(vbox-read-page PRIVATE microvmi)
 endif ()

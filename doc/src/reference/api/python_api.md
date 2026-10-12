@@ -49,7 +49,7 @@ micro = Microvmi(DriverType.KVM, init_params)
 ### Selecting the VirtualBox access method
 
 `init_params.virtualbox` takes a `VBoxInitParamsPy`, the equivalent of the Rust `VBoxInitParams`.
-Without it, the VirtualBox driver uses its default access method.
+VirtualBox initialization requires one of its two access methods explicitly.
 
 ~~~Python
 from microvmi import Microvmi, DriverType, DriverInitParamsPy, CommonInitParamsPy, VBoxInitParamsPy

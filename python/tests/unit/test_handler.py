@@ -38,7 +38,8 @@ def test_parse_hypervisor_none():
 @pytest.mark.parametrize("drv_type_enum_member", [d for d in DriverType])
 def test_parse_hypervisor_each(drv_type_enum_member):
     expected = drv_type_enum_member
-    url = f"vmi://{drv_type_enum_member.name}/vm_name"
+    query = "?vbox_access_method=machinedebugger" if expected == DriverType.VirtualBox else ""
+    url = f"vmi://{drv_type_enum_member.name}/vm_name{query}"
     drv_type, _ = url_to_driver_parameters(url)
     assert expected == drv_type
 
@@ -71,6 +72,11 @@ def test_parse_init_param_vbox_access_method():
     assert isinstance(init_params.virtualbox, VBoxInitParamsPy.MachineDebugger)
 
 
+def test_parse_vbox_requires_access_method():
+    with pytest.raises(MicrovmiHandlerError, match="requires vbox_access_method"):
+        url_to_driver_parameters("vmi://VirtualBox/?vm_name=windows10")
+
+
 def test_parse_init_param_vbox_vboxvmi():
     url = "vmi://VirtualBox/?vbox_access_method=vboxvmi&vbox_socket_path=/tmp/vm.sock"
     _, init_params = url_to_driver_parameters(url)
@@ -83,11 +89,11 @@ def test_parse_init_param_vbox_vboxvmi_no_socket():
     with pytest.raises(MicrovmiHandlerError):
         url_to_driver_parameters(url)
 
+
 def test_parse_init_param_vbox_socket_requires_vboxvmi():
     url = "vmi:///?vbox_access_method=machinedebugger&vbox_socket_path=/tmp/vm.sock"
     with pytest.raises(MicrovmiHandlerError):
         url_to_driver_parameters(url)
-
 
 
 def test_parse_init_param_vbox_access_method_unknown():

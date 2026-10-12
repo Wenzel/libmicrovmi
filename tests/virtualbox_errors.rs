@@ -26,6 +26,21 @@ fn init_error(
     }
 }
 
+#[cfg(any(
+    feature = "virtualbox-vmi",
+    all(feature = "virtualbox-api", not(feature = "kvm"))
+))]
+#[test]
+fn virtualbox_access_method_is_required() {
+    use microvmi::api::params::DriverInitParams;
+    use microvmi::api::DriverType;
+
+    assert_eq!(
+        init_error(Some(DriverType::VirtualBox), DriverInitParams::default()),
+        "VirtualBox requires an explicit access method"
+    );
+}
+
 #[cfg(feature = "virtualbox-vmi")]
 mod vbox_vmi {
     use std::fs::DirBuilder;

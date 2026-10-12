@@ -65,6 +65,8 @@ def url_to_driver_parameters(url: str) -> Tuple[Optional[DriverType], Optional[D
     driver_type: Optional[DriverType] = _parse_hypervisor(parsed_url.netloc)
     # init params
     init_params: Optional[DriverInitParamsPy] = _parse_driver_init_params(parsed_url.query)
+    if driver_type == DriverType.VirtualBox and (init_params is None or init_params.virtualbox is None):
+        raise MicrovmiHandlerError("VirtualBox requires vbox_access_method=machinedebugger or vboxvmi")
     return driver_type, init_params
 
 

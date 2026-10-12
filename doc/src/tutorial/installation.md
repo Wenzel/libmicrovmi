@@ -45,8 +45,10 @@ It contains both the library and the headers to get started with C development
 - `libmicrovmi.h`
 
 Bundled drivers:
-- Virtualbox
 - memflow
+
+The Windows artifact compile-checks `virtualbox-api`, but no VirtualBox access method currently
+works at runtime on Windows: VBoxVMI is Unix-only, and `vboxapi` does not yet load `VBoxCAPI.dll`.
 
 ## Python - PyPI
 

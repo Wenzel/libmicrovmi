@@ -29,13 +29,3 @@ RUN git clone https://github.com/bitdefender/libkvmi.git \
         && make install \
         && cd .. \
         && rm -rf libkvmi
-
-# libFDP.so
-RUN git clone --depth 1 https://github.com/thalium/icebox \
-        && cd icebox/src/FDP \
-        && g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt \
-        && mv include/* /usr/local/include/ \
-        && mv libFDP.so /usr/local/lib/ \
-        && cd - \
-        && rm -rf icebox
-

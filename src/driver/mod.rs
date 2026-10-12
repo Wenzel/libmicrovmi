@@ -2,8 +2,6 @@
 pub mod kvm;
 #[cfg(feature = "mflow")]
 pub mod memflow;
-#[cfg(feature = "virtualbox")]
-pub mod virtualbox;
 #[cfg(feature = "virtualbox-api")]
 pub mod virtualbox_api;
 #[cfg(feature = "virtualbox-vmi")]
