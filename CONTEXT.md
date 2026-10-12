@@ -13,17 +13,13 @@ One way a single **Driver** reaches its hypervisor, selected at init time. A Dri
 _Avoid_: backend, mode, transport
 
 **VBoxVMI**:
-A VMI protocol served from inside a patched VirtualBox VM process over a Unix domain socket, with one client per VM. Successor to FDP; not compatible with it.
+A VMI protocol served from inside a patched VirtualBox VM process over a Unix domain socket, with one client per VM.
 
 **VBoxVMI method**:
 The VirtualBox **access method** that speaks **VBoxVMI**. Fastest option and the path toward **VMI events**; requires a patched VirtualBox.
 
 **MachineDebugger method**:
 The VirtualBox **access method** that uses VirtualBox's public `IMachineDebugger` COM API. Slower (cross-process RPC per call, and each memory access waits for the vCPU) and limited to **VM state access**, but intended to need no patched VirtualBox once upstreamed.
-
-**FDP**:
-Legacy protocol from the icebox project, for a patched VirtualBox 5.2 over shared memory. Superseded by **VBoxVMI**.
-_Avoid_: using "FDP" for the new protocol
 
 **RAM ranges**:
 The list of guest-physical address ranges backed by RAM. The highest address in it is the guest's max physical address, which can exceed the RAM size because of the MMIO hole below 4 GiB.

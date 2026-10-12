@@ -25,12 +25,11 @@ xen = [
 ]
 # KVM driver
 kvm = ["kvmi"]
-# VirtualBox driver
-# FDP access method (legacy; selected when no VBoxInitParams is given)
-virtualbox = ["fdp"]
+# VirtualBox driver (MachineDebugger and VBoxVMI access methods)
+virtualbox = ["virtualbox-api", "virtualbox-vmi"]
 # MachineDebugger access method
 virtualbox-api = ["vboxapi"]
-# VBoxVMI access method (Linux only)
+# VBoxVMI access method (Unix only)
 virtualbox-vmi = ["vboxvmi"]
 # memflow driver
 # feature name is "mflow" to avoid conflict with the dependency
@@ -52,7 +51,6 @@ xenforeignmemory = { version = "=0.3.0", optional = true }
 xenevtchn = { version = "=0.2.0", optional = true }
 xenvmevent-sys = { version = "=0.2.0", optional = true }
 kvmi = { version = "=0.5.0", optional = true }
-fdp = { version = "=0.3.0", optional = true }
 vboxapi = { git = "https://github.com/Wenzel/rs-vboxapi", rev = "5ba8d86d1cc58a5935208588580782a31fb2d27c", optional = true }
 vboxvmi = { git = "https://github.com/Wenzel/rs-vboxvmi", rev = "9a349ca535b612232a0d0b26031fedadd3d0ecb0", optional = true }
 winapi = { version = "0.3", features = [

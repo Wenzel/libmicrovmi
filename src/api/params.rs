@@ -53,15 +53,16 @@ pub struct MemflowInitParams {
     pub connector_args: Option<MemflowConnectorParams>,
 }
 
-/// VirtualBox initialization parameters: selects the access method
+/// VirtualBox initialization parameters: selects one of the two access methods.
 ///
-/// FDP and MachineDebugger name the VM by `common.vm_name`; VBoxVMI ignores it, as the socket
-/// belongs to one VM. Without these parameters, the legacy FDP access method is used.
+/// MachineDebugger names the VM by `common.vm_name`; VBoxVMI names it by its socket. VirtualBox
+/// initialization requires this parameter.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VBoxInitParams {
-    /// MachineDebugger access method (`virtualbox-api` feature): VirtualBox's `IMachineDebugger` API
+    /// MachineDebugger access method (`virtualbox-api` or `virtualbox` feature):
+    /// VirtualBox's `IMachineDebugger` API
     MachineDebugger,
-    /// VBoxVMI access method (`virtualbox-vmi` feature): the VM's VBoxVMI socket
+    /// VBoxVMI access method (`virtualbox-vmi` or `virtualbox` feature): the VM's VBoxVMI socket
     VBoxVMI { socket_path: String },
 }
 
@@ -93,12 +94,6 @@ pub struct CommonInitParams {
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
 ///     kvm: Some(KVMInitParams::UnixSocket { path: String::from("/tmp/introspector")}),
-///     ..Default::default()
-/// };
-/// // VirtualBox, FDP access method
-/// // common.vm_name: mandatory
-/// let init_params = DriverInitParams {
-///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
 ///     ..Default::default()
 /// };
 /// // VirtualBox, MachineDebugger access method

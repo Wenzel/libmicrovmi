@@ -7,6 +7,8 @@ pub enum MicrovmiError {
     NoDriverAvailable,
     #[error("driver {0:?} has not been compiled")]
     DriverNotCompiled(DriverType),
+    #[error("{0:?} requires an explicit access method")]
+    AccessMethodRequired(DriverType),
     #[error("{driver:?} access method {method} has not been compiled (enable feature {feature})")]
     AccessMethodNotCompiled {
         driver: DriverType,

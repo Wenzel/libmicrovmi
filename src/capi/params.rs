@@ -41,20 +41,20 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
-/// `VBoxInitParamsFFI.access_method`: no `VBoxInitParams` (the VirtualBox driver's default access method)
-pub const VBOX_ACCESS_METHOD_NONE: u32 = 0;
+// `access_method = 0` means no VirtualBox parameters. Selecting the VirtualBox driver with this
+// value is an error.
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
 pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::VBoxVMI`, with `VBoxInitParamsFFI.socket_path`
 pub const VBOX_ACCESS_METHOD_VBOXVMI: u32 = 2;
 
-/// equivalent of `Option<VBoxInitParams>` with C compatibility
+/// equivalent of `Option<VBoxInitParams>` with C compatibility.
 ///
-/// A zero-initialized struct means no `VBoxInitParams`.
+/// A zero-initialized struct has no VirtualBox parameters.
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct VBoxInitParamsFFI {
-    /// one of the `VBOX_ACCESS_METHOD_*` constants
+    /// one of the `VBOX_ACCESS_METHOD_*` constants, or zero for no VirtualBox parameters
     // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
     pub access_method: u32,
     /// `VBOX_ACCESS_METHOD_VBOXVMI`: the VM's VBoxVMI socket path (mandatory); ignored otherwise
@@ -136,7 +136,7 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
             })
         };
         let virtualbox = match value.virtualbox.access_method {
-            VBOX_ACCESS_METHOD_NONE => None,
+            0 => None,
             VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
             VBOX_ACCESS_METHOD_VBOXVMI => {
                 let path = value.virtualbox.socket_path;
