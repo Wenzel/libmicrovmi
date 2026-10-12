@@ -26,19 +26,25 @@ fn init_error(
     }
 }
 
-#[cfg(any(
-    feature = "virtualbox-vmi",
-    all(feature = "virtualbox-api", not(feature = "kvm"))
-))]
+/// Without `virtualbox-api`, nothing resolves the VM's default VBoxVMI socket: the default access
+/// method and VBoxVMI without a socket path fail, rather than guess a path.
+#[cfg(all(feature = "virtualbox-vmi", not(feature = "virtualbox-api")))]
 #[test]
-fn virtualbox_access_method_is_required() {
-    use microvmi::api::params::DriverInitParams;
+fn virtualbox_default_socket_needs_virtualbox_api() {
+    use microvmi::api::params::{CommonInitParams, DriverInitParams, VBoxInitParams};
     use microvmi::api::DriverType;
 
-    assert_eq!(
-        init_error(Some(DriverType::VirtualBox), DriverInitParams::default()),
-        "VirtualBox requires an explicit access method"
-    );
+    for virtualbox in [None, Some(VBoxInitParams::VBoxVMI { socket_path: None })] {
+        let params = DriverInitParams {
+            common: Some(CommonInitParams {
+                vm_name: String::from("vm"),
+            }),
+            virtualbox,
+            ..Default::default()
+        };
+        assert!(init_error(Some(DriverType::VirtualBox), params)
+            .starts_with("VirtualBox VBoxVMI method needs a socket path"));
+    }
 }
 
 #[cfg(feature = "virtualbox-vmi")]
@@ -91,7 +97,7 @@ mod vbox_vmi {
     fn vboxvmi(dir: &TempDir) -> DriverInitParams {
         DriverInitParams {
             virtualbox: Some(VBoxInitParams::VBoxVMI {
-                socket_path: dir.socket().to_str().unwrap().to_string(),
+                socket_path: Some(dir.socket().to_str().unwrap().to_string()),
             }),
             ..Default::default()
         }

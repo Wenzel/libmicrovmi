@@ -142,13 +142,14 @@ fn init_driver(
     }
 }
 
-/// Initialize the VirtualBox driver with the access method selected by `init_params.virtualbox`
+/// Initialize the VirtualBox driver with the access method selected by `init_params.virtualbox`,
+/// or the default one when it is `None`
 #[cfg(any(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
 fn init_virtualbox(
     init_params: DriverInitParams,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
     use api::params::VBoxInitParams;
-    match init_params.virtualbox {
+    match &init_params.virtualbox {
         #[cfg(feature = "virtualbox-api")]
         Some(VBoxInitParams::MachineDebugger) => Ok(Box::new(VBoxApi::new(init_params)?)),
         #[cfg(not(feature = "virtualbox-api"))]
@@ -158,8 +159,16 @@ fn init_virtualbox(
             feature: "virtualbox-api",
         }),
         #[cfg(feature = "virtualbox-vmi")]
-        Some(VBoxInitParams::VBoxVMI { ref socket_path }) => {
-            Ok(Box::new(VBoxVmi::new(socket_path)?))
+        Some(VBoxInitParams::VBoxVMI {
+            socket_path: Some(socket_path),
+        }) => Ok(Box::new(VBoxVmi::new(std::path::Path::new(socket_path))?)),
+        #[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
+        Some(VBoxInitParams::VBoxVMI { socket_path: None }) => Ok(Box::new(VBoxVmi::new(
+            &driver::virtualbox_api::vmi_socket_path(&init_params)?,
+        )?)),
+        #[cfg(all(not(feature = "virtualbox-api"), feature = "virtualbox-vmi"))]
+        Some(VBoxInitParams::VBoxVMI { socket_path: None }) | None => {
+            Err(MicrovmiError::VBoxVmiSocketPathRequired)
         }
         #[cfg(not(feature = "virtualbox-vmi"))]
         Some(VBoxInitParams::VBoxVMI { .. }) => Err(MicrovmiError::AccessMethodNotCompiled {
@@ -167,6 +176,28 @@ fn init_virtualbox(
             method: "VBoxVMI",
             feature: "virtualbox-vmi",
         }),
-        None => Err(MicrovmiError::AccessMethodRequired(DriverType::VirtualBox)),
+        #[cfg(all(feature = "virtualbox-api", not(feature = "virtualbox-vmi")))]
+        None => {
+            info!("VirtualBox: MachineDebugger access method (the only one compiled)");
+            Ok(Box::new(VBoxApi::new(init_params)?))
+        }
+        #[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
+        None => {
+            let socket = driver::virtualbox_api::vmi_socket_path(&init_params)?;
+            match VBoxVmi::new(&socket) {
+                Ok(driver) => {
+                    info!("VirtualBox: VBoxVMI access method, socket {:?}", socket);
+                    Ok(Box::new(driver))
+                }
+                Err(e) if driver::virtualbox_vmi::is_socket_missing(&*e) => {
+                    info!(
+                        "VirtualBox: MachineDebugger access method, falling back: no VBoxVMI socket {:?} (VBoxVMI not enabled on the VM)",
+                        socket
+                    );
+                    Ok(Box::new(VBoxApi::new(init_params)?))
+                }
+                Err(e) => Err(e.into()),
+            }
+        }
     }
 }

@@ -2,6 +2,8 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error;
+#[cfg(feature = "virtualbox-vmi")]
+use std::path::PathBuf;
 
 use vboxapi::Vm;
 
@@ -98,11 +100,7 @@ pub struct VBoxApi {
 
 impl VBoxApi {
     pub fn new(init_params: DriverInitParams) -> Result<Self, Box<dyn Error>> {
-        let vm_name = init_params
-            .common
-            .ok_or(VBoxApiDriverError::MissingVMName)?
-            .vm_name;
-        let vm = Vm::attach(&vm_name)?;
+        let vm = Vm::attach(vm_name(&init_params)?)?;
         let max_addr = vm
             .ram_ranges()?
             .last()
@@ -110,6 +108,20 @@ impl VBoxApi {
             .end;
         Ok(VBoxApi { vm, max_addr })
     }
+}
+
+fn vm_name(init_params: &DriverInitParams) -> Result<&str, VBoxApiDriverError> {
+    Ok(&init_params
+        .common
+        .as_ref()
+        .ok_or(VBoxApiDriverError::MissingVMName)?
+        .vm_name)
+}
+
+/// The VM's default VBoxVMI socket, resolved through the VirtualBox API.
+#[cfg(feature = "virtualbox-vmi")]
+pub fn vmi_socket_path(init_params: &DriverInitParams) -> Result<PathBuf, Box<dyn Error>> {
+    Ok(vboxapi::vmi_socket_path(vm_name(init_params)?)?)
 }
 
 impl Introspectable for VBoxApi {

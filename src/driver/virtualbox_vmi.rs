@@ -2,6 +2,7 @@
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::error::Error;
+use std::path::Path;
 
 use vboxvmi::{Client, Segment, TableRegister};
 
@@ -58,7 +59,7 @@ pub struct VBoxVmi {
 
 impl VBoxVmi {
     /// Connects to the VM's VBoxVMI socket and performs the handshake.
-    pub fn new(socket_path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(socket_path: &Path) -> Result<Self, Box<dyn Error>> {
         let mut client = Client::connect(socket_path)?;
         let max_addr = client
             .ram_ranges()?
@@ -72,6 +73,14 @@ impl VBoxVmi {
             vcpu_count,
         })
     }
+}
+
+/// Whether `e`, from [`VBoxVmi::new`], means the socket file does not exist: VBoxVMI is not
+/// enabled on the VM (or it is not running).
+#[cfg(feature = "virtualbox-api")]
+pub fn is_socket_missing(e: &(dyn Error + 'static)) -> bool {
+    matches!(e.downcast_ref(), Some(vboxvmi::Error::Connect { source, .. })
+        if source.kind() == std::io::ErrorKind::NotFound)
 }
 
 impl Introspectable for VBoxVmi {
