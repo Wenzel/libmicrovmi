@@ -318,7 +318,17 @@ inventory::submit!(IntegrationTest {
     test_fn: pause_idempotent_and_visible
 });
 
-/// Restores the original page contents and the running VM state, including during unwinding.
+/// Resumes the VM even if selecting pages or dumping the first core fails.
+struct ResumeVm;
+
+impl Drop for ResumeVm {
+    fn drop(&mut self) {
+        let vm = vm_name();
+        let _ = try_vboxmanage(&["controlvm", &vm, "resume"]);
+    }
+}
+
+/// Restores original page contents before the VM is resumed, including during unwinding.
 struct RestorePages<'a> {
     drv: &'a dyn Introspectable,
     pages: &'a [(u64, Vec<u8>)],
@@ -343,8 +353,6 @@ impl Drop for RestorePages<'_> {
                 let _ = self.drv.write_physical(*page, original);
             }
         }
-        let vm = vm_name();
-        let _ = try_vboxmanage(&["controlvm", &vm, "resume"]);
     }
 }
 
@@ -385,6 +393,7 @@ fn zero_pages(core: &Core, ranges: &[Range<u64>]) -> Vec<u64> {
 /// on success and during unwinding. `VBOX_TEST_SEED` replays a pattern.
 fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
     let vm = vm_name();
+    let _resume = ResumeVm;
     vboxmanage(&["controlvm", &vm, "pause"]);
     let ranges = ram_ranges();
     let before = Core::dump();
