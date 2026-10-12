@@ -2,8 +2,12 @@
 use std::convert::TryInto;
 use std::env;
 use std::fs::{self, File};
+#[cfg(feature = "virtualbox-vmi")]
+use std::io::{BufRead, BufReader, Write};
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
+#[cfg(feature = "virtualbox-vmi")]
+use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -12,6 +16,8 @@ use microvmi::api::registers::{Registers, X86Registers};
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
 use super::IntegrationTest;
+#[cfg(feature = "virtualbox-vmi")]
+use crate::common::virtualbox::vboxvmi_socket;
 use crate::common::virtualbox::{core_path, try_vboxmanage, vboxmanage, vm_info, vm_name};
 
 const PAGE: u64 = PAGE_SIZE as u64;
@@ -316,6 +322,146 @@ fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "virtualbox_pause_idempotent_and_visible",
     test_fn: pause_idempotent_and_visible
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn connect_vboxvmi() -> vboxvmi::Client {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match vboxvmi::Client::connect(vboxvmi_socket()) {
+            Ok(client) => return client,
+            Err(error) if Instant::now() < deadline => {
+                debug!("waiting for the prior VBoxVMI session to close: {}", error);
+                sleep(Duration::from_millis(20));
+            }
+            Err(error) => panic!("failed to connect to VBoxVMI: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+fn wait_for_vm_state(expected: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let state = vm_info("VMState");
+        if state == expected {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "VM did not become {} after VBoxVMI disconnect; state is {}",
+            expected,
+            state
+        );
+        sleep(Duration::from_millis(20));
+    }
+}
+
+/// Entry point for the subprocess killed by `vboxvmi_killed_client_resumes`.
+#[cfg(feature = "virtualbox-vmi")]
+pub fn vboxvmi_pause_child() -> ! {
+    let mut client = connect_vboxvmi();
+    client
+        .pause()
+        .expect("child failed to pause through VBoxVMI");
+    println!("paused");
+    std::io::stdout()
+        .flush()
+        .expect("child failed to flush readiness");
+    loop {
+        sleep(Duration::from_secs(60));
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_normal_close_resumes(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
+    drop(drv);
+    wait_for_vm_state("running");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_normal_close_resumes",
+    test_fn: vboxvmi_normal_close_resumes
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_resumes(drv: Box<dyn Introspectable>) {
+    drop(drv);
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .env("MICROVMI_VBOXVMI_PAUSE_CHILD", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("failed to start VBoxVMI pause child");
+    let mut ready = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut ready)
+        .expect("failed to read child readiness");
+    if ready.trim_end() != "paused" {
+        let _ = child.kill();
+        let _ = child.wait();
+        panic!("VBoxVMI pause child did not become ready: {:?}", ready);
+    }
+    assert_eq!(vm_info("VMState"), "paused");
+    child.kill().expect("failed to kill VBoxVMI pause child");
+    child.wait().expect("failed to reap VBoxVMI pause child");
+    wait_for_vm_state("running");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_killed_client_resumes",
+    test_fn: vboxvmi_killed_client_resumes
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_external_pause_is_not_resumed(mut drv: Box<dyn Introspectable>) {
+    vboxmanage(&["controlvm", &vm_name(), "pause"]);
+    drv.pause().unwrap();
+    drop(drv);
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+    assert_eq!(vm_info("VMState"), "paused");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_preserves_preexisting_vm_state",
+    test_fn: vboxvmi_external_pause_is_not_resumed
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_resume_generation_preserves_external_pause(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    vboxmanage(&["controlvm", &vm_name(), "resume"]);
+    vboxmanage(&["controlvm", &vm_name(), "pause"]);
+    drop(drv);
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+    assert_eq!(vm_info("VMState"), "paused");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_preserves_new_external_vm_state",
+    test_fn: vboxvmi_resume_generation_preserves_external_pause
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_second_client_is_busy(drv: Box<dyn Introspectable>) {
+    match vboxvmi::Client::connect(vboxvmi_socket()) {
+        Err(vboxvmi::Error::Busy) => {}
+        Err(error) => panic!("second VBoxVMI client got the wrong error: {}", error),
+        Ok(_) => panic!("second VBoxVMI client connected"),
+    }
+    drop(drv);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_second_client_busy",
+    test_fn: vboxvmi_second_client_is_busy
 });
 
 /// Resumes the VM even if selecting pages or dumping the first core fails.

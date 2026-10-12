@@ -14,6 +14,11 @@ mod common;
 mod tests;
 
 fn main() {
+    #[cfg(all(feature = "virtualbox-vmi", not(feature = "kvm")))]
+    if std::env::var_os("MICROVMI_VBOXVMI_PAUSE_CHILD").is_some() {
+        tests::virtualbox::vboxvmi_pause_child();
+    }
+
     // init logger
     env_logger::builder().is_test(true).init();
     // run only the tests whose name contains MICROVMI_TEST_FILTER

@@ -16,11 +16,15 @@ matched by id. Bulk memory reads are batched to amortise the per-message cost.
 
 ## Consequences
 
-- The kernel tells the server when the client goes away (EOF), so it can resume a VM the client
-  paused and remove its intercepts. With shared memory this needs heartbeats or a side channel.
+- The kernel tells the server when the client goes away (EOF), so one session cleanup point removes
+  its intercepts and resumes only a pause that session created and nobody has since resumed. A
+  pre-existing pause, and a new external pause after the client's pause was resumed, remain paused.
+  With shared memory this needs heartbeats or a side channel.
 - Access control is the socket file's mode (0600) plus a peer uid check (`SO_PEERCRED`), with no
   protocol-level authentication.
 - One ordered channel carries replies and, in phase 2, events (request id 0).
+- While one client is active, the server accepts a second connection only to greet it with
+  `VERR_RESOURCE_BUSY` and close it, rather than leaving it waiting in the listen backlog.
 - `SOCK_SEQPACKET` keeps message boundaries, so neither side frames a byte stream.
 - Each request costs a syscall round trip and a copy. Page-by-page reads of whole guest RAM are
   expected to stay practical; batching covers bulk reads.
