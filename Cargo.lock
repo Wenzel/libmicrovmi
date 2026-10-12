@@ -455,12 +455,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
-name = "custom_error"
-version = "1.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f8a51dd197fa6ba5b4dc98a990a43cc13693c23eb0089ebb0fcc1f04152bca6"
-
-[[package]]
 name = "darling"
 version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -657,29 +651,6 @@ name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
-
-[[package]]
-name = "fdp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b56b0367bf56da29c926bbec33691fe42b47bbaad3f1a0fda2eaea8c27ca603"
-dependencies = [
- "custom_error",
- "enum-primitive-derive 0.3.0",
- "fdp-sys",
- "libloading 0.8.6",
- "log",
- "num-traits 0.2.19",
-]
-
-[[package]]
-name = "fdp-sys"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3abffb9e8071cd13e97086d2647d44ec396368969e91de251a2dda8a9ef24d6e"
-dependencies = [
- "bindgen",
-]
 
 [[package]]
 name = "fixed-slice-vec"
@@ -1158,7 +1129,6 @@ dependencies = [
  "cty",
  "enum-iterator",
  "env_logger 0.9.3",
- "fdp",
  "indicatif",
  "inventory",
  "kvmi",

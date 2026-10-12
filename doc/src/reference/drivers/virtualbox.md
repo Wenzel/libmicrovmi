@@ -1,16 +1,17 @@
 # VirtualBox
 
-The VirtualBox driver offers three access methods, selected at init time by `DriverInitParams.virtualbox`.
-MachineDebugger and FDP name the VM with `common.vm_name`; VBoxVMI names it by its socket.
+The VirtualBox driver offers two access methods, selected explicitly at init time by
+`DriverInitParams.virtualbox`. MachineDebugger names the VM with `common.vm_name`; VBoxVMI names it
+by its socket. The `virtualbox` Cargo feature enables both methods on Unix; the method-specific
+features remain available separately.
 
 VirtualBox has one EFER register: `X86Registers::efer` and `msr_efer` both read it, and a register
 write with MachineDebugger or VBoxVMI fails (before writing anything) unless they are equal.
 
 | Access method | Cargo feature | Selected by |
 |---------------|---------------|-------------|
-| VBoxVMI | `virtualbox-vmi` | `VBoxInitParams::VBoxVMI { socket_path }` |
-| MachineDebugger | `virtualbox-api` | `VBoxInitParams::MachineDebugger` |
-| FDP (legacy) | `virtualbox` | no `virtualbox` parameter |
+| VBoxVMI | `virtualbox-vmi` or `virtualbox` | `VBoxInitParams::VBoxVMI { socket_path }` |
+| MachineDebugger | `virtualbox-api` or `virtualbox` | `VBoxInitParams::MachineDebugger` |
 
 ## VBoxVMI method
 
@@ -78,10 +79,15 @@ Not implemented yet: writing guest physical memory.
 
 ### Requirements
 
-- Platform: Linux
-- A VirtualBox whose `IMachineDebugger::readPhysicalMemory` is implemented. Stock VirtualBox releases return "not implemented"; it needs a VirtualBox built with the IMachineDebugger memory methods patch.
-- The VM is running, and owned by the user running libmicrovmi (the API attaches a shared session through that user's `VBoxSVC`).
-- The VirtualBox C API library `VBoxXPCOMC.so` is found in `VBOX_APP_HOME`, else in `/opt/VirtualBox` or `/usr/lib/virtualbox`. Set `VBOX_APP_HOME` to the directory of a VirtualBox that is not installed (e.g. a build output `out/linux.amd64/release/bin`).
+- Platform: Linux and Windows
+- A VirtualBox whose `IMachineDebugger::readPhysicalMemory` is implemented. Stock VirtualBox
+  releases return "not implemented"; it needs a VirtualBox built with the IMachineDebugger memory
+  methods patch.
+- The VM is running and owned by the user running libmicrovmi (the API attaches a shared session
+  through that user's VirtualBox service).
+- The VirtualBox C API runtime must be installed. On Linux, `VBoxXPCOMC.so` is found in
+  `VBOX_APP_HOME`, `/opt/VirtualBox` or `/usr/lib/virtualbox`; set `VBOX_APP_HOME` to a build output
+  such as `out/linux.amd64/release/bin`.
 - The driver must be used on the thread that initialized it.
 
 ### Initialization parameters
@@ -89,7 +95,7 @@ Not implemented yet: writing guest physical memory.
 - `vm_name`: required
 - `virtualbox`: `VBoxInitParams::MachineDebugger`
   - Python: `init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()`
-  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_MACHINE_DEBUGGER }` (`VBOX_ACCESS_METHOD_NONE`, the zero value, means no `VBoxInitParams`; see `c_examples/vbox-read-page.c`)
+  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_MACHINE_DEBUGGER }` (see `c_examples/vbox-read-page.c`)
 
 ~~~
 $ cargo build --features virtualbox-api --examples
@@ -104,23 +110,3 @@ $ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger
 
 The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:
 `cargo build --features virtualbox-api --config 'patch."https://github.com/Wenzel/rs-vboxapi".vboxapi.path="../rs-vboxapi"'`
-
-## FDP method (legacy)
-
-### Requirements
-
-- virtualbox modified via [icebox](https://github.com/thalium/icebox) project
-- Platform: Windows/Linux
-
-To compile `libFDP`
-~~~
-$ git clone --depth 1 https://github.com/thalium/icebox
-$ cd icebox/src/FDP
-$ g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so
-$ sudo mv include/* /usr/local/include/
-$ sudo mv libFDP.so /usr/local/lib/
-~~~
-
-### Initialization parameters
-
-- `vm_name`: required
