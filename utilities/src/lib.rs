@@ -72,7 +72,7 @@ impl Clappable for DriverInitParams {
         let virtualbox = matches
             .value_of("vbox_vmi")
             .map(|path| VBoxInitParams::VBoxVMI {
-                socket_path: String::from(path),
+                socket_path: Some(String::from(path)),
             })
             .or_else(|| {
                 matches
@@ -131,7 +131,7 @@ mod tests {
         let params = DriverInitParams::from_matches(&matches);
         assert_eq!(
             VBoxInitParams::VBoxVMI {
-                socket_path: String::from("/tmp/vm.sock")
+                socket_path: Some(String::from("/tmp/vm.sock"))
             },
             params.virtualbox.unwrap()
         );

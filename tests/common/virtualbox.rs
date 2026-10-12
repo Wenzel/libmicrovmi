@@ -8,10 +8,11 @@
 //! - `VBOX_TEST_CPUS`: same, with that many vCPUs
 //! - `VBOX_TEST_CORE_DIR` (default: the temp dir): where tests write core dumps, as large as the
 //!   guest's RAM (avoid a RAM-backed tmpfs for big guests); deleted at teardown
-//! - `VBOX_TEST_METHOD`: the access method, `machinedebugger` or `vboxvmi`. Unset selects an
-//!   access method compiled into the test binary. For `vboxvmi`, setup enables VBoxVMI on the VM
-//!   while preserving the prior extradata value. The socket honors `VBoxInternal/VMI/SocketPath`;
-//!   otherwise it is `<VirtualBox user home>/vmi/<VM UUID>.sock`.
+//! - `VBOX_TEST_METHOD`: the access method, `machinedebugger` or `vboxvmi`, or the driver's default
+//!   access method with VBoxVMI enabled (`default`) or not (`default-fallback`). Unset selects an
+//!   access method compiled into the test binary. For `vboxvmi` and `default`, setup enables
+//!   VBoxVMI on the VM while preserving the prior extradata value. The socket honors
+//!   `VBoxInternal/VMI/SocketPath`; otherwise it is `<VirtualBox user home>/vmi/<VM UUID>.sock`.
 use parking_lot::Mutex;
 use std::env;
 use std::fs;
@@ -30,47 +31,61 @@ use crate::common::context::Context;
 
 /// The VM lifecycle is the same for every access method; only `init_driver` uses `method`.
 pub struct VirtualBox {
-    pub method: VBoxInitParams,
+    /// `None`: the driver's default access method.
+    pub method: Option<VBoxInitParams>,
+    /// `VBoxInternal/VMI/Enabled` while the VM runs.
+    pub vmi_enabled: bool,
     prior_vmi_enabled: Mutex<Option<Option<String>>>,
 }
 
 impl VirtualBox {
     /// The context for the access method in `VBOX_TEST_METHOD`.
     pub fn from_env() -> Self {
-        let method = match env::var("VBOX_TEST_METHOD").as_deref() {
-            Err(_) => default_method(),
-            Ok("machinedebugger") => VBoxInitParams::MachineDebugger,
-            Ok("vboxvmi") => VBoxInitParams::VBoxVMI {
-                socket_path: vboxvmi_socket(),
-            },
+        match env::var("VBOX_TEST_METHOD").as_deref() {
+            Err(_) => VirtualBox::new(compiled_method()),
+            Ok("machinedebugger") => VirtualBox::new(VBoxInitParams::MachineDebugger),
+            Ok("vboxvmi") => VirtualBox::new(vboxvmi()),
+            Ok("default") => VirtualBox::with_default_method(true),
+            Ok("default-fallback") => VirtualBox::with_default_method(false),
             Ok(other) => panic!("unknown VBOX_TEST_METHOD {:?}", other),
-        };
-        VirtualBox::new(method)
+        }
     }
 
-    /// The context for `method`.
+    /// The context for `method`; VBoxVMI is enabled on the VM for the VBoxVMI method.
     pub fn new(method: VBoxInitParams) -> Self {
+        let vmi_enabled = matches!(method, VBoxInitParams::VBoxVMI { .. });
         VirtualBox {
-            method,
+            method: Some(method),
+            vmi_enabled,
             prior_vmi_enabled: Mutex::new(None),
         }
     }
 
-    fn is_vboxvmi(&self) -> bool {
-        matches!(self.method, VBoxInitParams::VBoxVMI { .. })
+    /// The context for the driver's default access method, with VBoxVMI enabled on the VM or not.
+    pub fn with_default_method(vmi_enabled: bool) -> Self {
+        VirtualBox {
+            method: None,
+            vmi_enabled,
+            prior_vmi_enabled: Mutex::new(None),
+        }
     }
 }
 
+fn vboxvmi() -> VBoxInitParams {
+    VBoxInitParams::VBoxVMI {
+        socket_path: Some(vboxvmi_socket()),
+    }
+}
+
+/// The access method when `VBOX_TEST_METHOD` is unset: one compiled into the test binary.
 #[cfg(feature = "virtualbox-api")]
-fn default_method() -> VBoxInitParams {
+fn compiled_method() -> VBoxInitParams {
     VBoxInitParams::MachineDebugger
 }
 
 #[cfg(all(not(feature = "virtualbox-api"), feature = "virtualbox-vmi"))]
-fn default_method() -> VBoxInitParams {
-    VBoxInitParams::VBoxVMI {
-        socket_path: vboxvmi_socket(),
-    }
+fn compiled_method() -> VBoxInitParams {
+    vboxvmi()
 }
 
 /// The configured or default VBoxVMI socket path.
@@ -134,7 +149,7 @@ pub fn try_vboxmanage(args: &[&str]) -> Result<String, String> {
 }
 
 /// Returns an extradata value, or `None` when the key is unset.
-fn extradata(key: &str) -> Option<String> {
+pub fn extradata(key: &str) -> Option<String> {
     let output = vboxmanage(&["getextradata", &vm_name(), key]);
     output
         .strip_prefix("Value: ")
@@ -195,7 +210,7 @@ impl VirtualBox {
     pub fn init_params(&self) -> DriverInitParams {
         DriverInitParams {
             common: Some(CommonInitParams { vm_name: vm_name() }),
-            virtualbox: Some(self.method.clone()),
+            virtualbox: self.method.clone(),
             ..Default::default()
         }
     }
@@ -223,7 +238,7 @@ impl Context for VirtualBox {
             args.extend(modify.iter().map(String::as_str));
             vboxmanage(&args);
         }
-        if self.is_vboxvmi() {
+        if self.vmi_enabled {
             let mut prior = self.prior_vmi_enabled.lock();
             assert!(
                 prior.is_none(),
@@ -262,7 +277,7 @@ impl Context for VirtualBox {
     fn teardown(&self) {
         debug!("teardown test");
         power_off_and_restore();
-        if self.is_vboxvmi() {
+        if self.vmi_enabled {
             let prior = self
                 .prior_vmi_enabled
                 .lock()

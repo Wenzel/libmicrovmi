@@ -1,9 +1,9 @@
 # VirtualBox
 
-The VirtualBox driver offers two access methods, selected explicitly at init time by
+The VirtualBox driver offers two access methods, selected at init time by
 `DriverInitParams.virtualbox`. MachineDebugger names the VM with `common.vm_name`; VBoxVMI names it
-by its socket. The `virtualbox` Cargo feature enables both methods on Unix; the method-specific
-features remain available separately.
+by its socket, or by `common.vm_name` for the VM's default socket. The `virtualbox` Cargo feature
+enables both methods on Unix; the method-specific features remain available separately.
 
 VirtualBox has one EFER register: `X86Registers::efer` and `msr_efer` both read it, and a register
 write with MachineDebugger or VBoxVMI fails (before writing anything) unless they are equal.
@@ -12,6 +12,19 @@ write with MachineDebugger or VBoxVMI fails (before writing anything) unless the
 |---------------|---------------|-------------|
 | VBoxVMI | `virtualbox-vmi` or `virtualbox` | `VBoxInitParams::VBoxVMI { socket_path }` |
 | MachineDebugger | `virtualbox-api` or `virtualbox` | `VBoxInitParams::MachineDebugger` |
+
+## Default access method
+
+Without `DriverInitParams.virtualbox`, the driver uses the VBoxVMI method at the VM's default socket
+(`<VirtualBox user home>/vmi/<VM UUID>.sock`, or the VM's `VBoxInternal/VMI/SocketPath`, both
+resolved by `common.vm_name` through the VirtualBox API), and falls back to the MachineDebugger
+method only if that socket file does not exist, i.e. VBoxVMI is not enabled on the VM. Any other
+VBoxVMI error (another client connected, permission refused, protocol mismatch) is returned. An
+explicitly selected method never falls back. The choice, and the reason for a fallback, are logged at
+`info` level (`RUST_LOG=microvmi=info`). See [ADR-0004](https://github.com/Wenzel/libmicrovmi/blob/dev/docs/adr/0004-default-vbox-access-method.md).
+
+With one method compiled in: `virtualbox-api` only uses MachineDebugger by default;
+`virtualbox-vmi` only needs an explicit `socket_path`.
 
 ## VBoxVMI method
 
@@ -43,10 +56,11 @@ Segment selectors, bases and limits are written as raw state: no descriptor tabl
 
 ### Initialization parameters
 
-- `vm_name`: ignored (the socket belongs to one VM)
-- `virtualbox`: `VBoxInitParams::VBoxVMI { socket_path }`
-  - Python: `init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="...")`
-  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_VBOXVMI, .socket_path = "..." }` (see `c_examples/vbox-read-page.c`)
+- `vm_name`: required when `socket_path` is omitted, ignored otherwise (the socket belongs to one VM)
+- `virtualbox`: `VBoxInitParams::VBoxVMI { socket_path: Some(path) }`, or `socket_path: None` for the
+  VM's default socket (needs the `virtualbox` feature: the socket is resolved through the VirtualBox API)
+  - Python: `init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="...")`, or `VBoxVMI()`
+  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_VBOXVMI, .socket_path = "..." }` (see `c_examples/vbox-read-page.c`), or a null `socket_path`
 
 The examples take `--vbox_vmi <socket>`:
 ~~~
