@@ -8,6 +8,7 @@ use std::time::Duration;
 use colored::*;
 
 use common::context::init_context;
+use common::filter::is_selected;
 use tests::IntegrationTest;
 
 mod common;
@@ -26,10 +27,7 @@ fn main() {
     let (mut ran, mut failed) = (0, 0);
     // for each test
     for test in inventory::iter::<IntegrationTest> {
-        if filter
-            .as_ref()
-            .is_some_and(|f| !test.name.contains(f.as_str()))
-        {
+        if !is_selected(test.name, filter.as_deref()) {
             continue;
         }
         ran += 1;

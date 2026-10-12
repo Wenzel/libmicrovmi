@@ -1048,3 +1048,424 @@ inventory::submit!(IntegrationTest {
     name: "virtualbox_write_registers_survive_resume",
     test_fn: write_registers_survive_resume
 });
+
+/// Both VirtualBox access methods attached to one VM, compared without a core dump.
+#[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
+mod cross_method {
+    use super::*;
+    use crate::common::filter::CROSS_METHOD_TEST;
+    use microvmi::api::params::{CommonInitParams, DriverInitParams, VBoxInitParams};
+    use microvmi::api::DriverType;
+
+    fn read_exact(drv: &dyn Introspectable, method: &str, addr: u64, buf: &mut [u8]) {
+        let mut bytes_read = 0;
+        drv.read_physical(addr, buf, &mut bytes_read)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{} failed to read RAM at {:#x} after {} bytes: {}",
+                    method, addr, bytes_read, error
+                )
+            });
+        assert_eq!(
+            bytes_read,
+            buf.len() as u64,
+            "{} short read at {:#x}",
+            method,
+            addr
+        );
+    }
+
+    fn read_page(drv: &dyn Introspectable, method: &str, addr: u64) -> Vec<u8> {
+        let mut page = vec![0; PAGE as usize];
+        read_exact(drv, method, addr, &mut page);
+        page
+    }
+
+    fn assert_page(drv: &dyn Introspectable, method: &str, addr: u64, expected: &[u8]) {
+        let actual = read_page(drv, method, addr);
+        if let Some(offset) = actual
+            .iter()
+            .zip(expected)
+            .position(|(actual, expected)| actual != expected)
+        {
+            panic!(
+                "{} RAM differs at {:#x}: {:#04x} != {:#04x}",
+                method,
+                addr + offset as u64,
+                actual[offset],
+                expected[offset]
+            );
+        }
+    }
+
+    fn assert_registers(
+        drv: &dyn Introspectable,
+        method: &str,
+        vcpu: u16,
+        expected: &X86Registers,
+    ) {
+        assert_eq!(
+            x86_registers(drv, vcpu),
+            *expected,
+            "{} registers differ on vCPU {}",
+            method,
+            vcpu
+        );
+    }
+
+    fn pattern(addr: u64, salt: u64) -> Vec<u8> {
+        let mut state = (addr ^ salt) | 1;
+        (0..PAGE)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state as u8
+            })
+            .collect()
+    }
+
+    /// Restores through both methods before `ResumeVm` resumes, including during unwinding. The
+    /// outer VirtualBox context then powers off and restores the base snapshot.
+    struct CrossMethodRestore<'a> {
+        machine_debugger: &'a dyn Introspectable,
+        vboxvmi: &'a dyn Introspectable,
+        pages: Vec<(u64, Vec<u8>)>,
+        vcpu: u16,
+        registers: X86Registers,
+        armed: bool,
+    }
+
+    impl CrossMethodRestore<'_> {
+        fn restore_with(&self, drv: &dyn Introspectable, method: &str) {
+            for (addr, original) in &self.pages {
+                if let Err(error) = drv.write_physical(*addr, original) {
+                    eprintln!("{} failed to restore RAM at {:#x}: {}", method, addr, error);
+                }
+            }
+            if let Err(error) =
+                drv.write_registers(self.vcpu, Registers::X86(self.registers.clone()))
+            {
+                eprintln!(
+                    "{} failed to restore vCPU {} registers: {}",
+                    method, self.vcpu, error
+                );
+            }
+        }
+    }
+
+    impl Drop for CrossMethodRestore<'_> {
+        fn drop(&mut self) {
+            if self.armed {
+                let _ = try_vboxmanage(&["controlvm", &vm_name(), "pause"]);
+                self.restore_with(self.machine_debugger, "MachineDebugger");
+                self.restore_with(self.vboxvmi, "VBoxVMI");
+            }
+        }
+    }
+
+    fn init_machine_debugger() -> Box<dyn Introspectable> {
+        microvmi::init(
+            Some(DriverType::VirtualBox),
+            Some(DriverInitParams {
+                common: Some(CommonInitParams { vm_name: vm_name() }),
+                virtualbox: Some(VBoxInitParams::MachineDebugger),
+                ..Default::default()
+            }),
+        )
+        .expect("failed to attach MachineDebugger")
+    }
+
+    /// On one paused VM, compare every register of every vCPU and every byte of all PGM RAM ranges
+    /// directly between the methods. Then write safe RAM pages and SYSENTER registers in both
+    /// directions, with independent readback and exact restoration through both methods.
+    fn consistency(vboxvmi: Box<dyn Introspectable>) {
+        let filter = env::var("MICROVMI_TEST_FILTER").ok();
+        if !matches!(env::var("VBOX_TEST_CROSS_METHOD").as_deref(), Ok("1")) {
+            if filter.is_none() {
+                println!(
+                    "SKIPPED: set VBOX_TEST_CROSS_METHOD=1 and \
+                     MICROVMI_TEST_FILTER={}",
+                    CROSS_METHOD_TEST
+                );
+                return;
+            }
+            panic!("cross-method test requires VBOX_TEST_CROSS_METHOD=1");
+        }
+        assert_eq!(
+            filter.as_deref(),
+            Some(CROSS_METHOD_TEST),
+            "cross-method test requires the exact MICROVMI_TEST_FILTER={}",
+            CROSS_METHOD_TEST
+        );
+        assert!(
+            matches!(env::var("VBOX_TEST_METHOD").as_deref(), Ok("vboxvmi")),
+            "cross-method test requires VBOX_TEST_METHOD=vboxvmi"
+        );
+        let mut machine_debugger = init_machine_debugger();
+        let _resume = ResumeVm;
+        machine_debugger.pause().unwrap();
+        assert_eq!(vm_info("VMState"), "paused");
+
+        let md_count = machine_debugger.get_vcpu_count().unwrap();
+        let vmi_count = vboxvmi.get_vcpu_count().unwrap();
+        assert_eq!(md_count, vmi_count, "vCPU counts differ");
+        assert!(
+            md_count >= 2,
+            "cross-method coverage requires VBOX_TEST_CPUS=2 or more"
+        );
+        for vcpu in 0..md_count {
+            let md = x86_registers(machine_debugger.as_ref(), vcpu);
+            let vmi = x86_registers(vboxvmi.as_ref(), vcpu);
+            assert_eq!(md, vmi, "complete registers differ on vCPU {}", vcpu);
+        }
+
+        let ranges = ram_ranges();
+        let ranges_end = ranges.iter().map(|range| range.end).max().unwrap();
+        let md_max = machine_debugger.get_max_physical_addr().unwrap();
+        let vmi_max = vboxvmi.get_max_physical_addr().unwrap();
+        assert_eq!(md_max, vmi_max, "maximum physical addresses differ");
+        assert_eq!(md_max, ranges_end, "driver maximum does not cover PGM RAM");
+
+        // The same safe locations as the core-based write test. Record the nearest all-zero page
+        // below each target while the complete direct comparison already has every RAM page.
+        let top = ranges_end;
+        let top_below_4g = ranges
+            .iter()
+            .map(|range| range.end)
+            .filter(|&end| end <= FOUR_GIB)
+            .max()
+            .unwrap();
+        let write_targets = [0x10000, top / 2, top_below_4g, top];
+        let target_ranges: Vec<(u64, u64)> = write_targets
+            .iter()
+            .map(|&target| {
+                let range = ranges
+                    .iter()
+                    .find(|range| range.start < target && target <= range.end)
+                    .unwrap_or_else(|| panic!("{:#x} is not in a RAM range", target));
+                (target & !(PAGE - 1), range.start.max(PAGE))
+            })
+            .collect();
+        let mut write_pages = vec![None; write_targets.len()];
+
+        let mut md = vec![0; CHUNK as usize];
+        let mut vmi = vec![0; CHUNK as usize];
+        let (mut compared, mut compared_above_4g) = (0u64, 0u64);
+        for range in &ranges {
+            let mut addr = range.start;
+            while addr < range.end {
+                let len = CHUNK.min(range.end - addr) as usize;
+                read_exact(
+                    machine_debugger.as_ref(),
+                    "MachineDebugger",
+                    addr,
+                    &mut md[..len],
+                );
+                read_exact(vboxvmi.as_ref(), "VBoxVMI", addr, &mut vmi[..len]);
+                if let Some(offset) = md[..len]
+                    .iter()
+                    .zip(&vmi[..len])
+                    .position(|(md, vmi)| md != vmi)
+                {
+                    panic!(
+                        "methods differ at guest-physical {:#x}: {:#04x} != {:#04x}",
+                        addr + offset as u64,
+                        md[offset],
+                        vmi[offset]
+                    );
+                }
+                let (pages, remainder) = md[..len].as_chunks::<{ PAGE as usize }>();
+                debug_assert!(remainder.is_empty());
+                for (offset, page) in pages.iter().enumerate() {
+                    if page.iter().any(|&byte| byte != 0) {
+                        continue;
+                    }
+                    let page = addr + offset as u64 * PAGE;
+                    for ((target, first), selected) in target_ranges.iter().zip(&mut write_pages) {
+                        if *first <= page && page < *target {
+                            *selected = Some(page);
+                        }
+                    }
+                }
+                compared += len as u64;
+                compared_above_4g += (addr + len as u64).saturating_sub(addr.max(FOUR_GIB));
+                addr += len as u64;
+            }
+        }
+        let ram_bytes: u64 = ranges.iter().map(|range| range.end - range.start).sum();
+        let ram_above_4g: u64 = ranges
+            .iter()
+            .map(|range| range.end.saturating_sub(range.start.max(FOUR_GIB)))
+            .sum();
+        assert_eq!(compared, ram_bytes);
+        assert_eq!(compared_above_4g, ram_above_4g);
+        if vm_info("memory").parse::<u64>().unwrap() > 4096 {
+            assert!(
+                md_max > FOUR_GIB,
+                "maximum physical address is not above 4 GiB"
+            );
+            assert!(
+                compared_above_4g > 0,
+                "no RAM bytes above 4 GiB were compared"
+            );
+        }
+        println!(
+            "cross-method compared {} RAM bytes ({} above 4 GiB), max physical address {:#x}, {} vCPUs",
+            compared, compared_above_4g, md_max, md_count
+        );
+        print!("PGM RAM ranges");
+        for range in &ranges {
+            print!(" {:#x}..{:#x}", range.start, range.end);
+        }
+        println!();
+
+        let mut page_addrs: Vec<u64> = write_pages
+            .into_iter()
+            .zip(write_targets)
+            .map(|(page, target)| {
+                page.unwrap_or_else(|| panic!("no zero page below {:#x}", target))
+            })
+            .collect();
+        page_addrs.sort_unstable();
+        page_addrs.dedup();
+        if ram_above_4g > 0 {
+            assert!(
+                page_addrs.iter().any(|&addr| addr >= FOUR_GIB),
+                "no write page above 4 GiB"
+            );
+        }
+        let pages: Vec<(u64, Vec<u8>)> = page_addrs
+            .iter()
+            .map(|&addr| {
+                (
+                    addr,
+                    read_page(machine_debugger.as_ref(), "MachineDebugger", addr),
+                )
+            })
+            .collect();
+        for (addr, original) in &pages {
+            assert_page(vboxvmi.as_ref(), "VBoxVMI", *addr, original);
+        }
+        let vcpu = md_count - 1;
+        let registers = x86_registers(machine_debugger.as_ref(), vcpu);
+        assert_registers(vboxvmi.as_ref(), "VBoxVMI", vcpu, &registers);
+        let mut restore = CrossMethodRestore {
+            machine_debugger: machine_debugger.as_ref(),
+            vboxvmi: vboxvmi.as_ref(),
+            pages,
+            vcpu,
+            registers,
+            armed: true,
+        };
+
+        for (addr, original) in &restore.pages {
+            let changed = pattern(*addr, 0x004d_442d_3e56_4d49);
+            machine_debugger.write_physical(*addr, &changed).unwrap();
+            assert_page(vboxvmi.as_ref(), "VBoxVMI", *addr, &changed);
+            vboxvmi.write_physical(*addr, original).unwrap();
+            assert_page(
+                machine_debugger.as_ref(),
+                "MachineDebugger",
+                *addr,
+                original,
+            );
+            assert_page(vboxvmi.as_ref(), "VBoxVMI", *addr, original);
+
+            let changed = pattern(*addr, 0x0056_4d49_2d3e_4d44);
+            vboxvmi.write_physical(*addr, &changed).unwrap();
+            assert_page(
+                machine_debugger.as_ref(),
+                "MachineDebugger",
+                *addr,
+                &changed,
+            );
+        }
+
+        let mut changed = restore.registers.clone();
+        changed.sysenter_esp ^= 8;
+        changed.sysenter_eip ^= 8;
+        machine_debugger
+            .write_registers(vcpu, Registers::X86(changed.clone()))
+            .unwrap();
+        assert_registers(vboxvmi.as_ref(), "VBoxVMI", vcpu, &changed);
+        vboxvmi
+            .write_registers(vcpu, Registers::X86(restore.registers.clone()))
+            .unwrap();
+        assert_registers(
+            machine_debugger.as_ref(),
+            "MachineDebugger",
+            vcpu,
+            &restore.registers,
+        );
+        assert_registers(vboxvmi.as_ref(), "VBoxVMI", vcpu, &restore.registers);
+
+        changed = restore.registers.clone();
+        changed.sysenter_esp ^= 16;
+        changed.sysenter_eip ^= 16;
+        vboxvmi
+            .write_registers(vcpu, Registers::X86(changed.clone()))
+            .unwrap();
+        assert_registers(machine_debugger.as_ref(), "MachineDebugger", vcpu, &changed);
+
+        // Final restoration is deliberately performed through both methods and verified through
+        // both, so either method can recover the state left by the other.
+        for (addr, original) in &restore.pages {
+            vboxvmi.write_physical(*addr, original).unwrap();
+            assert_page(
+                machine_debugger.as_ref(),
+                "MachineDebugger",
+                *addr,
+                original,
+            );
+            assert_page(vboxvmi.as_ref(), "VBoxVMI", *addr, original);
+            machine_debugger.write_physical(*addr, original).unwrap();
+            assert_page(
+                machine_debugger.as_ref(),
+                "MachineDebugger",
+                *addr,
+                original,
+            );
+            assert_page(vboxvmi.as_ref(), "VBoxVMI", *addr, original);
+        }
+        vboxvmi
+            .write_registers(vcpu, Registers::X86(restore.registers.clone()))
+            .unwrap();
+        assert_registers(
+            machine_debugger.as_ref(),
+            "MachineDebugger",
+            vcpu,
+            &restore.registers,
+        );
+        assert_registers(vboxvmi.as_ref(), "VBoxVMI", vcpu, &restore.registers);
+        machine_debugger
+            .write_registers(vcpu, Registers::X86(restore.registers.clone()))
+            .unwrap();
+        assert_registers(
+            machine_debugger.as_ref(),
+            "MachineDebugger",
+            vcpu,
+            &restore.registers,
+        );
+        assert_registers(vboxvmi.as_ref(), "VBoxVMI", vcpu, &restore.registers);
+        restore.armed = false;
+        let pages: Vec<String> = page_addrs
+            .iter()
+            .map(|addr| format!("{:#x}", addr))
+            .collect();
+        println!(
+            "cross-method writes restored on vCPU {} and RAM pages {}",
+            vcpu,
+            pages.join(", ")
+        );
+        drop(restore);
+
+        machine_debugger.resume().unwrap();
+        assert_eq!(vm_info("VMState"), "running");
+    }
+
+    inventory::submit!(IntegrationTest {
+        name: CROSS_METHOD_TEST,
+        test_fn: consistency
+    });
+}
