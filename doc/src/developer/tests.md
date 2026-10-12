@@ -75,16 +75,17 @@ Run the generic tests the method supports, or the VirtualBox ones:
 MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
-for f in init vcpu_count double_pause pause_ double_resume virtualbox_read_; do MICROVMI_TEST_FILTER=$f VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
-MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
+for f in init vcpu_count pause double_resume virtualbox_read_ registers_match write_registers; do MICROVMI_TEST_FILTER=$f VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
+for f in vcpu pause registers_match write_registers; do MICROVMI_TEST_FILTER=$f VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
 ~~~
 
-The VBoxVMI method reads memory, pauses and resumes, and counts vCPUs so far, but has no registers or
-writes ([#284](https://github.com/Wenzel/libmicrovmi/issues/284), [#285](https://github.com/Wenzel/libmicrovmi/issues/285)):
-the `virtualbox_registers_*`, `virtualbox_write_registers_*` and `virtualbox_write_physical_*` tests are
-MachineDebugger-only. The filters above run every test VBoxVMI supports, each once: `pause_` covers
-`pause_resume`, `multiple_pause_resume` and `virtualbox_pause_*`. A plain `pause` filter would also run
-`virtualbox_registers_unchanged_while_paused`; the `pause` test itself is covered by `double_pause`.
+The VBoxVMI method supports every test but the `virtualbox_write_physical_*` ones, which are
+MachineDebugger-only until it writes memory ([#285](https://github.com/Wenzel/libmicrovmi/issues/285)).
+The VBoxVMI filters above run every test it supports, each once: `pause` covers `pause`,
+`double_pause`, `pause_resume`, `multiple_pause_resume`, `virtualbox_pause_*` and
+`virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
+`virtualbox_vcpu_count_matches_vmm`. With `VBOX_TEST_CPUS=2`, the register tests read every vCPU
+and write the last one.
 
 If cargo runs in a container without VirtualBox, build the test binary there and run it on the host:
 

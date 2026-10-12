@@ -8,6 +8,7 @@ use vboxapi::Vm;
 use crate::api::params::DriverInitParams;
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable, PAGE_SIZE};
+use crate::driver::EferMismatch;
 
 #[derive(thiserror::Error, Debug)]
 pub enum VBoxApiDriverError {
@@ -23,7 +24,8 @@ pub enum VBoxApiDriverError {
 }
 
 /// `X86Registers` fields as DBGF register names (`IMachineDebugger` register names) and values.
-/// Segment selectors are the bare segment names (`cs`).
+/// Segment selectors are the bare segment names (`cs`). `efer` is left out: it must equal
+/// `msr_efer`, the same DBGF register.
 fn dbgf_registers(r: &X86Registers) -> Vec<(&'static str, u64)> {
     let mut regs = vec![
         ("rax", r.rax),
@@ -54,7 +56,6 @@ fn dbgf_registers(r: &X86Registers) -> Vec<(&'static str, u64)> {
         ("efer", r.msr_efer),
         ("star", r.msr_star),
         ("lstar", r.msr_lstar),
-        ("efer", r.efer),
         ("apic_base", r.apic_base),
         ("gdtr_base", r.gdt.base),
         ("gdtr_lim", r.gdt.limit.into()),
@@ -231,9 +232,10 @@ impl Introspectable for VBoxApi {
     /// so unchanged control registers and MSRs are not reloaded. Segment selectors, bases and
     /// limits are written as raw debugger state. Pause the VM first: on a running VM the
     /// registers are not written all at once. Not atomic: on error, the registers before the
-    /// failing one stay written.
+    /// failing one stay written. `efer` and `msr_efer` are both EFER: they must be equal.
     fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
         let Registers::X86(new) = reg;
+        EferMismatch::check(&new)?;
         let Registers::X86(old) = self.read_registers(vcpu)?;
         let mut changed = Vec::new();
         for ((name, value), (_, old_value)) in
