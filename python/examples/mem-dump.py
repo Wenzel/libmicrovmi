@@ -35,17 +35,11 @@ def parse_args():
         "--vbox-vmi",
         type=str,
         metavar="SOCKET",
-        help="Use VBoxVMI (VM name defaults to the socket filename; requires --no-pause)",
+        help="Use VBoxVMI (VM name defaults to the socket filename)",
     )
-    parser.add_argument(
-        "--no-pause",
-        action="store_true",
-        help="Do not pause the VM while dumping (required for VBoxVMI, which has no pause command yet)",
-    )
+    parser.add_argument("--no-pause", action="store_true", help="Do not pause the VM while dumping")
     parser.add_argument("-o", "--output-file", help="Dump file path", default="{vm_name}.dump")
     args = parser.parse_args()
-    if args.vbox_vmi and not args.no_pause:
-        parser.error("--vbox-vmi requires --no-pause")
     if args.vbox_machinedebugger and args.vbox_vmi:
         parser.error("--vbox-machinedebugger and --vbox-vmi are mutually exclusive")
     if args.vm_name is None and args.vbox_vmi:

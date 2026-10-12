@@ -14,12 +14,15 @@ MachineDebugger and FDP name the VM with `common.vm_name`; VBoxVMI names it by i
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
 It is the fast path, and the way towards VMI events.
 
-Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included).
+Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
 Reads are served inside the VM process without waiting for a vCPU, in batches of up to 15 pages per request.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
+Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
+Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
+Pause and resume fail while the VM is neither running nor paused (powering on or off, saving or restoring its state, live snapshot, teleport), and resume fails while the host's power management has the VM paused.
+A VM paused through VBoxVMI stays paused if the tool exits or disconnects without resuming it ([#287](https://github.com/Wenzel/libmicrovmi/issues/287)).
 
-Not implemented yet: registers, writes, pause/resume and vCPU count ([#283](https://github.com/Wenzel/libmicrovmi/issues/283)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
-Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`), or pause it with `VBoxManage controlvm <vm> pause`.
+Not implemented yet: registers, writes ([#284](https://github.com/Wenzel/libmicrovmi/issues/284)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
 
 ### Requirements
 
@@ -41,12 +44,12 @@ Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`),
 The examples take `--vbox_vmi <socket>`:
 ~~~
 $ cargo build --features virtualbox-vmi --examples
-$ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --no-pause
+$ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock
 ~~~
 
 Python (bindings built with the `virtualbox-vmi` feature):
 ~~~
-$ python3 python/examples/mem-dump.py --vbox-vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --no-pause
+$ python3 python/examples/mem-dump.py --vbox-vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock
 ~~~
 
 The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate. To build against a local checkout of it:

@@ -75,11 +75,16 @@ Run the generic tests the method supports, or the VirtualBox ones:
 MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
-MICROVMI_TEST_FILTER=virtualbox_read_ VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
+for f in init vcpu_count double_pause pause_ double_resume virtualbox_read_; do MICROVMI_TEST_FILTER=$f VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
+MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
 ~~~
 
-The VBoxVMI method only reads memory so far (no pause, registers, vCPU count or writes): filter its
-runs to the `virtualbox_read_` tests.
+The VBoxVMI method reads memory, pauses and resumes, and counts vCPUs so far, but has no registers or
+writes ([#284](https://github.com/Wenzel/libmicrovmi/issues/284), [#285](https://github.com/Wenzel/libmicrovmi/issues/285)):
+the `virtualbox_registers_*`, `virtualbox_write_registers_*` and `virtualbox_write_physical_*` tests are
+MachineDebugger-only. The filters above run every test VBoxVMI supports, each once: `pause_` covers
+`pause_resume`, `multiple_pause_resume` and `virtualbox_pause_*`. A plain `pause` filter would also run
+`virtualbox_registers_unchanged_while_paused`; the `pause` test itself is covered by `double_pause`.
 
 If cargo runs in a container without VirtualBox, build the test binary there and run it on the host:
 
