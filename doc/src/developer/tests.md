@@ -40,8 +40,9 @@ in a fresh core and survive a resume/re-pause cycle. The generic `get_vcpu_count
 configured `cpus`.
 
 **Requirements**
-- a VirtualBox build with the MachineDebugger patches (MachineDebugger method) or with VBoxVMI
-  (VBoxVMI method), its kernel modules loaded
+- a VirtualBox build with the MachineDebugger patches (MachineDebugger method), VBoxVMI
+  (VBoxVMI method), or both patch series on a test-only combined branch (cross-method test), with
+  that build's kernel modules loaded
 - a VM with an online snapshot (saved state), e.g. a live Alpine ISO guest at its login prompt
 
 **Configuration** (environment variables)
@@ -88,6 +89,48 @@ second client. The other filters cover `pause`,
 `virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
 `virtualbox_vcpu_count_matches_vmm`. With `VBOX_TEST_CPUS=2`, the register tests read every vCPU
 and write the last one.
+
+### MachineDebugger/VBoxVMI cross-method consistency
+
+The `virtualbox_cross_method_consistency` inventory test opens MachineDebugger and VBoxVMI
+concurrently against the same VM process, pauses it through MachineDebugger, and compares every
+register on every vCPU and every byte in the live PGM RAM ranges directly between the two methods.
+It checks both drivers' maximum physical address against the end of those ranges, reports the exact
+byte count above 4 GiB, and uses no core dump. It then writes the same safe zero-page locations used
+by the other VirtualBox write test and the last vCPU's `SYSENTER_ESP`/`SYSENTER_EIP` in both
+directions. Every write is read independently through the other method. Originals are restored and
+verified through both methods before resume; an unwind guard repeats restoration, and the standard
+teardown powers off and restores the base snapshot.
+
+One VirtualBox process must implement both APIs. The long-lived `vmi/machinedebugger` and
+`vmi/vboxvmi` branches intentionally stay separate; use the test-only
+`Wenzel/virtualbox` branch `vmi/cross-method-test`, which merges the completed MachineDebugger
+patches into `vmi/vboxvmi`:
+
+~~~
+git -C /path/to/virtualbox fetch fork
+git -C /path/to/virtualbox worktree add /path/to/virtualbox-vmi fork/vmi/cross-method-test
+/path/to/vbox-dev/build.sh /path/to/virtualbox-vmi
+~~~
+
+Compile the integration binary with both access methods. Run it on the host with
+`VBOX_APP_HOME` pointing at that same combined build: this is required both for the VM's VBoxVMI
+server and for MachineDebugger's dynamically loaded `VBoxC.so`. `VBOX_TEST_METHOD=vboxvmi` makes
+the context enable the server and supplies its one client to the cross-method test. The test
+requires two vCPUs. Run both the 512 MiB case and the 5120 MiB case, which must report nonzero bytes
+and a selected write page above 4 GiB:
+
+~~~
+cargo test --features 'virtualbox-api virtualbox-vmi' --test integration --no-run
+BIN=target/debug/deps/integration-<hash>
+COMMON='VBOX_APP_HOME=/path/to/virtualbox-vmi/out/linux.amd64/release/bin VBOX_USER_HOME=/path/to/vbox-home VBOX_TEST_METHOD=vboxvmi VBOX_TEST_CPUS=2 MICROVMI_TEST_FILTER=cross_method_consistency MICROVMI_TEST_TIMEOUT=180 VBOX_TEST_CORE_DIR=/path/to/disk-backed/core-dir'
+flock -o /path/to/vbox-dev/.vm.lock env $COMMON VBOX_TEST_MEMORY_MB=512 $BIN
+flock -o /path/to/vbox-dev/.vm.lock env $COMMON VBOX_TEST_MEMORY_MB=5120 $BIN
+~~~
+
+Run only a binary built from the matching libmicrovmi checkout. Teardown runs after setup or test
+failure; do not interrupt teardown. A completed run leaves the VM powered off with the base
+snapshot restored.
 
 If cargo runs in a container without VirtualBox, build the test binary there and run it on the host:
 
