@@ -2055,7 +2055,7 @@ dependencies = [
 [[package]]
 name = "vboxvmi"
 version = "0.1.0"
-source = "git+https://github.com/Wenzel/rs-vboxvmi?rev=2b71bb814ac7dc8948e1ca90bec88755f362c69c#2b71bb814ac7dc8948e1ca90bec88755f362c69c"
+source = "git+https://github.com/Wenzel/rs-vboxvmi?rev=5452496d5f26dc519e7aea39dc3c58a3658557dc#5452496d5f26dc519e7aea39dc3c58a3658557dc"
 dependencies = [
  "libc",
  "thiserror 1.0.69",
