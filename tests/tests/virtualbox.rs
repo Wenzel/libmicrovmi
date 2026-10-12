@@ -3,11 +3,15 @@ use std::convert::TryInto;
 use std::env;
 use std::fs::{self, File};
 #[cfg(feature = "virtualbox-vmi")]
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
 #[cfg(feature = "virtualbox-vmi")]
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+#[cfg(feature = "virtualbox-vmi")]
+use std::sync::mpsc;
+#[cfg(feature = "virtualbox-vmi")]
+use std::thread;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -388,26 +392,62 @@ inventory::submit!(IntegrationTest {
 });
 
 #[cfg(feature = "virtualbox-vmi")]
+struct ChildGuard(Option<Child>);
+
+#[cfg(feature = "virtualbox-vmi")]
+impl ChildGuard {
+    fn new(child: Child) -> Self {
+        Self(Some(child))
+    }
+
+    fn child_mut(&mut self) -> &mut Child {
+        self.0.as_mut().unwrap()
+    }
+
+    fn kill_and_wait(&mut self) -> io::Result<()> {
+        {
+            let child = self.0.as_mut().unwrap();
+            child.kill()?;
+            child.wait()?;
+        }
+        self.0 = None;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.0.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_killed_client_resumes(drv: Box<dyn Introspectable>) {
     drop(drv);
-    let mut child = Command::new(std::env::current_exe().unwrap())
+    let child = Command::new(std::env::current_exe().unwrap())
         .env("MICROVMI_VBOXVMI_PAUSE_CHILD", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
         .expect("failed to start VBoxVMI pause child");
+    let mut child = ChildGuard::new(child);
     let mut ready = String::new();
-    BufReader::new(child.stdout.take().unwrap())
+    BufReader::new(child.child_mut().stdout.take().unwrap())
         .read_line(&mut ready)
         .expect("failed to read child readiness");
-    if ready.trim_end() != "paused" {
-        let _ = child.kill();
-        let _ = child.wait();
-        panic!("VBoxVMI pause child did not become ready: {:?}", ready);
-    }
+    assert_eq!(
+        ready.trim_end(),
+        "paused",
+        "VBoxVMI pause child did not become ready"
+    );
     assert_eq!(vm_info("VMState"), "paused");
-    child.kill().expect("failed to kill VBoxVMI pause child");
-    child.wait().expect("failed to reap VBoxVMI pause child");
+    child
+        .kill_and_wait()
+        .expect("failed to kill and reap VBoxVMI pause child");
     wait_for_vm_state("running");
 }
 
@@ -446,6 +486,46 @@ fn vboxvmi_resume_generation_preserves_external_pause(mut drv: Box<dyn Introspec
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_disconnect_preserves_new_external_vm_state",
     test_fn: vboxvmi_resume_generation_preserves_external_pause
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_disconnect_race_preserves_external_state(drv: Box<dyn Introspectable>) {
+    drop(drv);
+    for iteration in 0..8 {
+        if iteration != 0 {
+            vboxmanage(&["controlvm", &vm_name(), "resume"]);
+        }
+        let mut client = connect_vboxvmi();
+        client.pause().unwrap();
+
+        let (resumed_tx, resumed_rx) = mpsc::channel();
+        let external = thread::spawn(move || {
+            let _ = try_vboxmanage(&["controlvm", &vm_name(), "resume"]);
+            resumed_tx.send(()).unwrap();
+            vboxmanage(&["controlvm", &vm_name(), "pause"]);
+        });
+        if iteration % 2 != 0 {
+            resumed_rx.recv().unwrap();
+        } else {
+            thread::yield_now();
+        }
+        drop(client);
+        external.join().expect("external resume/pause panicked");
+
+        drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+        assert_eq!(
+            vm_info("VMState"),
+            "paused",
+            "disconnect resumed external pause in race iteration {}",
+            iteration
+        );
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_race_preserves_external_state",
+    test_fn: vboxvmi_disconnect_race_preserves_external_state
 });
 
 #[cfg(feature = "virtualbox-vmi")]
