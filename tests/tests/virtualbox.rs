@@ -1,25 +1,24 @@
 //! VirtualBox tests checking the driver against ground truth from `VBoxManage`, for any access method.
 use std::convert::TryInto;
+use std::env;
 use std::fs::{self, File};
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
-use std::path::PathBuf;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use log::debug;
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
 use super::IntegrationTest;
-use crate::common::virtualbox::{core_path, vboxmanage, vm_info, vm_name};
+use crate::common::virtualbox::{core_path, try_vboxmanage, vboxmanage, vm_info, vm_name};
 
 const PAGE: u64 = PAGE_SIZE as u64;
 const CHUNK: u64 = 1 << 20;
 const FOUR_GIB: u64 = 4 << 30;
 
-/// `dumpvmcore` ELF core, deleted on drop.
+/// `dumpvmcore` ELF core, unlinked once open: its disk space is freed on drop.
 struct Core {
-    path: PathBuf,
     file: File,
     /// PT_LOAD segments: (guest-physical address, file offset, size)
     loads: Vec<(u64, u64, u64)>,
@@ -37,8 +36,9 @@ impl Core {
             &format!("--filename={}", path.display()),
         ]);
         let file = File::open(&path).expect("Failed to open core file");
+        // the next dump reuses the path
+        fs::remove_file(&path).expect("Failed to unlink core file");
         let mut core = Core {
-            path,
             file,
             loads: Vec::new(),
         };
@@ -77,11 +77,26 @@ impl Core {
             .expect("Failed to read core file");
         buf
     }
-}
 
-impl Drop for Core {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
+    /// The PT_LOAD segment (guest-physical address, file offset, size) holding guest page `addr`.
+    fn load(&self, addr: u64) -> (u64, u64, u64) {
+        *self
+            .loads
+            .iter()
+            .find(|(p, _, s)| (*p..p + s).contains(&addr))
+            .unwrap_or_else(|| panic!("RAM page {:#x} is not in the core", addr))
+    }
+
+    /// Guest RAM `addr..addr + len`, within one PT_LOAD segment.
+    fn ram(&self, addr: u64, len: u64) -> Vec<u8> {
+        let (paddr, offset, size) = self.load(addr);
+        assert!(
+            addr + len <= paddr + size,
+            "{:#x}+{:#x} spans PT_LOADs",
+            addr,
+            len
+        );
+        self.read(offset + addr - paddr, len as usize)
     }
 }
 
@@ -265,4 +280,184 @@ fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "virtualbox_pause_idempotent_and_visible",
     test_fn: pause_idempotent_and_visible
+});
+
+/// Restores the original page contents and the running VM state, including during unwinding.
+struct RestorePages<'a> {
+    drv: &'a dyn Introspectable,
+    pages: &'a [(u64, Vec<u8>)],
+    armed: bool,
+}
+
+impl RestorePages<'_> {
+    /// The test keeps the VM paused before calling this.
+    fn restore(&mut self) {
+        for (page, original) in self.pages.iter() {
+            self.drv.write_physical(*page, original).unwrap();
+        }
+    }
+}
+
+impl Drop for RestorePages<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            let vm = vm_name();
+            let _ = try_vboxmanage(&["controlvm", &vm, "pause"]);
+            for (page, original) in self.pages.iter() {
+                let _ = self.drv.write_physical(*page, original);
+            }
+        }
+        let vm = vm_name();
+        let _ = try_vboxmanage(&["controlvm", &vm, "resume"]);
+    }
+}
+
+/// Pages to write to: zero in `core`, so most likely unused by the idle guest. The first zero page
+/// below each of: the top of Linux's reserved low 64 KiB (never allocated by the guest), the
+/// middle of RAM, the top of RAM below 4 GiB and the top of RAM (above 4 GiB if there is RAM there).
+fn zero_pages(core: &Core, ranges: &[Range<u64>]) -> Vec<u64> {
+    let top = ranges.iter().map(|r| r.end).max().unwrap();
+    let top_below_4g = ranges
+        .iter()
+        .map(|r| r.end)
+        .filter(|&e| e <= FOUR_GIB)
+        .max()
+        .unwrap();
+    let mut pages: Vec<u64> = [0x10000, top / 2, top_below_4g, top]
+        .iter()
+        .map(|&target| {
+            let range = ranges
+                .iter()
+                .find(|r| r.start < target && target <= r.end)
+                .unwrap_or_else(|| panic!("{:#x} is not in a RAM range", target));
+            // page 0 excluded: real-mode IVT
+            (1..=1024)
+                .map(|i| (target & !(PAGE - 1)) - i * PAGE)
+                .take_while(|&p| p >= range.start.max(PAGE))
+                .find(|&p| core.ram(p, PAGE).iter().all(|&b| b == 0))
+                .unwrap_or_else(|| panic!("no zero page below {:#x}", target))
+        })
+        .collect();
+    pages.sort_unstable();
+    pages.dedup();
+    pages
+}
+
+/// With the VM paused, a random pattern written to RAM pages through the driver reads back and is
+/// present in a fresh core, where the rest of RAM is unchanged. A second fresh core verifies the
+/// patterns after a resume/re-pause cycle. The exact original bytes and running state are restored
+/// on success and during unwinding. `VBOX_TEST_SEED` replays a pattern.
+fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
+    let vm = vm_name();
+    vboxmanage(&["controlvm", &vm, "pause"]);
+    let ranges = ram_ranges();
+    let before = Core::dump();
+    let page_addrs = zero_pages(&before, &ranges);
+    let pages: Vec<(u64, Vec<u8>)> = page_addrs
+        .iter()
+        .map(|&page| (page, before.ram(page, PAGE)))
+        .collect();
+    let mut restore = RestorePages {
+        drv: &*drv,
+        pages: &pages,
+        armed: true,
+    };
+    let seed = env::var("VBOX_TEST_SEED").map_or_else(
+        |_| {
+            let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
+            now.unwrap().as_nanos() as u64
+        },
+        |s| s.parse().expect("VBOX_TEST_SEED is not a u64"),
+    );
+    let hex: Vec<String> = page_addrs.iter().map(|p| format!("{:#x}", p)).collect();
+    print!("seed {} pages {} ", seed, hex.join(" "));
+    let mut state = seed | 1; // xorshift64: nonzero state
+    let mut random_byte = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state as u8
+    };
+    let patterns: Vec<Vec<u8>> = page_addrs
+        .iter()
+        .map(|_| (0..PAGE).map(|_| random_byte()).collect())
+        .collect();
+
+    let top = ranges.iter().map(|r| r.end).max().unwrap();
+    // local APIC MMIO, the first page above RAM
+    for addr in [0xfee0_0000, top] {
+        assert!(
+            drv.write_physical(addr, &[0xcc; PAGE as usize]).is_err(),
+            "write to non-RAM {:#x} succeeded",
+            addr
+        );
+    }
+
+    let read_page = |page| {
+        let mut buf = vec![0; PAGE as usize];
+        drv.read_physical(page, &mut buf, &mut 0).unwrap();
+        buf
+    };
+    for (&page, pattern) in page_addrs.iter().zip(&patterns) {
+        drv.write_physical(page, pattern).unwrap();
+        assert!(
+            read_page(page) == *pattern,
+            "page {:#x} reads back differently",
+            page
+        );
+    }
+
+    let after = Core::dump();
+    for range in &ranges {
+        let mut addr = range.start;
+        while addr < range.end {
+            let (paddr, _, size) = before.load(addr);
+            let len = CHUNK.min(range.end.min(paddr + size) - addr);
+            let mut expected = before.ram(addr, len);
+            for (&page, pattern) in page_addrs.iter().zip(&patterns) {
+                if (addr..addr + len).contains(&page) {
+                    let at = (page - addr) as usize;
+                    expected[at..at + PAGE as usize].copy_from_slice(pattern);
+                }
+            }
+            let actual = after.ram(addr, len);
+            if let Some(i) = (0..len as usize).find(|&i| actual[i] != expected[i]) {
+                panic!(
+                    "core differs from the expected RAM at {:#x}",
+                    addr + i as u64
+                );
+            }
+            addr += len;
+        }
+    }
+    drop((before, after));
+
+    vboxmanage(&["controlvm", &vm, "resume"]);
+    vboxmanage(&["controlvm", &vm, "pause"]);
+    let resumed = Core::dump();
+    for (&page, pattern) in page_addrs.iter().zip(&patterns) {
+        assert!(
+            resumed.ram(page, PAGE) == *pattern,
+            "page {:#x} changed over resume",
+            page
+        );
+    }
+    drop(resumed);
+
+    restore.restore();
+    let restored = Core::dump();
+    for (page, original) in &pages {
+        assert_eq!(
+            restored.ram(*page, PAGE),
+            *original,
+            "page {:#x} not restored",
+            page
+        );
+    }
+    restore.armed = false;
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_write_physical_matches_core",
+    test_fn: write_physical_matches_core
 });

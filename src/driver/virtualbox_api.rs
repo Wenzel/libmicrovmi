@@ -64,6 +64,12 @@ impl Introspectable for VBoxApi {
         Ok(())
     }
 
+    /// Not atomic: on error, a prefix of `buf` may already be written, up to the first page that is
+    /// not backed by host memory (MMIO, ballooned, unassigned), which is never written.
+    fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
+        Ok(self.vm.write_physical(paddr, buf)?)
+    }
+
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         Ok(u16::try_from(self.vm.cpu_count())?)
     }
