@@ -31,7 +31,8 @@ cargo test --feature kvm
 ## VirtualBox
 
 The VirtualBox context restores a snapshot, starts the VM headless and creates the driver for one
-**access method** (currently the MachineDebugger method, `virtualbox-api` feature). VirtualBox tests
+**access method**, chosen by `VBOX_TEST_METHOD`: the MachineDebugger method (`virtualbox-api` feature)
+or the VBoxVMI method (`virtualbox-vmi` feature). VirtualBox tests
 (`virtualbox_*`) check the driver against `VBoxManage` as ground truth, e.g. every page of the guest's
 RAM ranges (`VBoxManage debugvm <vm> info phys verbose`) must read while the VM is paused, identical to a
 `VBoxManage debugvm <vm> dumpvmcore` core file, and a random pattern written to RAM pages must be
@@ -39,13 +40,19 @@ in a fresh core and survive a resume/re-pause cycle. The generic `get_vcpu_count
 configured `cpus`.
 
 **Requirements**
-- a VirtualBox build with the MachineDebugger patches, its kernel modules loaded
+- a VirtualBox build with the MachineDebugger patches (MachineDebugger method) or with VBoxVMI
+  (VBoxVMI method), its kernel modules loaded
 - a VM with an online snapshot (saved state), e.g. a live Alpine ISO guest at its login prompt
 
 **Configuration** (environment variables)
 - `VBOX_APP_HOME`: VirtualBox bin directory (`VBoxManage`, `VBoxHeadless`, C API library)
 - `VBOX_USER_HOME`: VirtualBox configuration directory holding the VM, if not the default one
 - `VBOX_TEST_VM` (default `microvmi-alpine`), `VBOX_TEST_SNAPSHOT` (default `base`)
+- `VBOX_TEST_METHOD`: `machinedebugger` or `vboxvmi`; unset selects an access method compiled into
+  the test binary. With `vboxvmi`, setup enables VBoxVMI on the VM and teardown restores the prior
+  `VBoxInternal/VMI/Enabled` value. The driver honors `VBoxInternal/VMI/SocketPath`; otherwise it
+  derives the socket from VirtualBox's user home (`VBOX_USER_HOME`, legacy `~/.VirtualBox`, or
+  `$XDG_CONFIG_HOME/VirtualBox` / `~/.config/VirtualBox`).
 - `VBOX_TEST_MEMORY_MB`: discard the snapshot's saved state and cold boot the guest with this much RAM
   (e.g. `5120`, to test above 4 GiB). Teardown restores the snapshot, which restores the VM's RAM size.
 - `VBOX_TEST_CPUS`: same, with this many vCPUs. The multi-vCPU checks (vCPU count, pause stopping
@@ -57,8 +64,8 @@ configured `cpus`.
 
 The VM state between each test is handled by the following commands:
 - setup: `controlvm <vm> poweroff` (if running, paused or stuck), `snapshot <vm> restore <snapshot>`
-  (retried while the VM settles), `VBoxHeadless --startvm <vm>`
-- teardown: `controlvm <vm> poweroff`, `snapshot <vm> restore <snapshot>`
+  (retried while the VM settles), (VBoxVMI) `setextradata`, `VBoxHeadless --startvm <vm>`
+- teardown: `controlvm <vm> poweroff`, `snapshot <vm> restore <snapshot>`, (VBoxVMI) `setextradata`
 
 **Execution**
 
@@ -68,7 +75,11 @@ Run the generic tests the method supports, or the VirtualBox ones:
 MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
+MICROVMI_TEST_FILTER=virtualbox_read_ VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
 ~~~
+
+The VBoxVMI method only reads memory so far (no pause, registers, vCPU count or writes): filter its
+runs to the `virtualbox_read_` tests.
 
 If cargo runs in a container without VirtualBox, build the test binary there and run it on the host:
 

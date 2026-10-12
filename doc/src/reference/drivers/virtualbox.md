@@ -14,7 +14,12 @@ MachineDebugger and FDP name the VM with `common.vm_name`; VBoxVMI names it by i
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
 It is the fast path, and the way towards VMI events.
 
-Supported: connecting and the protocol handshake. Memory, registers, pause/resume and vCPU count are not implemented yet ([#282](https://github.com/Wenzel/libmicrovmi/issues/282)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
+Supported: reading guest physical memory, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included).
+Reads are served inside the VM process without waiting for a vCPU, in batches of up to 15 pages per request.
+A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
+
+Not implemented yet: registers, writes, pause/resume and vCPU count ([#283](https://github.com/Wenzel/libmicrovmi/issues/283)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
+Until pause is implemented, tools must not pause the VM (`mem-dump --no-pause`), or pause it with `VBoxManage controlvm <vm> pause`.
 
 ### Requirements
 
@@ -30,11 +35,18 @@ Supported: connecting and the protocol handshake. Memory, registers, pause/resum
 
 - `vm_name`: ignored (the socket belongs to one VM)
 - `virtualbox`: `VBoxInitParams::VBoxVMI { socket_path }`
+  - Python: `init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="...")`
+  - C: `.virtualbox = { .access_method = VBOX_ACCESS_METHOD_VBOXVMI, .socket_path = "..." }` (see `c_examples/vbox-read-page.c`)
 
-The examples take `--vbox_vmi <socket>`. Until memory reads land (#282) they stop at their first VM access with the "not implemented yet" error, which already shows that init (connect and handshake) succeeded:
+The examples take `--vbox_vmi <socket>`:
 ~~~
 $ cargo build --features virtualbox-vmi --examples
-$ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock
+$ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --no-pause
+~~~
+
+Python (bindings built with the `virtualbox-vmi` feature):
+~~~
+$ python3 python/examples/mem-dump.py --vbox-vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --no-pause
 ~~~
 
 The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate. To build against a local checkout of it:

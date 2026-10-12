@@ -71,6 +71,25 @@ def test_parse_init_param_vbox_access_method():
     assert isinstance(init_params.virtualbox, VBoxInitParamsPy.MachineDebugger)
 
 
+def test_parse_init_param_vbox_vboxvmi():
+    url = "vmi://VirtualBox/?vbox_access_method=vboxvmi&vbox_socket_path=/tmp/vm.sock"
+    _, init_params = url_to_driver_parameters(url)
+    assert isinstance(init_params.virtualbox, VBoxInitParamsPy.VBoxVMI)
+    assert init_params.virtualbox.socket_path == "/tmp/vm.sock"
+
+
+def test_parse_init_param_vbox_vboxvmi_no_socket():
+    url = "vmi:///?vbox_access_method=vboxvmi"
+    with pytest.raises(MicrovmiHandlerError):
+        url_to_driver_parameters(url)
+
+def test_parse_init_param_vbox_socket_requires_vboxvmi():
+    url = "vmi:///?vbox_access_method=machinedebugger&vbox_socket_path=/tmp/vm.sock"
+    with pytest.raises(MicrovmiHandlerError):
+        url_to_driver_parameters(url)
+
+
+
 def test_parse_init_param_vbox_access_method_unknown():
     url = "vmi:///?vbox_access_method=unknown"
     with pytest.raises(MicrovmiHandlerError):
