@@ -760,10 +760,23 @@ inventory::submit!(IntegrationTest {
 });
 
 /// A register write reaches the vCPU itself, not only VirtualBox's copy of its state: SYSENTER_ESP
-/// and SYSENTER_EIP (unused by an idle 64-bit Linux guest) written while paused keep their new
-/// values after the guest ran, and the guest keeps running. The guard restores them.
+/// and SYSENTER_EIP (set once per CPU at bring-up, then unused by an idle 64-bit Linux guest)
+/// written while paused keep their new values after the guest ran, and the guest keeps running.
+/// The guard then restores only them: the other registers moved on while the guest ran.
 fn write_registers_survive_resume(drv: Box<dyn Introspectable>) {
+    // a cold-booted guest (VBOX_TEST_CPUS, VBOX_TEST_MEMORY_MB) may not have brought up the vCPU
+    let last = drv.get_vcpu_count().unwrap() - 1;
+    for _ in 0..60 {
+        if x86_registers(drv.as_ref(), last).sysenter_eip != 0 {
+            break;
+        }
+        sleep(Duration::from_millis(500));
+    }
     let mut restore = RegisterRestore::new(drv);
+    assert_ne!(
+        restore.original.sysenter_eip, 0,
+        "the guest never set SYSENTER_EIP"
+    );
     let vcpu = restore.vcpu;
     let mut changed = restore.original.clone();
     changed.sysenter_esp ^= 8;
@@ -774,9 +787,15 @@ fn write_registers_survive_resume(drv: Box<dyn Introspectable>) {
         .unwrap();
     restore.drv.resume().unwrap();
     sleep(Duration::from_secs(1));
-    assert_eq!(vm_info("VMState"), "running");
+    let state = vm_info("VMState");
     restore.drv.pause().unwrap();
     let after = x86_registers(restore.drv.as_ref(), vcpu);
+    restore.original = X86Registers {
+        sysenter_esp: restore.original.sysenter_esp,
+        sysenter_eip: restore.original.sysenter_eip,
+        ..after.clone()
+    };
+    assert_eq!(state, "running");
     assert_eq!(
         (after.sysenter_esp, after.sysenter_eip),
         (changed.sysenter_esp, changed.sysenter_eip)

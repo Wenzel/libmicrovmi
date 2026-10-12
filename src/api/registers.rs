@@ -81,7 +81,8 @@ pub struct X86Registers {
     pub msr_star: u64,
     ///Used to set the handler for SYSCALL and /or SYSRET instructions used for system calls. Its index value is 0xc0000082.
     pub msr_lstar: u64,
-    ///Extened Feature Enable Register
+    ///Extened Feature Enable Register. The VirtualBox driver has one EFER: `efer` and `msr_efer`
+    ///read the same value and must be equal in a write.
     pub efer: u64,
     ///Advanced Programmable Interrupt Control Register
     pub apic_base: u64,
