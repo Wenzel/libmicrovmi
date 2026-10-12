@@ -19,7 +19,7 @@ Reads are served inside the VM process without waiting for a vCPU, in batches of
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
 Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
 Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
-Pause and resume fail while the VM is neither running nor paused (powering on or off, saving or restoring its state, live snapshot, teleport), and resume fails while the host's power management has the VM paused.
+Pause and resume fail while VirtualBox controls the VM's run state: powering on or off, saving or restoring its state, live snapshot, teleport, or a configuration change (medium or network attachment). Resume also fails while the host's power management has the VM paused, and after a failed teleport of a paused VM until it is resumed through VirtualBox.
 A VM paused through VBoxVMI stays paused if the tool exits or disconnects without resuming it ([#287](https://github.com/Wenzel/libmicrovmi/issues/287)).
 
 Not implemented yet: registers, writes ([#284](https://github.com/Wenzel/libmicrovmi/issues/284)–[#285](https://github.com/Wenzel/libmicrovmi/issues/285)): they return a "not implemented yet" error.
