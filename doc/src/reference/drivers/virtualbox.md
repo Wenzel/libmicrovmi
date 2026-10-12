@@ -17,9 +17,10 @@ write with MachineDebugger or VBoxVMI fails (before writing anything) unless the
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
 It is the fast path, and the way towards VMI events.
 
-Supported: reading guest physical memory, reading and writing the complete x86 register set, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
-Reads are served inside the VM process without waiting for a vCPU, in batches of up to 15 pages per request.
+Supported: reading and writing guest physical memory, reading and writing the complete x86 register set, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
+Physical reads and writes are served inside the VM process without waiting for a vCPU, batching pages into requests of at most 64 KiB.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
+A physical write to a non-RAM page fails; other pages in the same batch may already have been written, so writes are not atomic. MMIO devices are never accessed.
 Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
 Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
 Pause and resume fail while VirtualBox controls the VM's run state: powering on or off, saving or restoring its state, live snapshot, teleport, or a configuration change (medium or network attachment). Resume also fails while the host's power management has the VM paused, and after a failed teleport of a paused VM until it is resumed through VirtualBox.
@@ -28,8 +29,6 @@ A register read or write is one request, served by the vCPU itself between two o
 The MSRs of `X86Registers` (EFER, STAR, LSTAR, SYSENTER_CS/ESP/EIP, APIC base) are included; an MSR the guest CPU doesn't have reads as 0.
 A write is all or nothing: a value the CPU itself would not load (RFLAGS with bit 1 clear or a reserved bit set, reserved bits in CR0, CR3, CR4 or EFER, an inconsistent long mode state, an MSR value `WRMSR` refuses) fails the whole write, and nothing is written. Registers keeping their value are not touched, so writing back registers read earlier always succeeds and has no side effects.
 Segment selectors, bases and limits are written as raw state: no descriptor table load, the segment attributes are kept, and keeping them consistent is up to the caller. Writes fail while the VM is neither running nor paused (powering on or off, saving or restoring its state, live snapshot, teleport).
-
-Not implemented yet: writing guest physical memory ([#285](https://github.com/Wenzel/libmicrovmi/issues/285)): it returns a "not implemented yet" error.
 
 ### Requirements
 
