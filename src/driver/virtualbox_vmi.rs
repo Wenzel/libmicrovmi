@@ -7,6 +7,7 @@ use vboxvmi::{Client, Segment, TableRegister};
 
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable};
+use crate::driver::EferMismatch;
 
 #[derive(thiserror::Error, Debug)]
 pub enum VBoxVmiDriverError {
@@ -14,8 +15,6 @@ pub enum VBoxVmiDriverError {
     NotImplemented(&'static str),
     #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unreadable (VirtualBox status {rc})")]
     Unreadable { addr: u64, rc: i32 },
-    #[error("VirtualBox driver, VBoxVMI method: efer {efer:#x} and msr_efer {msr_efer:#x} are both EFER and must be equal")]
-    EferMismatch { efer: u64, msr_efer: u64 },
 }
 
 fn not_implemented<T>(what: &'static str) -> Result<T, Box<dyn Error>> {
@@ -183,13 +182,7 @@ impl Introspectable for VBoxVmi {
     /// are both EFER: they must be equal.
     fn write_registers(&self, vcpu: u16, reg: Registers) -> Result<(), Box<dyn Error>> {
         let Registers::X86(r) = reg;
-        if r.efer != r.msr_efer {
-            return Err(VBoxVmiDriverError::EferMismatch {
-                efer: r.efer,
-                msr_efer: r.msr_efer,
-            }
-            .into());
-        }
+        EferMismatch::check(&r)?;
         let regs = vboxvmi::X86Registers {
             rax: r.rax,
             rcx: r.rcx,
