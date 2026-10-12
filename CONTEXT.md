@@ -38,6 +38,7 @@ Hypervisor-delivered notifications of guest activity (breakpoints, control-regis
 - Both methods provide **VM state access**; only the **VBoxVMI method** is planned to provide **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
 - A **VBoxVMI** client that disconnects leaves no trace: intercepts are removed and anything it paused is resumed
+- When the caller selects no **Access method**, the VirtualBox **Driver** uses the **VBoxVMI method** if the VM serves a VBoxVMI socket, and the **MachineDebugger method** only if it does not; an explicitly selected method never falls back
 
 ## Flagged ambiguities
 
