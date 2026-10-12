@@ -64,9 +64,8 @@ setup(
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.10',
 )

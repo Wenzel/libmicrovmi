@@ -2,7 +2,7 @@
 use pyo3::prelude::*;
 
 /// equivalent of `CommonInitParams` for Python
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Default, Debug, Clone)]
 pub struct CommonInitParamsPy {
     #[pyo3(get, set)]
@@ -18,7 +18,7 @@ impl CommonInitParamsPy {
 }
 
 /// equivalent of `KVMInitParams` for Python
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Default, Debug, Clone)]
 pub struct KVMInitParamsPy {
     #[pyo3(get, set)]
@@ -34,7 +34,7 @@ impl KVMInitParamsPy {
 }
 
 /// equivalent of `MemflowInitParams` for Python
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Default, Debug, Clone)]
 pub struct MemflowInitParamsPy {
     #[pyo3(get, set)]
@@ -84,7 +84,7 @@ pub enum VBoxInitParamsPy {
 /// # or select the VirtualBox MachineDebugger access method
 /// init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
 /// ```
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Default, Debug, Clone)]
 pub struct DriverInitParamsPy {
     #[pyo3(get, set)]

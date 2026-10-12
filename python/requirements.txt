@@ -1,4 +1,4 @@
 setuptools-rust==1.1.2
-setuptools==78.1.1 
+setuptools==83.0.0 
 wheel
 toml==0.10.2

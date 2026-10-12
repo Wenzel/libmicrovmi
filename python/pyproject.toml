@@ -1,0 +1,5 @@
+[build-system]
+# setup.py imports toml and setuptools_rust at build time;
+# setuptools >= 80 runs `setup.py develop` through an isolated PEP 517 build
+requires = ["setuptools>=78.1.1", "setuptools-rust==1.1.2", "wheel", "toml==0.10.2"]
+build-backend = "setuptools.build_meta"

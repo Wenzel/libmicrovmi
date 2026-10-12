@@ -4,7 +4,7 @@
 
 set -ex
 
-curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain 1.99.0 -y
 export PATH="$HOME/.cargo/bin:$PATH"
 # libclang is in non standard path
 export LIBCLANG_PATH=/opt/rh/llvm-toolset-7.0/root/usr/lib64
@@ -16,7 +16,9 @@ export BINDGEN_EXTRA_CLANG_ARGS="-I/opt/rh/devtoolset-10/root/usr/lib/gcc/x86_64
 # map libmicrovmi root dir to /io
 cd /io/python
 
-for PYBIN in /opt/python/cp{39,310,311,312,313,314}*/bin; do
+for PYBIN in /opt/python/cp{310,311,312,313,314}*/bin; do
+    # pyo3 0.29 dropped free-threaded 3.13
+    [[ "$PYBIN" == */cp313-cp313t/* ]] && continue
     "${PYBIN}/pip" install -r requirements.txt
     "${PYBIN}/python" setup.py bdist_wheel $@
 done
