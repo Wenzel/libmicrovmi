@@ -74,7 +74,7 @@ fn default_method() -> VBoxInitParams {
 }
 
 /// The configured or default VBoxVMI socket path.
-fn vboxvmi_socket() -> String {
+pub fn vboxvmi_socket() -> String {
     if let Some(path) = extradata(VMI_SOCKET) {
         return path;
     }
