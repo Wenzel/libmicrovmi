@@ -11,12 +11,14 @@ fallback when callers omitted an access method.
 ## Decision
 
 Remove the FDP driver, dependency and build setup. The `virtualbox` Cargo feature enables both
-replacement methods on Unix, while Windows builds `virtualbox-api`. VirtualBox initialization must
-select `MachineDebugger` or `VBoxVMI` explicitly; there is no default access method.
+replacement methods on Unix. Windows CI compiles `virtualbox-api`, but this is compile coverage only.
+VirtualBox initialization must select `MachineDebugger` or `VBoxVMI` explicitly; there is no default
+access method.
 
 ## Consequences
 
 - Existing FDP and icebox users must migrate to MachineDebugger or VBoxVMI.
 - Rust, C and Python callers that relied on an omitted VirtualBox access method now receive an error.
-- VBoxVMI remains Unix-only; MachineDebugger is the supported Windows access method.
+- Neither replacement currently works at runtime on Windows: VBoxVMI is Unix-only, and `vboxapi`
+  loads the Linux `VBoxXPCOMC.so` rather than Windows' `VBoxCAPI.dll`.
 - The project no longer builds or distributes libFDP.
