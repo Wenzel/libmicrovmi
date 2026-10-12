@@ -87,7 +87,7 @@ fn main() {
                 page_access |= pf_access;
                 drv.set_page_access(gpa, page_access)
                     .expect("Failed to set page access");
-                drv.reply_event(ev, EventReplyType::Continue)
+                drv.reply_event(ev, EventReplyType::Continue { reinject: false })
                     .expect("Failed to send event reply");
                 i += 1;
             }

@@ -20,7 +20,7 @@ pub trait Context: Send {
 
 #[cfg(feature = "kvm")]
 pub fn init_context() -> Box<dyn Context> {
-    Box::new(super::kvm::KVM {})
+    Box::new(super::kvm::KvmContext {})
 }
 
 #[cfg(all(

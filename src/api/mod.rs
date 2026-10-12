@@ -11,6 +11,7 @@ pub mod registers;
 #[allow(clippy::bad_bit_mask)]
 mod flags {
     bitflags! {
+        #[repr(transparent)]
         pub struct Access: u32 {
             const NIL=0b00000000;
             const R=0b00000001;
@@ -164,7 +165,7 @@ pub trait Introspectable {
     /// Listen and return the next event, or None
     ///
     /// # Arguments
-    /// * 'timeout' - Time for which it will wait for a new event
+    /// * 'timeout' - Time in milliseconds for which it will wait for a new event
     ///
     fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         unimplemented!();
@@ -172,9 +173,11 @@ pub trait Introspectable {
 
     /// Send reply corresponding to the current event being popped
     ///
+    /// Consumes the event: replying to it again is not possible.
+    ///
     /// # Arguments
-    /// * 'event'
-    /// * 'reply_type'
+    /// * 'event' - the event returned by `listen`
+    /// * 'reply_type' - how the vCPU resumes, see [`EventReplyType`]
     ///
     fn reply_event(
         &mut self,

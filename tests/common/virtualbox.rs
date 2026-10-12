@@ -11,7 +11,8 @@
 //! - `VBOX_TEST_METHOD`: the access method, `machinedebugger` or `vboxvmi`, or the driver's default
 //!   access method with VBoxVMI enabled (`default`) or not (`default-fallback`). Unset selects an
 //!   access method compiled into the test binary. For `vboxvmi` and `default`, setup enables
-//!   VBoxVMI on the VM while preserving the prior extradata value. The socket honors
+//!   VBoxVMI and the debugger console (TCP port 5000, for the debugger exclusion test) on the VM
+//!   while preserving the prior extradata values. The socket honors
 //!   `VBoxInternal/VMI/SocketPath`; otherwise it is `<VirtualBox user home>/vmi/<VM UUID>.sock`.
 use parking_lot::Mutex;
 use std::env;
@@ -33,9 +34,10 @@ use crate::common::context::Context;
 pub struct VirtualBox {
     /// `None`: the driver's default access method.
     pub method: Option<VBoxInitParams>,
-    /// `VBoxInternal/VMI/Enabled` while the VM runs.
+    /// `VBoxInternal/VMI/Enabled` and `VBoxInternal/DBGC/Enabled` while the VM runs.
     pub vmi_enabled: bool,
-    prior_vmi_enabled: Mutex<Option<Option<String>>>,
+    /// Their values before setup, in `VMI_EXTRADATA` order.
+    prior_vmi_enabled: Mutex<Option<Vec<Option<String>>>>,
 }
 
 impl VirtualBox {
@@ -124,6 +126,8 @@ pub fn vboxvmi_socket() -> String {
 const VMI_SOCKET: &str = "VBoxInternal/VMI/SocketPath";
 
 const VMI_ENABLED: &str = "VBoxInternal/VMI/Enabled";
+/// Set while VBoxVMI is enabled.
+const VMI_EXTRADATA: [&str; 2] = [VMI_ENABLED, "VBoxInternal/DBGC/Enabled"];
 
 pub fn vm_name() -> String {
     env::var("VBOX_TEST_VM").unwrap_or_else(|_| String::from("microvmi-alpine"))
@@ -244,8 +248,10 @@ impl Context for VirtualBox {
                 prior.is_none(),
                 "VBoxVMI setup called twice without teardown"
             );
-            *prior = Some(extradata(VMI_ENABLED));
-            vboxmanage(&["setextradata", &vm, VMI_ENABLED, "1"]);
+            *prior = Some(VMI_EXTRADATA.iter().map(|key| extradata(key)).collect());
+            for key in VMI_EXTRADATA {
+                vboxmanage(&["setextradata", &vm, key, "1"]);
+            }
         }
         // VBoxHeadless directly, not `startvm`, so it is the binary from VBOX_APP_HOME.
         let mut headless = Command::new(bin("VBoxHeadless"))
@@ -283,10 +289,12 @@ impl Context for VirtualBox {
                 .lock()
                 .take()
                 .expect("VBoxVMI teardown called without setup");
-            match prior {
-                Some(value) => vboxmanage(&["setextradata", &vm_name(), VMI_ENABLED, &value]),
-                None => vboxmanage(&["setextradata", &vm_name(), VMI_ENABLED]),
-            };
+            for (key, value) in VMI_EXTRADATA.iter().zip(prior) {
+                match value {
+                    Some(value) => vboxmanage(&["setextradata", &vm_name(), key, &value]),
+                    None => vboxmanage(&["setextradata", &vm_name(), key]),
+                };
+            }
         }
         let _ = std::fs::remove_file(core_path());
     }

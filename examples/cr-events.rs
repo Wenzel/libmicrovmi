@@ -111,7 +111,7 @@ fn main() {
                     "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
                     ev_nb_output, vcpu_output, cr_output, old, new
                 );
-                // drv.reply_event(ev, EventReplyType::Continue)
+                // drv.reply_event(ev, EventReplyType::Continue { reinject: false })
                 //   .expect("Failed to send event reply");
                 i += 1;
             }

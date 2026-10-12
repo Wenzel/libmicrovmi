@@ -52,7 +52,7 @@ xenevtchn = { version = "=0.2.0", optional = true }
 xenvmevent-sys = { version = "=0.2.0", optional = true }
 kvmi = { version = "=0.5.0", optional = true }
 vboxapi = { git = "https://github.com/Wenzel/rs-vboxapi", rev = "fcd2e49a8fdf7802a0fca9b58ec97e72db98e811", optional = true }
-vboxvmi = { git = "https://github.com/Wenzel/rs-vboxvmi", rev = "9a349ca535b612232a0d0b26031fedadd3d0ecb0", optional = true }
+vboxvmi = { git = "https://github.com/Wenzel/rs-vboxvmi", rev = "3c8b351e742ae97cb199fb3dbca44a2164201bcc", optional = true }
 winapi = { version = "0.3", features = [
     "tlhelp32",
     "winnt",

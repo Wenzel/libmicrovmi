@@ -16,7 +16,7 @@ _Avoid_: backend, mode, transport
 A VMI protocol served from inside a patched VirtualBox VM process over a Unix domain socket, with one client per VM.
 
 **VBoxVMI method**:
-The VirtualBox **access method** that speaks **VBoxVMI**. Fastest option and the path toward **VMI events**; requires a patched VirtualBox.
+The VirtualBox **access method** that speaks **VBoxVMI**. Fastest option; provides **VM state access** and breakpoint/single-step **VMI events**; requires a patched VirtualBox.
 
 **MachineDebugger method**:
 The VirtualBox **access method** that uses VirtualBox's public `IMachineDebugger` COM API. Slower (cross-process RPC per call, and each memory access waits for the vCPU) and limited to **VM state access**, but intended to need no patched VirtualBox once upstreamed.
@@ -51,9 +51,9 @@ _Avoid_: DBGF (the internal component name)
 
 - A **Driver** offers one or more **Access methods**
 - The VirtualBox **Driver** offers the **VBoxVMI method** and the **MachineDebugger method**
-- Both methods provide **VM state access**; only the **VBoxVMI method** is planned to provide **VMI events**
+- Both methods provide **VM state access**; only the **VBoxVMI method** provides **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
-- A **VBoxVMI** client that disconnects leaves no trace: intercepts are removed and anything it paused is resumed
+- A **VBoxVMI** client that disconnects leaves no session state behind: intercepts are removed, parked vCPUs released, and anything it paused is resumed
 - **Intercepts** are set per vCPU; a **VBoxVMI** client can set none while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set
 - A **Parked vCPU** stays parked across a pause; a client that disconnects releases its **Parked vCPUs** without **reinjection**
 - Whether a breakpoint is **reinjected** is part of the client's reply, not a property of the hypervisor

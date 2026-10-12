@@ -20,6 +20,11 @@ fn main() {
         tests::virtualbox::vboxvmi_pause_child();
     }
 
+    #[cfg(all(feature = "virtualbox-vmi", not(feature = "kvm")))]
+    if std::env::var_os("MICROVMI_VBOXVMI_PARKED_CHILD").is_some() {
+        tests::virtualbox::vboxvmi_parked_child();
+    }
+
     // init logger
     env_logger::builder().is_test(true).init();
     // run only the tests whose name contains MICROVMI_TEST_FILTER

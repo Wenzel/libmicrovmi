@@ -7,3 +7,13 @@ cargo build
 ~~~
 
 And look at `./target/debug/capi/libmicrovmi.h` header.
+
+Events use the C types `InterceptType`, `Event` and `EventReplyType` from that header.
+`microvmi_toggle_intercept(context, vcpu, intercept_type, enabled)` selects the event kind per
+vCPU; VBoxVMI supports `InterceptType_Breakpoint` and `InterceptType_Singlestep`.
+`microvmi_listen(context, timeout_ms, &event)` returns `false` on error. On success, `event` is
+`NULL` at timeout, or points to an event owned by the caller. `microvmi_reply_event(context,
+event, reply)` **always consumes and frees** a non-null event, even on error; never reuse it.
+Use `EventReplyType_Continue` with `.continue_.reinject = true` only to deliver an intercepted
+breakpoint to the guest; use `false` for single step and to re-execute an int3 after restoring
+its original byte. See `c_examples/vbox-events.c`.
