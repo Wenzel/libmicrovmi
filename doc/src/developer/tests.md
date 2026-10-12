@@ -92,7 +92,7 @@ and write the last one.
 
 ### MachineDebugger/VBoxVMI cross-method consistency
 
-The `virtualbox_cross_method_consistency` inventory test opens MachineDebugger and VBoxVMI
+The `cross_method_consistency` inventory test opens MachineDebugger and VBoxVMI
 concurrently against the same VM process, pauses it through MachineDebugger, and compares every
 register on every vCPU and every byte in the live PGM RAM ranges directly between the two methods.
 It checks both drivers' maximum physical address against the end of those ranges, reports the exact
@@ -114,16 +114,18 @@ git -C /path/to/virtualbox worktree add /path/to/virtualbox-vmi fork/vmi/cross-m
 ~~~
 
 Compile the integration binary with both access methods. Run it on the host with
-`VBOX_APP_HOME` pointing at that same combined build: this is required both for the VM's VBoxVMI
-server and for MachineDebugger's dynamically loaded `VBoxC.so`. `VBOX_TEST_METHOD=vboxvmi` makes
-the context enable the server and supplies its one client to the cross-method test. The test
-requires two vCPUs. Run both the 512 MiB case and the 5120 MiB case, which must report nonzero bytes
-and a selected write page above 4 GiB:
+`VBOX_APP_HOME` pointing at that same combined build: the VM's VBoxVMI server and
+MachineDebugger's dynamically loaded `VBoxC.so` must come from one build.
+`VBOX_TEST_METHOD=vboxvmi` enables the server and supplies its one client to the test.
+`VBOX_TEST_CROSS_METHOD=1` opts into this destructive live proof; without it an unfiltered run
+prints an explicit skip, and ordinary `virtualbox_` filters do not select it. The test requires
+the exact `MICROVMI_TEST_FILTER=cross_method_consistency` and two vCPUs. Run both the 512 MiB case
+and the 5120 MiB case, which must report nonzero bytes and a selected write page above 4 GiB:
 
 ~~~
 cargo test --features 'virtualbox-api virtualbox-vmi' --test integration --no-run
 BIN=target/debug/deps/integration-<hash>
-COMMON='VBOX_APP_HOME=/path/to/virtualbox-vmi/out/linux.amd64/release/bin VBOX_USER_HOME=/path/to/vbox-home VBOX_TEST_METHOD=vboxvmi VBOX_TEST_CPUS=2 MICROVMI_TEST_FILTER=cross_method_consistency MICROVMI_TEST_TIMEOUT=180 VBOX_TEST_CORE_DIR=/path/to/disk-backed/core-dir'
+COMMON='VBOX_APP_HOME=/path/to/virtualbox-vmi/out/linux.amd64/release/bin VBOX_USER_HOME=/path/to/vbox-home VBOX_TEST_METHOD=vboxvmi VBOX_TEST_CROSS_METHOD=1 VBOX_TEST_CPUS=2 MICROVMI_TEST_FILTER=cross_method_consistency MICROVMI_TEST_TIMEOUT=180 VBOX_TEST_CORE_DIR=/path/to/disk-backed/core-dir'
 flock -o /path/to/vbox-dev/.vm.lock env $COMMON VBOX_TEST_MEMORY_MB=512 $BIN
 flock -o /path/to/vbox-dev/.vm.lock env $COMMON VBOX_TEST_MEMORY_MB=5120 $BIN
 ~~~

@@ -1,5 +1,6 @@
 pub mod config;
 pub mod context;
+pub mod filter;
 #[cfg(feature = "kvm")]
 mod kvm;
 #[cfg(all(
