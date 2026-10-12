@@ -3,7 +3,9 @@ use std::convert::TryInto;
 use std::env;
 use std::fs::{self, File};
 #[cfg(feature = "virtualbox-vmi")]
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
+#[cfg(feature = "virtualbox-vmi")]
+use std::net::TcpStream;
 use std::ops::Range;
 use std::os::unix::fs::FileExt;
 #[cfg(feature = "virtualbox-vmi")]
@@ -16,6 +18,8 @@ use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
 use log::debug;
+#[cfg(feature = "virtualbox-vmi")]
+use microvmi::api::events::{Event, EventReplyType, EventType, InterceptType};
 use microvmi::api::registers::{Registers, X86Registers};
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
@@ -377,6 +381,32 @@ pub fn vboxvmi_pause_child() -> ! {
     }
 }
 
+/// Entry point for a killed client with a vCPU parked by a single-step intercept.
+#[cfg(feature = "virtualbox-vmi")]
+pub fn vboxvmi_parked_child() -> ! {
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .expect("child failed to connect");
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    let event = drv.listen(5000).unwrap().expect("child: no step");
+    assert!(matches!(event.kind, EventType::Singlestep { .. }));
+    println!("parked");
+    std::io::stdout()
+        .flush()
+        .expect("child failed to flush readiness");
+    loop {
+        sleep(Duration::from_secs(60));
+    }
+}
+
 #[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_normal_close_resumes(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
@@ -455,6 +485,54 @@ fn vboxvmi_killed_client_resumes(drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_disconnect_killed_client_resumes",
     test_fn: vboxvmi_killed_client_resumes
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>) {
+    drop(drv);
+    let child = Command::new(std::env::current_exe().unwrap())
+        .env("MICROVMI_VBOXVMI_PARKED_CHILD", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("failed to start parked client");
+    let mut child = ChildGuard::new(child);
+    let mut ready = String::new();
+    BufReader::new(child.child_mut().stdout.take().unwrap())
+        .read_line(&mut ready)
+        .expect("failed to read child readiness");
+    assert_eq!(ready.trim_end(), "parked", "child did not park vCPU");
+    let before = vcpu_stats("cNsExecuting")[0];
+    sleep(Duration::from_millis(200));
+    assert_eq!(vcpu_stats("cNsExecuting")[0], before);
+    child.kill_and_wait().expect("failed to kill parked client");
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    assert!(
+        drv.listen(250).unwrap().is_none(),
+        "stale step after disconnect"
+    );
+    let resumed = vcpu_stats("cNsExecuting")[0];
+    sleep(Duration::from_millis(500));
+    assert!(
+        vcpu_stats("cNsExecuting")[0] > resumed,
+        "vCPU stayed parked after disconnect"
+    );
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_killed_client_releases_parked_vcpu",
+    test_fn: vboxvmi_killed_client_releases_parked_vcpu
 });
 
 #[cfg(feature = "virtualbox-vmi")]
@@ -898,6 +976,350 @@ fn translate(drv: &dyn Introspectable, cr3: u64, vaddr: u64) -> Option<u64> {
     }
     unreachable!()
 }
+
+/// Restores a patched instruction before the VBoxVMI session is dropped, even if a test fails
+/// while its vCPU is parked.
+#[cfg(feature = "virtualbox-vmi")]
+struct BreakpointRestore {
+    drv: Box<dyn Introspectable>,
+    gpa: u64,
+    original: u8,
+    patched: bool,
+    intercepted: bool,
+    paused: bool,
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+impl Drop for BreakpointRestore {
+    fn drop(&mut self) {
+        if self.patched && !self.paused {
+            match self.drv.pause() {
+                Ok(()) => self.paused = true,
+                Err(error) => eprintln!("failed to pause VM before restoring int3: {}", error),
+            }
+        }
+        if self.patched {
+            if let Err(error) = self.drv.write_physical(self.gpa, &[self.original]) {
+                eprintln!("failed to restore int3 at {:#x}: {}", self.gpa, error);
+            }
+        }
+        if self.intercepted {
+            if let Err(error) = self
+                .drv
+                .toggle_intercept(0, InterceptType::Breakpoint, false)
+            {
+                eprintln!("failed to clear breakpoint intercept: {}", error);
+            }
+        }
+        if self.paused {
+            if let Err(error) = self.drv.resume() {
+                eprintln!("failed to resume VM after breakpoint test: {}", error);
+            }
+        }
+    }
+}
+
+/// The vCPU is paused at RIP before the int3 is written. Restoring the byte before the reply
+/// makes a non-reinjecting reply execute the original instruction.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_breakpoint_at_rip(mut drv: Box<dyn Introspectable>) {
+    assert_eq!(
+        drv.get_vcpu_count().unwrap(),
+        1,
+        "breakpoint test requires one vCPU"
+    );
+    drv.pause().unwrap();
+    let before = x86_registers(drv.as_ref(), 0);
+    let gpa = translate(drv.as_ref(), before.cr3, before.rip).expect("RIP is not mapped");
+    let mut original = [0];
+    let mut bytes_read = 0;
+    drv.read_physical(gpa, &mut original, &mut bytes_read)
+        .unwrap();
+    assert_eq!(bytes_read, 1);
+    assert_ne!(original[0], 0xcc, "RIP was already an int3");
+    let mut restore = BreakpointRestore {
+        drv,
+        gpa,
+        original: original[0],
+        patched: true,
+        intercepted: true,
+        paused: true,
+    };
+    restore.drv.write_physical(gpa, &[0xcc]).unwrap();
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    restore.drv.resume().unwrap();
+    restore.paused = false;
+    let event = restore.drv.listen(5000).unwrap().expect("no int3 at RIP");
+    assert_eq!(event.vcpu, 0);
+    assert!(matches!(event.kind, EventType::Breakpoint { gpa: addr, insn_len: 1 } if addr == gpa));
+    assert_eq!(x86_registers(restore.drv.as_ref(), 0).rip, before.rip);
+    restore.drv.write_physical(gpa, &original).unwrap();
+    restore.patched = false;
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Breakpoint, false)
+        .unwrap();
+    restore.intercepted = false;
+    restore
+        .drv
+        .reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    let before_resume = vcpu_stats("cNsExecuting")[0];
+    sleep(Duration::from_millis(500));
+    assert!(
+        vcpu_stats("cNsExecuting")[0] > before_resume,
+        "vCPU did not run after breakpoint reply"
+    );
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_breakpoint_at_rip",
+    test_fn: vboxvmi_breakpoint_at_rip
+});
+
+/// A step arrives at every instruction boundary on one vCPU. Changing intercepts while that
+/// vCPU is parked must affect the instruction executed on reply.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_singlestep(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    drv.resume().unwrap();
+    let mut previous_rip = None;
+    let mut advanced = false;
+    for _ in 0..12 {
+        let event = drv.listen(5000).unwrap().expect("no single-step event");
+        let regs = x86_registers(drv.as_ref(), 0);
+        let gpa = translate(drv.as_ref(), regs.cr3, regs.rip).expect("step RIP is not mapped");
+        assert!(matches!(event.kind, EventType::Singlestep { gpa: addr } if addr == gpa));
+        assert_eq!(event.vcpu, 0);
+        if let Some(last) = previous_rip {
+            advanced |= last != regs.rip;
+        }
+        previous_rip = Some(regs.rip);
+        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+            .unwrap();
+    }
+    assert!(advanced, "RIP never advanced while stepping");
+    let event = drv.listen(5000).unwrap().expect("no event to clear from");
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert!(drv.listen(250).unwrap().is_none(), "step after clear");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_singlestep",
+    test_fn: vboxvmi_singlestep
+});
+
+/// Interrupts are delivered while stepping: a step lands on the first instruction of an external
+/// interrupt handler (an IDT gate target for vectors 32-255) on a guest taking timer interrupts.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_singlestep_enters_interrupt_handler(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    let regs = x86_registers(drv.as_ref(), 0);
+    let idt = translate(drv.as_ref(), regs.cr3, regs.idt.base).expect("IDT is not mapped");
+    let mut gates = vec![0; 256 * 16];
+    let mut bytes_read = 0;
+    drv.read_physical(idt, &mut gates, &mut bytes_read).unwrap();
+    // 64-bit gate: offset 15:0 at 0, 31:16 at 6, 63:32 at 8
+    let handlers: Vec<u64> = gates
+        .chunks(16)
+        .skip(32)
+        .map(|g| {
+            u64::from(u16::from_le_bytes([g[0], g[1]]))
+                | u64::from(u16::from_le_bytes([g[6], g[7]])) << 16
+                | u64::from(u32::from_le_bytes(g[8..12].try_into().unwrap())) << 32
+        })
+        .collect();
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    drv.resume().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut steps = 0;
+    let entered = loop {
+        let event = drv.listen(5000).unwrap().expect("no single-step event");
+        steps += 1;
+        let rip = x86_registers(drv.as_ref(), 0).rip;
+        let entered = handlers.contains(&rip);
+        let done = entered || Instant::now() > deadline;
+        if done {
+            drv.toggle_intercept(0, InterceptType::Singlestep, false)
+                .unwrap();
+        }
+        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+            .unwrap();
+        if done {
+            break entered;
+        }
+    };
+    assert!(
+        entered,
+        "no step entered an interrupt handler in {} steps",
+        steps
+    );
+    print!("interrupt handler entered after {} steps ", steps);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_singlestep_enters_interrupt_handler",
+    test_fn: vboxvmi_singlestep_enters_interrupt_handler
+});
+
+/// Connects to the VM's debugger console (enabled by the VBoxVMI context, default port 5000),
+/// which attaches the VirtualBox debugger, and returns it with its output up to the prompt (attached)
+/// or the attach error.
+#[cfg(feature = "virtualbox-vmi")]
+fn debugger_console() -> (TcpStream, String) {
+    let mut console =
+        TcpStream::connect("127.0.0.1:5000").expect("no debugger console on port 5000");
+    console
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut output = Vec::new();
+    let mut buf = [0; 1024];
+    // an attach error is the line after "error:", which may arrive in pieces
+    let attach_error = |out: &[u8]| {
+        out.windows(6)
+            .position(|w| w == b"error:")
+            .is_some_and(|i| out[i..].contains(&b'\n'))
+    };
+    while !(output.ends_with(b"VBoxDbg> ") || attach_error(&output)) {
+        match console.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => output.extend_from_slice(&buf[..n]),
+        }
+    }
+    (console, String::from_utf8_lossy(&output).into_owned())
+}
+
+/// VBoxVMI Intercepts and the VirtualBox debugger exclude each other (ADR-0005): the debugger
+/// can't attach while an Intercept is set, an Intercept can't be set while it is attached, and
+/// either works again once the other is gone.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
+    drv.toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    let (_, output) = debugger_console();
+    assert!(
+        output.contains("VERR_DBGF_VMI_INTERCEPTS_ACTIVE"),
+        "debugger attached with an Intercept set: {:?}",
+        output
+    );
+    drv.toggle_intercept(0, InterceptType::Breakpoint, false)
+        .unwrap();
+
+    let (console, output) = debugger_console();
+    assert!(
+        output.ends_with("VBoxDbg> "),
+        "debugger did not attach: {:?}",
+        output
+    );
+    let error = drv
+        .toggle_intercept(0, InterceptType::Singlestep, true)
+        .expect_err("Intercept set with the debugger attached");
+    assert!(error.to_string().contains("debugger"), "{}", error);
+
+    // closing the console detaches the debugger, asynchronously
+    drop(console);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while let Err(e) = drv.toggle_intercept(0, InterceptType::Breakpoint, true) {
+        assert!(Instant::now() < deadline, "debugger still attached: {}", e);
+        sleep(Duration::from_millis(100));
+    }
+    drv.toggle_intercept(0, InterceptType::Breakpoint, false)
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_debugger_exclusion",
+    test_fn: vboxvmi_debugger_exclusion
+});
+
+/// A parked vCPU serves register reads/writes; pause and resume do not answer its event.
+/// An invalid reply must not release it.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    let event = drv.listen(5000).unwrap().expect("no step");
+    assert!(matches!(event.kind, EventType::Singlestep { .. }));
+    let regs = x86_registers(drv.as_ref(), 0);
+    let mut changed = regs.clone();
+    changed.rax ^= 0x5a5a;
+    drv.write_registers(0, Registers::X86(changed.clone()))
+        .unwrap();
+    assert_eq!(x86_registers(drv.as_ref(), 0).rax, changed.rax);
+    drv.pause().unwrap();
+    drv.resume().unwrap();
+    assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip);
+    if drv.get_vcpu_count().unwrap() > 1 {
+        assert!(
+            drv.reply_event(
+                Event {
+                    vcpu: 1,
+                    kind: EventType::Singlestep { gpa: 0 }
+                },
+                EventReplyType::Continue { reinject: false }
+            )
+            .is_err(),
+            "reply to an unparked vCPU succeeded"
+        );
+    }
+    let vcpu = drv.get_vcpu_count().unwrap();
+    assert!(drv
+        .reply_event(
+            Event {
+                vcpu,
+                kind: EventType::Singlestep { gpa: 0 }
+            },
+            EventReplyType::Continue { reinject: false }
+        )
+        .is_err());
+    assert!(drv
+        .reply_event(
+            Event {
+                vcpu: 0,
+                kind: EventType::Singlestep { gpa: 0 }
+            },
+            EventReplyType::Continue { reinject: true }
+        )
+        .is_err());
+    assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip);
+    drv.write_registers(0, Registers::X86(regs)).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.pause().unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
+    assert!(drv
+        .reply_event(
+            Event {
+                vcpu: 0,
+                kind: EventType::Singlestep { gpa: 0 }
+            },
+            EventReplyType::Continue { reinject: false }
+        )
+        .is_err());
+    drv.resume().unwrap();
+    assert!(drv.listen(250).unwrap().is_none());
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_parked_vcpu",
+    test_fn: vboxvmi_parked_vcpu
+});
 
 /// The registers make sense against guest memory: walking each vCPU's page tables from CR3
 /// translates RIP and the IDT base to readable guest-physical RAM, and the Linux banner is in RAM.

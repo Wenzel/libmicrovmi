@@ -105,6 +105,10 @@ pub enum KVMDriverError {
     MissingVMName,
     #[error("KVM driver initialization requires an additional socket parameter")]
     MissingSocketParameter,
+    #[error("KVM driver: single step intercepts are not supported")]
+    SinglestepNotSupported,
+    #[error("KVM driver: reinjection is only possible for a breakpoint event")]
+    ReinjectNotBreakpoint,
 }
 
 impl<T: KVMIntrospectable> Kvm<T> {
@@ -283,6 +287,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .kvmi
                     .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
             }
+            InterceptType::Singlestep => Err(KVMDriverError::SinglestepNotSupported.into()),
         }
     }
 
@@ -336,8 +341,13 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         event: Event,
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
-        let kvm_reply_type = match reply_type {
-            EventReplyType::Continue => KVMiEventReply::Continue,
+        let EventReplyType::Continue { reinject } = reply_type;
+        // KVMi Continue reinjects a breakpoint; Retry re-executes from RIP
+        let kvm_reply_type = match (&event.kind, reinject) {
+            (EventType::Breakpoint { .. }, true) => KVMiEventReply::Continue,
+            (EventType::Breakpoint { .. }, false) => KVMiEventReply::Retry,
+            (_, false) => KVMiEventReply::Continue,
+            (_, true) => return Err(KVMDriverError::ReinjectNotBreakpoint.into()),
         };
         // get KVMiEvent associated with this VCPU
         let vcpu_index: usize = event.vcpu.into();
@@ -384,12 +394,9 @@ mod tests {
     #[test]
     fn test_fail_to_create_kvm_driver_if_kvmi_init_returns_error() {
         let mut kvmi_mock = MockKVMi::default();
-        kvmi_mock.expect_init().returning(|_| {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "something went wrong",
-            ))
-        });
+        kvmi_mock
+            .expect_init()
+            .returning(|_| Err(std::io::Error::other("something went wrong")));
 
         let result = Kvm::new(
             kvmi_mock,

@@ -3,9 +3,11 @@ use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::path::Path;
+use std::time::Duration;
 
-use vboxvmi::{Client, Segment, TableRegister};
+use vboxvmi::{Client, EventKind, InterceptKind, Segment, TableRegister};
 
+use crate::api::events::{Event, EventReplyType, EventType, InterceptType};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable};
 use crate::driver::EferMismatch;
@@ -16,6 +18,8 @@ pub enum VBoxVmiDriverError {
     Unreadable { addr: u64, rc: i32 },
     #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unwritable (VirtualBox status {rc})")]
     Unwritable { addr: u64, rc: i32 },
+    #[error("VirtualBox driver, VBoxVMI method: {0:?} intercepts are not supported")]
+    InterceptNotSupported(InterceptType),
 }
 
 fn segment_reg(s: &Segment) -> SegmentReg {
@@ -258,6 +262,65 @@ impl Introspectable for VBoxVmi {
 
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(self.client.get_mut().resume()?)
+    }
+
+    /// Breakpoint and single step only. Idempotent, per vCPU, also while paused or from within
+    /// the handling of an event before its reply. Fails while a VirtualBox debugger is attached.
+    fn toggle_intercept(
+        &mut self,
+        vcpu: u16,
+        intercept_type: InterceptType,
+        enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let kind = match intercept_type {
+            InterceptType::Breakpoint => InterceptKind::Breakpoint,
+            InterceptType::Singlestep => InterceptKind::Singlestep,
+            other => return Err(VBoxVmiDriverError::InterceptNotSupported(other).into()),
+        };
+        let client = self.client.get_mut();
+        Ok(match enabled {
+            true => client.set_intercept(vcpu.into(), kind),
+            false => client.clear_intercept(vcpu.into(), kind),
+        }?)
+    }
+
+    /// The oldest event of any vCPU, which stays parked until `reply_event`; the other vCPUs keep
+    /// running. At a breakpoint event RIP is the int3's address.
+    fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        let event = match self
+            .client
+            .get_mut()
+            .wait_event(Duration::from_millis(timeout.into()))?
+        {
+            Some(event) => event,
+            None => return Ok(None),
+        };
+        let kind = match event.kind {
+            EventKind::Breakpoint { gpa, insn_len } => EventType::Breakpoint {
+                gpa,
+                insn_len: u8::try_from(insn_len)?,
+            },
+            EventKind::Singlestep { gpa } => EventType::Singlestep { gpa },
+        };
+        Ok(Some(Event {
+            vcpu: u16::try_from(event.vcpu)?,
+            kind,
+        }))
+    }
+
+    /// Releases the parked vCPU, also while the VM is paused (it continues on resume). Fails, and
+    /// the vCPU stays parked, on reinjection for a single-step event; fails for a vCPU that is not
+    /// parked, including a second reply.
+    fn reply_event(
+        &mut self,
+        event: Event,
+        reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        let EventReplyType::Continue { reinject } = reply_type;
+        Ok(self
+            .client
+            .get_mut()
+            .reply_event(event.vcpu.into(), reinject)?)
     }
 
     fn get_driver_type(&self) -> DriverType {

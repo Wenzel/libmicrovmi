@@ -1,6 +1,8 @@
 use crate::api::Access;
 
 /// Various types of intercepts handled by libmicrovmi
+///
+/// cbindgen:prefix-with-name
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub enum InterceptType {
@@ -8,12 +10,17 @@ pub enum InterceptType {
     Cr(CrType),
     /// Intercept when value of msr register is changed by the guest
     Msr(u32),
-    /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
+    /// Intercept int3 breakpoints executed by the guest
     Breakpoint,
+    /// Intercept when guest requests an access to a page for which the requested type of access is not granted. For example , guest tries to write on a read only page.
     Pagefault,
+    /// Intercept every instruction the vCPU executes: one event at each instruction boundary
+    Singlestep,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
+///
+/// cbindgen:prefix-with-name
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventType {
@@ -48,6 +55,12 @@ pub enum EventType {
         /// Acsess responsible for thr pagefault
         access: Access,
     },
+    /// Single step: the vCPU reached the next instruction boundary
+    Singlestep {
+        /// Guest physical address of the next instruction (at RIP), `u64::MAX` if RIP is not
+        /// mapped (VirtualBox: a step onto a page the guest has not faulted in yet)
+        gpa: u64,
+    },
 }
 
 ///Types of x86 control registers are listed here
@@ -72,8 +85,16 @@ pub struct Event {
 }
 
 ///Reply provided to the hypervisor after detecting an event
+///
+/// cbindgen:prefix-with-name
 #[repr(C)]
 #[derive(Debug)]
 pub enum EventReplyType {
-    Continue,
+    /// Resume the vCPU.
+    ///
+    /// `reinject`: deliver an intercepted breakpoint to the guest, as if it had not been
+    /// intercepted. Without reinjection, the vCPU executes again from RIP, which is the int3's
+    /// address at a breakpoint event: restore the original byte first. Reinjection on any other
+    /// event is an error (ADR-0005).
+    Continue { reinject: bool },
 }

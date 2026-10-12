@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use vboxapi::Vm;
 
+use crate::api::events::{Event, EventReplyType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable, PAGE_SIZE};
@@ -23,6 +24,8 @@ pub enum VBoxApiDriverError {
         name: &'static str,
         value: Option<String>,
     },
+    #[error("VirtualBox driver: VMI events are not supported by the MachineDebugger method, use the VBoxVMI method")]
+    EventsNotSupported,
 }
 
 /// `X86Registers` fields as DBGF register names (`IMachineDebugger` register names) and values.
@@ -280,6 +283,27 @@ impl Introspectable for VBoxApi {
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         Ok(self.max_addr)
+    }
+
+    fn toggle_intercept(
+        &mut self,
+        _vcpu: u16,
+        _intercept_type: InterceptType,
+        _enabled: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        Err(VBoxApiDriverError::EventsNotSupported.into())
+    }
+
+    fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
+        Err(VBoxApiDriverError::EventsNotSupported.into())
+    }
+
+    fn reply_event(
+        &mut self,
+        _event: Event,
+        _reply_type: EventReplyType,
+    ) -> Result<(), Box<dyn Error>> {
+        Err(VBoxApiDriverError::EventsNotSupported.into())
     }
 
     fn get_driver_type(&self) -> DriverType {

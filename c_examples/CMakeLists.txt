@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(c_examples DESCRIPTION "libmicrovmi C examples" LANGUAGES C)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 if (WIN32)
     set(MICROVMI_FILENAME "microvmi.dll")
 else ()
@@ -60,4 +60,6 @@ if (NOT WIN32)
     # VirtualBox access-method example
     add_executable(vbox-read-page vbox-read-page.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
     target_link_libraries(vbox-read-page PRIVATE microvmi)
+    add_executable(vbox-events vbox-events.c "${CMAKE_CURRENT_BINARY_DIR}/libmicrovmi.h")
+    target_link_libraries(vbox-events PRIVATE microvmi)
 endif ()

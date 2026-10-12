@@ -8,9 +8,9 @@ use microvmi::init;
 use super::config::{KVMI_SOCKET, VIRSH_URI, VM_NAME};
 use crate::common::context::Context;
 
-pub struct KVM;
+pub struct KvmContext;
 
-impl Context for KVM {
+impl Context for KvmContext {
     /// restore VM state from internal QEMU snapshot
     fn setup(&self) {
         debug!("setup test");
@@ -25,7 +25,7 @@ impl Context for KVM {
             .status()
             .expect("Failed to start virsh")
             .success()
-            .then(|| 0)
+            .then_some(0)
             .expect("Failed to run virsh snapshot-revert");
     }
 
@@ -57,7 +57,7 @@ impl Context for KVM {
             .status()
             .expect("Failed to start virsh")
             .success()
-            .then(|| 0)
+            .then_some(0)
             .expect("Failed to run virsh destroy");
     }
 }

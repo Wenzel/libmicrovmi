@@ -109,10 +109,10 @@ pub struct CommonInitParams {
 ///     ..Default::default()
 /// };
 /// // VirtualBox, VBoxVMI access method
-/// // virtualbox.socket_path: mandatory
+/// // virtualbox.socket_path: explicit socket path, or None for the default socket (with virtualbox-api)
 /// let init_params = DriverInitParams {
 ///     virtualbox: Some(VBoxInitParams::VBoxVMI {
-///         socket_path: String::from("/home/user/.config/VirtualBox/vmi/<vm uuid>.sock"),
+///         socket_path: Some(String::from("/home/user/.config/VirtualBox/vmi/<vm uuid>.sock")),
 ///     }),
 ///     ..Default::default()
 /// };

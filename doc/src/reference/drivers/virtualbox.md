@@ -29,20 +29,46 @@ With one method compiled in: `virtualbox-api` only uses MachineDebugger by defau
 ## VBoxVMI method
 
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
-It is the fast path, and the way towards VMI events.
+It is the fast path for VM state access and VMI events. VBoxVMI protocol version 2 is required;
+a version 1 client is refused at the handshake.
 
-Supported: reading and writing guest physical memory, reading and writing the complete x86 register set, max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included), pause/resume, vCPU count.
+Supported: reading and writing guest physical memory, reading and writing the complete x86 register set,
+max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
+pause/resume, vCPU count, and breakpoint (int3) and single-step intercepts per vCPU.
 Physical reads and writes are served inside the VM process without waiting for a vCPU, batching pages into requests of at most 64 KiB.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
 A physical write to a non-RAM page fails; other pages in the same batch may already have been written, so writes are not atomic. MMIO devices are never accessed.
 Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
 Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
 Pause and resume fail while VirtualBox controls the VM's run state: powering on or off, saving or restoring its state, live snapshot, teleport, or a configuration change (medium or network attachment). Resume also fails while the host's power management has the VM paused, and after a failed teleport of a paused VM until it is resumed through VirtualBox.
-A client disconnect leaves no session state behind: the server removes its intercepts and synchronously resumes a pause the client created. A pause that already existed, or an external pause after the client's pause was externally resumed, remains paused.
+A client disconnect leaves no session state behind: the server clears its intercepts, releases
+parked vCPUs without reinjection and synchronously resumes a pause the client created. A pause
+that already existed, or an external pause after the client's pause was externally resumed, remains paused.
 A register read or write is one request, served by the vCPU itself between two of its instructions: a read is a consistent snapshot of that vCPU and a write changes all its registers at once, also while the VM runs (pause first to read or write several vCPUs at the same point).
 The MSRs of `X86Registers` (EFER, STAR, LSTAR, SYSENTER_CS/ESP/EIP, APIC base) are included; an MSR the guest CPU doesn't have reads as 0.
 A write is all or nothing: a value the CPU itself would not load (RFLAGS with bit 1 clear or a reserved bit set, reserved bits in CR0, CR3, CR4 or EFER, an inconsistent long mode state, an MSR value `WRMSR` refuses) fails the whole write, and nothing is written. Registers keeping their value are not touched, so writing back registers read earlier always succeeds and has no side effects.
 Segment selectors, bases and limits are written as raw state: no descriptor table load, the segment attributes are kept, and keeping them consistent is up to the caller. Writes fail while the VM is neither running nor paused (powering on or off, saving or restoring its state, live snapshot, teleport).
+
+### VMI events
+
+`toggle_intercept(vcpu, InterceptType::Breakpoint | InterceptType::Singlestep, enabled)` sets or
+clears an intercept, also while paused or while handling an event on that vCPU. Other intercept
+kinds are not supported by this access method. `listen(timeout_ms)` returns the oldest pending
+event across vCPUs or `None` after the timeout. Each reported event parks only its vCPU; other
+vCPUs continue. The client can read and write the parked vCPU's registers and guest memory, and
+pause/resume keeps it parked.
+
+At a breakpoint event `gpa` is the physical address of the int3, `insn_len` is its length and RIP
+points at the int3. Restore the original byte before
+`reply_event(event, EventReplyType::Continue { reinject: false })` to execute the original
+instruction, or choose `reinject: true` to deliver the guest's own #BP. A single-step event's
+`gpa` points at the next instruction (at RIP); reply with `reinject: false`. Reinjection on a
+non-breakpoint event fails without releasing the vCPU. A reply for an unparked vCPU or a second
+reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does.
+
+VBoxVMI intercepts and the VirtualBox debugger exclude each other: setting an intercept while
+the debugger is attached fails; debugger attachment while any intercept is set fails. Clear the
+intercepts or disconnect before attaching the debugger. See [ADR-0005](https://github.com/Wenzel/libmicrovmi/blob/dev/docs/adr/0005-vboxvmi-events-reinjection-and-debugger-exclusion.md).
 
 ### Requirements
 
@@ -89,7 +115,8 @@ Pauses are not counted, also across clients: resume resumes the VM even if the G
 Pause and resume fail while a live snapshot or teleport is in progress, during which VirtualBox controls the VM's run state.
 With CPU hot-plug enabled, the vCPU count is the VM's maximum vCPU count, not the vCPUs currently plugged in.
 
-Not implemented yet: writing guest physical memory.
+Not implemented yet: writing guest physical memory. VMI events are not supported by this access
+method; selecting MachineDebugger rather than VBoxVMI for an event request returns an error.
 
 ### Requirements
 

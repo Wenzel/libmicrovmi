@@ -33,7 +33,7 @@ fn intercept_cr3_multiple(mut drv: Box<dyn Introspectable>) {
         match event.kind {
             EventType::Cr { cr_type, .. } => {
                 assert_eq!(cr_type, CrType::Cr3);
-                drv.reply_event(event, EventReplyType::Continue)
+                drv.reply_event(event, EventReplyType::Continue { reinject: false })
                     .expect("Failed to send event reply");
             }
             _ => panic!("Failed"),

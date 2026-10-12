@@ -77,15 +77,20 @@ Run the generic tests the method supports, or the VirtualBox ones:
 MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
-for f in init vcpu_count pause double_resume virtualbox_read_ virtualbox_write_physical_ registers_match write_registers vboxvmi_disconnect_; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
+for f in init vcpu_count pause double_resume virtualbox_read_ virtualbox_write_physical_ registers_match write_registers vboxvmi_disconnect_ vboxvmi_events_; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
 for f in vcpu pause registers_match write_registers; do MICROVMI_TEST_FILTER=$f VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
 ~~~
 
 The VBoxVMI filters above run every test, each once; `virtualbox_write_physical_` checks random
 patterns against a fresh core dump, after resume/re-pause and after restoring the original pages.
-`vboxvmi_disconnect_` covers normal close, a killed client process, both external-pause ownership
-cases, a repeated external resume/pause versus disconnect race, and immediate `Busy` refusal of a
-second client. The other filters cover `pause`,
+`vboxvmi_disconnect_` covers normal close, a killed client process, a killed client with a parked
+vCPU, both external-pause ownership cases, a repeated external resume/pause versus disconnect
+race, and immediate `Busy` refusal of a second client. `vboxvmi_events_` checks the int3 at RIP
+(translated via the guest's page tables), single-step (also into an interrupt handler),
+parked-vCPU register access, pause/resume, invalid replies, and the VirtualBox debugger exclusion
+both ways through the debugger console (the VBoxVMI context enables it on TCP port 5000, which must
+be free). Run `vboxvmi_events_breakpoint_at_rip` on the one-vCPU Alpine snapshot only:
+on a multi-vCPU guest another CPU could execute the patched instruction. The other filters cover `pause`,
 `double_pause`, `pause_resume`, `multiple_pause_resume`, `virtualbox_pause_*` and
 `virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
 `virtualbox_vcpu_count_matches_vmm`. With `VBOX_TEST_CPUS=2`, the register tests read every vCPU

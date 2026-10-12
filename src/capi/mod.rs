@@ -1,9 +1,10 @@
 use bitflags::_core::ptr::null_mut;
-use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+use cty::{c_char, size_t, uint16_t, uint32_t, uint64_t, uint8_t};
 
 use std::ffi::{c_void, CString};
 use std::slice;
 
+use crate::api::events::{Event, EventReplyType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::Registers;
 use crate::api::{DriverType, Introspectable};
@@ -196,6 +197,80 @@ pub unsafe extern "C" fn microvmi_read_registers(
             true
         }
         Err(_) => false,
+    }
+}
+
+/// Enables or disables an intercept on a vCPU. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_toggle_intercept(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    intercept_type: InterceptType,
+    enabled: bool,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).toggle_intercept(vcpu, intercept_type, enabled) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_toggle_intercept: {}", e);
+            false
+        }
+    }
+}
+
+/// Waits up to `timeout_ms` for the next event. Returns false on error, which is logged. On
+/// success, `*event` is the event, owned by the caller until it is passed to
+/// `microvmi_reply_event`, or NULL after the timeout.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_listen(
+    context: *mut c_void,
+    timeout_ms: uint32_t,
+    event: *mut *mut Event,
+) -> bool {
+    if context.is_null() || event.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).listen(timeout_ms) {
+        Ok(ev) => {
+            event.write(ev.map_or(null_mut(), |ev| Box::into_raw(Box::new(ev))));
+            true
+        }
+        Err(e) => {
+            error!("microvmi_listen: {}", e);
+            false
+        }
+    }
+}
+
+/// Replies to an event from `microvmi_listen` and frees it, also on error. Returns false on
+/// error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_reply_event(
+    context: *mut c_void,
+    event: *mut Event,
+    reply: EventReplyType,
+) -> bool {
+    if event.is_null() {
+        return false;
+    }
+    let event = Box::from_raw(event);
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).reply_event(*event, reply) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_reply_event: {}", e);
+            false
+        }
     }
 }
 

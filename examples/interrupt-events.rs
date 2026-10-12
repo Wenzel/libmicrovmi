@@ -73,7 +73,8 @@ fn main() {
                     "[{}] {} - {}: gpa = 0x{:x}    insn_len = 0x{:x}",
                     ev_nb_output, vcpu_output, interrupt_output, gpa, insn_len
                 );
-                drv.reply_event(ev, EventReplyType::Continue)
+                // the guest's own breakpoints: deliver them as if not intercepted
+                drv.reply_event(ev, EventReplyType::Continue { reinject: true })
                     .expect("Failed to send event reply");
                 i += 1;
             }

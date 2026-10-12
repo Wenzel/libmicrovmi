@@ -14,7 +14,16 @@
 - The `virtualbox` Cargo feature now enables both `virtualbox-api` and `virtualbox-vmi` on Unix.
   Windows CI still compiles `virtualbox-api`, but neither replacement method currently works at
   runtime on Windows: VBoxVMI is Unix-only, and `vboxapi` has no `VBoxCAPI.dll` loader.
+- **Breaking:** event replies now use `EventReplyType::Continue { reinject: bool }`: choose
+  explicitly whether an intercepted breakpoint is delivered to the guest. Reinjection on
+  other event kinds is an error (ADR-0005); KVMi uses `Retry` for non-reinjected breakpoints.
 
 ### Added
 
 - C API: `microvmi_get_vcpu_count`.
+- VBoxVMI protocol v2 breakpoint and per-vCPU single-step intercepts, event listening and
+  replies. Parked vCPUs remain accessible and pause/resume does not release them; client
+  disconnect clears intercepts and releases parked vCPUs. The MachineDebugger method does not
+  offer events and returns a clear error.
+- C API: `microvmi_toggle_intercept`, `microvmi_listen`, `microvmi_reply_event`, with plain C
+  event/reply types and an explicit `reinject` flag.
