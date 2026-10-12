@@ -1,6 +1,6 @@
 ///an x86 segment register
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SegmentReg {
     ///Stores the base address of a code segment
     pub base: u64,
@@ -13,7 +13,7 @@ pub struct SegmentReg {
 /// x86 System Table Registers
 /// (GDTR, IDTR)
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SystemTableReg {
     /// 32/64 bits linear base address
     pub base: u64,
@@ -23,7 +23,7 @@ pub struct SystemTableReg {
 
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct X86Registers {
     /// 8 byte general purpose register.
     pub rax: u64,
@@ -106,7 +106,7 @@ pub struct X86Registers {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Registers {
     X86(X86Registers),
 }
