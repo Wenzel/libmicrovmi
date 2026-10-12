@@ -25,8 +25,6 @@ use api::Introspectable;
 use driver::kvm::Kvm;
 #[cfg(feature = "mflow")]
 use driver::memflow::Memflow;
-#[cfg(feature = "virtualbox")]
-use driver::virtualbox::VBox;
 #[cfg(feature = "virtualbox-api")]
 use driver::virtualbox_api::VBoxApi;
 #[cfg(feature = "virtualbox-vmi")]
@@ -135,11 +133,7 @@ fn init_driver(
         DriverType::KVM => Ok(Box::new(Kvm::new(create_kvmi()?, _init_params)?)),
         #[cfg(feature = "mflow")]
         DriverType::Memflow => Ok(Box::new(Memflow::new(_init_params)?)),
-        #[cfg(any(
-            feature = "virtualbox",
-            feature = "virtualbox-api",
-            feature = "virtualbox-vmi"
-        ))]
+        #[cfg(any(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
         DriverType::VirtualBox => init_virtualbox(_init_params),
         #[cfg(feature = "xen")]
         DriverType::Xen => Ok(Box::new(Xen::new(_init_params)?)),
@@ -149,11 +143,7 @@ fn init_driver(
 }
 
 /// Initialize the VirtualBox driver with the access method selected by `init_params.virtualbox`
-#[cfg(any(
-    feature = "virtualbox",
-    feature = "virtualbox-api",
-    feature = "virtualbox-vmi"
-))]
+#[cfg(any(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
 fn init_virtualbox(
     init_params: DriverInitParams,
 ) -> Result<Box<dyn Introspectable>, MicrovmiError> {
@@ -177,14 +167,6 @@ fn init_virtualbox(
             method: "VBoxVMI",
             feature: "virtualbox-vmi",
         }),
-        #[cfg(feature = "virtualbox")]
-        None => Ok(Box::new(VBox::new(init_params)?)),
-        // FDP is the default when no access method is selected
-        #[cfg(not(feature = "virtualbox"))]
-        None => Err(MicrovmiError::AccessMethodNotCompiled {
-            driver: DriverType::VirtualBox,
-            method: "FDP",
-            feature: "virtualbox",
-        }),
+        None => Err(MicrovmiError::AccessMethodRequired(DriverType::VirtualBox)),
     }
 }
