@@ -552,10 +552,13 @@ impl Drop for RegisterRestore {
 }
 
 /// While paused, two reads of every vCPU's registers are identical, not all zero, and RFLAGS
-/// is architecturally valid. The multi-vCPU check needs `VBOX_TEST_CPUS=2`.
+/// is architecturally valid; a vCPU past the count is an error. The multi-vCPU check needs
+/// `VBOX_TEST_CPUS=2`.
 fn registers_unchanged_while_paused(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
-    for vcpu in 0..drv.get_vcpu_count().unwrap() {
+    let count = drv.get_vcpu_count().unwrap();
+    assert!(drv.read_registers(count).is_err(), "vCPU {} read", count);
+    for vcpu in 0..count {
         let first = x86_registers(drv.as_ref(), vcpu);
         sleep(Duration::from_millis(500));
         let second = x86_registers(drv.as_ref(), vcpu);
@@ -691,24 +694,17 @@ fn write_registers_reads_back(drv: Box<dyn Introspectable>) {
         .unwrap_or_else(|| panic!("unexpected cs_attr.dpl output: {:?}", cs_dpl));
     assert!(dpl <= 3, "invalid CS DPL {}", dpl);
 
-    let rflags_error = try_vboxmanage(&[
-        "debugvm",
-        &vm_name(),
-        "setregisters",
-        "--cpu",
-        &vcpu.to_string(),
-        "rflags=0",
-    ])
-    .expect_err("an RFLAGS value with bit 1 clear was accepted");
-    assert!(
-        rflags_error.contains("VERR_INVALID_PARAMETER"),
-        "unexpected invalid-RFLAGS error: {}",
-        rflags_error
-    );
+    let mut invalid = restore.original.clone();
+    invalid.rflags = 0; // bit 1 clear
+    let rflags_error = restore
+        .drv
+        .write_registers(vcpu, Registers::X86(invalid))
+        .expect_err("an RFLAGS value with bit 1 clear was accepted");
+    print!("invalid RFLAGS refused: {}, ", rflags_error);
     assert_eq!(
-        x86_registers(restore.drv.as_ref(), vcpu).rflags,
-        restore.original.rflags,
-        "invalid RFLAGS write changed the register"
+        x86_registers(restore.drv.as_ref(), vcpu),
+        restore.original,
+        "invalid RFLAGS write changed the registers"
     );
 
     expected.r12 ^= 0x5a5a_5a5a_5a5a_5a5a;
@@ -761,4 +757,34 @@ fn write_registers_reads_back(drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "virtualbox_write_registers_reads_back",
     test_fn: write_registers_reads_back
+});
+
+/// A register write reaches the vCPU itself, not only VirtualBox's copy of its state: SYSENTER_ESP
+/// and SYSENTER_EIP (unused by an idle 64-bit Linux guest) written while paused keep their new
+/// values after the guest ran, and the guest keeps running. The guard restores them.
+fn write_registers_survive_resume(drv: Box<dyn Introspectable>) {
+    let mut restore = RegisterRestore::new(drv);
+    let vcpu = restore.vcpu;
+    let mut changed = restore.original.clone();
+    changed.sysenter_esp ^= 8;
+    changed.sysenter_eip ^= 8;
+    restore
+        .drv
+        .write_registers(vcpu, Registers::X86(changed.clone()))
+        .unwrap();
+    restore.drv.resume().unwrap();
+    sleep(Duration::from_secs(1));
+    assert_eq!(vm_info("VMState"), "running");
+    restore.drv.pause().unwrap();
+    let after = x86_registers(restore.drv.as_ref(), vcpu);
+    assert_eq!(
+        (after.sysenter_esp, after.sysenter_eip),
+        (changed.sysenter_esp, changed.sysenter_eip)
+    );
+    restore.finish();
+}
+
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_write_registers_survive_resume",
+    test_fn: write_registers_survive_resume
 });
