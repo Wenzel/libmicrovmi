@@ -42,3 +42,4 @@ Hypervisor-delivered notifications of guest activity (breakpoints, control-regis
 ## Flagged ambiguities
 
 - "VirtualBox driver" was used for both the libmicrovmi Driver and the patched hypervisor — resolved: **Driver** is always the libmicrovmi side; the hypervisor side is "patched VirtualBox".
+- "Mode" in LibVMI (Xen, KVM, VirtualBox, ...) names the hypervisor being monitored — resolved: a **LibVMI mode** corresponds to a libmicrovmi **Driver**, never to an **Access method**; VBoxVMI and MachineDebugger are two access methods of one LibVMI mode.
