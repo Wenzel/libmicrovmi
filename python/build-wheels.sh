@@ -17,6 +17,8 @@ export BINDGEN_EXTRA_CLANG_ARGS="-I/opt/rh/devtoolset-10/root/usr/lib/gcc/x86_64
 cd /io/python
 
 for PYBIN in /opt/python/cp{310,311,312,313,314}*/bin; do
+    # pyo3 0.29 dropped free-threaded 3.13
+    [[ "$PYBIN" == */cp313-cp313t/* ]] && continue
     "${PYBIN}/pip" install -r requirements.txt
     "${PYBIN}/python" setup.py bdist_wheel $@
 done
