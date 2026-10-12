@@ -162,6 +162,25 @@ pub unsafe extern "C" fn microvmi_get_max_physical_addr(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
+pub unsafe extern "C" fn microvmi_get_vcpu_count(
+    context: *mut c_void,
+    count_ptr: *mut uint16_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_vcpu_count() {
+        Ok(count) => {
+            count_ptr.write(count);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
 pub unsafe extern "C" fn microvmi_read_registers(
     context: *mut c_void,
     vcpu: uint16_t,
