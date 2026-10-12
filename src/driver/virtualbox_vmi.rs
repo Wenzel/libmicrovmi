@@ -1,5 +1,6 @@
 //! VirtualBox driver, VBoxVMI access method: the VBoxVMI protocol of a patched VirtualBox.
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::error::Error;
 
 use vboxvmi::Client;
@@ -24,6 +25,8 @@ pub struct VBoxVmi {
     client: RefCell<Client>,
     /// End of the highest RAM range, fixed for the VM's lifetime.
     max_addr: u64,
+    /// Fixed for the VM's lifetime.
+    vcpu_count: u16,
 }
 
 impl VBoxVmi {
@@ -35,17 +38,19 @@ impl VBoxVmi {
             .last()
             .expect("vboxvmi::Client::ram_ranges is never empty")
             .end;
+        let vcpu_count = u16::try_from(client.vcpu_count()?)?;
         Ok(VBoxVmi {
             client: RefCell::new(client),
             max_addr,
+            vcpu_count,
         })
     }
 }
 
-// shortcut: VM state access errors until the protocol has the commands (#283-#285).
+// shortcut: VM state access errors until the protocol has the commands (#284-#285).
 impl Introspectable for VBoxVmi {
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
-        not_implemented("vCPU count")
+        Ok(self.vcpu_count)
     }
 
     /// On error, `bytes_read` is the length of the readable prefix, up to the first unreadable page.
@@ -95,12 +100,13 @@ impl Introspectable for VBoxVmi {
         not_implemented("register write")
     }
 
+    /// Synchronous and idempotent: one `resume` undoes any number of `pause`s.
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
-        not_implemented("pause")
+        Ok(self.client.get_mut().pause()?)
     }
 
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
-        not_implemented("resume")
+        Ok(self.client.get_mut().resume()?)
     }
 
     fn get_driver_type(&self) -> DriverType {
