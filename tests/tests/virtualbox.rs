@@ -1053,6 +1053,7 @@ inventory::submit!(IntegrationTest {
 #[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
 mod cross_method {
     use super::*;
+    use crate::common::filter::CROSS_METHOD_TEST;
     use microvmi::api::params::{CommonInitParams, DriverInitParams, VBoxInitParams};
     use microvmi::api::DriverType;
 
@@ -1110,44 +1111,6 @@ mod cross_method {
             method,
             vcpu
         );
-    }
-
-    /// The same safe page choices as the core-based write test, found directly through both live
-    /// methods: the first all-zero page below low reserved RAM, mid-RAM, low RAM and top RAM.
-    fn zero_pages_live(
-        machine_debugger: &dyn Introspectable,
-        vboxvmi: &dyn Introspectable,
-        ranges: &[Range<u64>],
-    ) -> Vec<u64> {
-        let top = ranges.iter().map(|range| range.end).max().unwrap();
-        let top_below_4g = ranges
-            .iter()
-            .map(|range| range.end)
-            .filter(|&end| end <= FOUR_GIB)
-            .max()
-            .unwrap();
-        let mut pages: Vec<u64> = [0x10000, top / 2, top_below_4g, top]
-            .iter()
-            .map(|&target| {
-                let range = ranges
-                    .iter()
-                    .find(|range| range.start < target && target <= range.end)
-                    .unwrap_or_else(|| panic!("{:#x} is not in a RAM range", target));
-                (1..=1024)
-                    .filter_map(|i| (target & !(PAGE - 1)).checked_sub(i * PAGE))
-                    .take_while(|&page| page >= range.start.max(PAGE))
-                    .find(|&page| {
-                        let md = read_page(machine_debugger, "MachineDebugger", page);
-                        let vmi = read_page(vboxvmi, "VBoxVMI", page);
-                        assert_eq!(md, vmi, "methods differ at candidate page {:#x}", page);
-                        md.iter().all(|&byte| byte == 0)
-                    })
-                    .unwrap_or_else(|| panic!("no zero page below {:#x}", target))
-            })
-            .collect();
-        pages.sort_unstable();
-        pages.dedup();
-        pages
     }
 
     fn pattern(addr: u64, salt: u64) -> Vec<u8> {
@@ -1217,6 +1180,24 @@ mod cross_method {
     /// directly between the methods. Then write safe RAM pages and SYSENTER registers in both
     /// directions, with independent readback and exact restoration through both methods.
     fn consistency(vboxvmi: Box<dyn Introspectable>) {
+        let filter = env::var("MICROVMI_TEST_FILTER").ok();
+        if !matches!(env::var("VBOX_TEST_CROSS_METHOD").as_deref(), Ok("1")) {
+            if filter.is_none() {
+                println!(
+                    "SKIPPED: set VBOX_TEST_CROSS_METHOD=1 and \
+                     MICROVMI_TEST_FILTER={}",
+                    CROSS_METHOD_TEST
+                );
+                return;
+            }
+            panic!("cross-method test requires VBOX_TEST_CROSS_METHOD=1");
+        }
+        assert_eq!(
+            filter.as_deref(),
+            Some(CROSS_METHOD_TEST),
+            "cross-method test requires the exact MICROVMI_TEST_FILTER={}",
+            CROSS_METHOD_TEST
+        );
         assert!(
             matches!(env::var("VBOX_TEST_METHOD").as_deref(), Ok("vboxvmi")),
             "cross-method test requires VBOX_TEST_METHOD=vboxvmi"
@@ -1246,6 +1227,28 @@ mod cross_method {
         assert_eq!(md_max, vmi_max, "maximum physical addresses differ");
         assert_eq!(md_max, ranges_end, "driver maximum does not cover PGM RAM");
 
+        // The same safe locations as the core-based write test. Record the nearest all-zero page
+        // below each target while the complete direct comparison already has every RAM page.
+        let top = ranges_end;
+        let top_below_4g = ranges
+            .iter()
+            .map(|range| range.end)
+            .filter(|&end| end <= FOUR_GIB)
+            .max()
+            .unwrap();
+        let write_targets = [0x10000, top / 2, top_below_4g, top];
+        let target_ranges: Vec<(u64, u64)> = write_targets
+            .iter()
+            .map(|&target| {
+                let range = ranges
+                    .iter()
+                    .find(|range| range.start < target && target <= range.end)
+                    .unwrap_or_else(|| panic!("{:#x} is not in a RAM range", target));
+                (target & !(PAGE - 1), range.start.max(PAGE))
+            })
+            .collect();
+        let mut write_pages = vec![None; write_targets.len()];
+
         let mut md = vec![0; CHUNK as usize];
         let mut vmi = vec![0; CHUNK as usize];
         let (mut compared, mut compared_above_4g) = (0u64, 0u64);
@@ -1271,6 +1274,19 @@ mod cross_method {
                         md[offset],
                         vmi[offset]
                     );
+                }
+                let (pages, remainder) = md[..len].as_chunks::<{ PAGE as usize }>();
+                debug_assert!(remainder.is_empty());
+                for (offset, page) in pages.iter().enumerate() {
+                    if page.iter().any(|&byte| byte != 0) {
+                        continue;
+                    }
+                    let page = addr + offset as u64 * PAGE;
+                    for ((target, first), selected) in target_ranges.iter().zip(&mut write_pages) {
+                        if *first <= page && page < *target {
+                            *selected = Some(page);
+                        }
+                    }
                 }
                 compared += len as u64;
                 compared_above_4g += (addr + len as u64).saturating_sub(addr.max(FOUR_GIB));
@@ -1304,7 +1320,15 @@ mod cross_method {
         }
         println!();
 
-        let page_addrs = zero_pages_live(machine_debugger.as_ref(), vboxvmi.as_ref(), &ranges);
+        let mut page_addrs: Vec<u64> = write_pages
+            .into_iter()
+            .zip(write_targets)
+            .map(|(page, target)| {
+                page.unwrap_or_else(|| panic!("no zero page below {:#x}", target))
+            })
+            .collect();
+        page_addrs.sort_unstable();
+        page_addrs.dedup();
         if ram_above_4g > 0 {
             assert!(
                 page_addrs.iter().any(|&addr| addr >= FOUR_GIB),
@@ -1441,7 +1465,7 @@ mod cross_method {
     }
 
     inventory::submit!(IntegrationTest {
-        name: "virtualbox_cross_method_consistency",
+        name: CROSS_METHOD_TEST,
         test_fn: consistency
     });
 }
