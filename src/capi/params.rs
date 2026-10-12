@@ -45,6 +45,8 @@ pub struct MemflowInitParamsFFI {
 pub const VBOX_ACCESS_METHOD_NONE: u32 = 0;
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
 pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
+/// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::VBoxVMI`, with `VBoxInitParamsFFI.socket_path`
+pub const VBOX_ACCESS_METHOD_VBOXVMI: u32 = 2;
 
 /// equivalent of `Option<VBoxInitParams>` with C compatibility
 ///
@@ -55,6 +57,8 @@ pub struct VBoxInitParamsFFI {
     /// one of the `VBOX_ACCESS_METHOD_*` constants
     // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
     pub access_method: u32,
+    /// `VBOX_ACCESS_METHOD_VBOXVMI`: the VM's VBoxVMI socket path (mandatory); ignored otherwise
+    pub socket_path: *mut c_char,
 }
 
 /// equivalent of `DriverInitParam` with C compatibility
@@ -134,6 +138,15 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
         let virtualbox = match value.virtualbox.access_method {
             VBOX_ACCESS_METHOD_NONE => None,
             VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
+            VBOX_ACCESS_METHOD_VBOXVMI => {
+                let path = value.virtualbox.socket_path;
+                if path.is_null() {
+                    return Err("VBOX_ACCESS_METHOD_VBOXVMI requires a socket_path".into());
+                }
+                Some(VBoxInitParams::VBoxVMI {
+                    socket_path: unsafe { CStr::from_ptr(path) }.to_owned().into_string()?,
+                })
+            }
             other => return Err(format!("unknown VirtualBox access method: {}", other).into()),
         };
         Ok(DriverInitParams {

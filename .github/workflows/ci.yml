@@ -264,7 +264,7 @@ jobs:
         run: python3 -c 'from microvmi import Microvmi, DriverType, CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, VBoxInitParamsPy'
 
       - name: Build Wheels with manylinux
-        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox,virtualbox-api,mflow --release
+        run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox,virtualbox-api,virtualbox-vmi,mflow --release
         working-directory: python
 
       # upload all generated wheels *.whl

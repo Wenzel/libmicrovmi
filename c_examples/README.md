@@ -50,3 +50,5 @@ LD_LIBRARY_PATH="$LD_LIBRARY_PATH:../../target/debug" <example> <vm_name>
 
 `vbox-read-page <vm_name> [physical_address]` selects the VirtualBox MachineDebugger access method
 (build libmicrovmi with `--features virtualbox-api`) and prints one page of guest physical memory.
+Given a VBoxVMI socket path instead of a VM name (`vbox-read-page /path/to/<VM UUID>.sock`), it uses
+the VBoxVMI access method (`--features virtualbox-vmi`).

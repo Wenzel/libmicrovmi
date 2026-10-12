@@ -3,6 +3,7 @@
 import argparse
 import logging
 from contextlib import contextmanager, nullcontext
+from pathlib import Path
 from typing import Optional
 
 from microvmi import CommonInitParamsPy, DriverInitParamsPy, DriverType, KVMInitParamsPy, Microvmi, VBoxInitParamsPy
@@ -30,9 +31,25 @@ def parse_args():
         action="store_true",
         help="Use the VirtualBox driver's MachineDebugger access method",
     )
-    parser.add_argument("--no-pause", action="store_true", help="Do not pause the VM while dumping")
+    parser.add_argument(
+        "--vbox-vmi",
+        type=str,
+        metavar="SOCKET",
+        help="Use VBoxVMI (VM name defaults to the socket filename; requires --no-pause)",
+    )
+    parser.add_argument(
+        "--no-pause",
+        action="store_true",
+        help="Do not pause the VM while dumping (required for VBoxVMI, which has no pause command yet)",
+    )
     parser.add_argument("-o", "--output-file", help="Dump file path", default="{vm_name}.dump")
     args = parser.parse_args()
+    if args.vbox_vmi and not args.no_pause:
+        parser.error("--vbox-vmi requires --no-pause")
+    if args.vbox_machinedebugger and args.vbox_vmi:
+        parser.error("--vbox-machinedebugger and --vbox-vmi are mutually exclusive")
+    if args.vm_name is None and args.vbox_vmi:
+        args.vm_name = Path(args.vbox_vmi).stem
     return args
 
 
@@ -40,6 +57,7 @@ def dump_mem(
     vm_name: Optional[str],
     kvm_unix_socket: Optional[str],
     vbox_machinedebugger: bool,
+    vbox_vmi: Optional[str],
     no_pause: bool,
     output_file: Optional[str],
 ):
@@ -56,6 +74,9 @@ def dump_mem(
     if vbox_machinedebugger:
         init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
         # explicit driver type: surfaces the VirtualBox init error instead of NoDriverAvailable
+        driver_type = DriverType.VirtualBox
+    if vbox_vmi:
+        init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path=vbox_vmi)
         driver_type = DriverType.VirtualBox
     # init libmicrovmi
     micro = Microvmi(driver_type, init_params)
@@ -89,7 +110,7 @@ def main():
         vm_name = args.vm_name
         kvm_unix_socket = args.kvm_unix_socket
         output_file = args.output_file
-        dump_mem(vm_name, kvm_unix_socket, args.vbox_machinedebugger, args.no_pause, output_file)
+        dump_mem(vm_name, kvm_unix_socket, args.vbox_machinedebugger, args.vbox_vmi, args.no_pause, output_file)
     except KeyboardInterrupt:
         logging.critical("Cancelled by CTRL-C")
 

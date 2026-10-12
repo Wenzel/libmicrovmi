@@ -1,4 +1,5 @@
 //! VirtualBox driver, VBoxVMI access method: the VBoxVMI protocol of a patched VirtualBox.
+use std::cell::RefCell;
 use std::error::Error;
 
 use vboxvmi::Client;
@@ -10,6 +11,8 @@ use crate::api::{DriverType, Introspectable};
 pub enum VBoxVmiDriverError {
     #[error("VirtualBox driver, VBoxVMI method: {0} is not implemented yet")]
     NotImplemented(&'static str),
+    #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unreadable (VirtualBox status {rc})")]
+    Unreadable { addr: u64, rc: i32 },
 }
 
 fn not_implemented<T>(what: &'static str) -> Result<T, Box<dyn Error>> {
@@ -17,32 +20,63 @@ fn not_implemented<T>(what: &'static str) -> Result<T, Box<dyn Error>> {
 }
 
 pub struct VBoxVmi {
-    _client: Client,
+    /// `RefCell`: requests need `&mut Client`, reads only `&self`.
+    client: RefCell<Client>,
+    /// End of the highest RAM range, fixed for the VM's lifetime.
+    max_addr: u64,
 }
 
 impl VBoxVmi {
     /// Connects to the VM's VBoxVMI socket and performs the handshake.
     pub fn new(socket_path: &str) -> Result<Self, Box<dyn Error>> {
+        let mut client = Client::connect(socket_path)?;
+        let max_addr = client
+            .ram_ranges()?
+            .last()
+            .expect("vboxvmi::Client::ram_ranges is never empty")
+            .end;
         Ok(VBoxVmi {
-            _client: Client::connect(socket_path)?,
+            client: RefCell::new(client),
+            max_addr,
         })
     }
 }
 
-// shortcut: VM state access errors until the protocol has the commands (#282-#285).
+// shortcut: VM state access errors until the protocol has the commands (#283-#285).
 impl Introspectable for VBoxVmi {
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         not_implemented("vCPU count")
     }
 
+    /// On error, `bytes_read` is the length of the readable prefix, up to the first unreadable page.
     fn read_physical(
         &self,
-        _paddr: u64,
-        _buf: &mut [u8],
+        paddr: u64,
+        buf: &mut [u8],
         bytes_read: &mut u64,
     ) -> Result<(), Box<dyn Error>> {
         *bytes_read = 0;
-        not_implemented("physical memory read")
+        let mut status = Vec::new();
+        let result = self
+            .client
+            .borrow_mut()
+            .read_physical(&mut [(paddr, &mut *buf)], &mut status);
+
+        let mut offset = 0usize;
+        for rc in status {
+            let addr = paddr + offset as u64;
+            let page_len =
+                (buf.len() - offset).min((vboxvmi::PAGE_SIZE - addr % vboxvmi::PAGE_SIZE) as usize);
+            if rc < 0 {
+                *bytes_read = offset as u64;
+                return Err(VBoxVmiDriverError::Unreadable { addr, rc }.into());
+            }
+            offset += page_len;
+        }
+        *bytes_read = offset as u64;
+        result?;
+        debug_assert_eq!(offset, buf.len());
+        Ok(())
     }
 
     fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
@@ -50,7 +84,7 @@ impl Introspectable for VBoxVmi {
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        not_implemented("max physical address")
+        Ok(self.max_addr)
     }
 
     fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
