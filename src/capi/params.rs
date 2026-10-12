@@ -41,8 +41,8 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
-/// `VBoxInitParamsFFI.access_method = 0`: no VirtualBox parameters. Selecting the VirtualBox
-/// driver with this value is an error.
+// `access_method = 0` means no VirtualBox parameters. Selecting the VirtualBox driver with this
+// value is an error.
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
 pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::VBoxVMI`, with `VBoxInitParamsFFI.socket_path`

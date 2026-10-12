@@ -124,9 +124,15 @@ jobs:
       - uses: actions/checkout@v1
       - name: build and check VirtualBox driver
         run: |
+          cargo build --features virtualbox-api
+          cargo clippy --features virtualbox-api -- -D warnings
+          cargo test --features virtualbox-api --test virtualbox_errors
+          cargo build --features virtualbox-vmi
+          cargo clippy --features virtualbox-vmi -- -D warnings
+          cargo test --features virtualbox-vmi --test virtualbox_errors
           cargo build --features virtualbox
+          cargo clippy --features virtualbox -- -D warnings
           cargo clippy --features virtualbox --tests -- -D warnings
-          cargo test --features virtualbox --test virtualbox_errors
 
   virtualbox_windows:
     runs-on: windows-2022
@@ -143,7 +149,7 @@ jobs:
           path: libmicrovmi
 
 
-      - name: build and check VirtualBox MachineDebugger method
+      - name: compile-check VirtualBox API bindings (runtime unavailable on Windows)
         run: |
           cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api
           cargo clippy --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api -- -D warnings
@@ -304,7 +310,7 @@ jobs:
           path: libmicrovmi
 
 
-      - name: build libmicrovmi with VirtualBox MachineDebugger and memflow drivers
+      - name: build Windows artifact with compile-only VirtualBox API bindings and memflow
         run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api,mflow --release
 
       - name: create output directory and copy artifact content

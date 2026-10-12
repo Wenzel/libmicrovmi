@@ -79,7 +79,7 @@ Not implemented yet: writing guest physical memory.
 
 ### Requirements
 
-- Platform: Linux and Windows
+- Platform: Linux
 - A VirtualBox whose `IMachineDebugger::readPhysicalMemory` is implemented. Stock VirtualBox
   releases return "not implemented"; it needs a VirtualBox built with the IMachineDebugger memory
   methods patch.
