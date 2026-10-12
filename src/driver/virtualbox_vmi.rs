@@ -11,14 +11,10 @@ use crate::driver::EferMismatch;
 
 #[derive(thiserror::Error, Debug)]
 pub enum VBoxVmiDriverError {
-    #[error("VirtualBox driver, VBoxVMI method: {0} is not implemented yet")]
-    NotImplemented(&'static str),
     #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unreadable (VirtualBox status {rc})")]
     Unreadable { addr: u64, rc: i32 },
-}
-
-fn not_implemented<T>(what: &'static str) -> Result<T, Box<dyn Error>> {
-    Err(VBoxVmiDriverError::NotImplemented(what).into())
+    #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unwritable (VirtualBox status {rc})")]
+    Unwritable { addr: u64, rc: i32 },
 }
 
 fn segment_reg(s: &Segment) -> SegmentReg {
@@ -78,7 +74,6 @@ impl VBoxVmi {
     }
 }
 
-// shortcut: physical memory write errors until the protocol has the command (#285).
 impl Introspectable for VBoxVmi {
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
         Ok(self.vcpu_count)
@@ -115,8 +110,25 @@ impl Introspectable for VBoxVmi {
         Ok(())
     }
 
-    fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
-        not_implemented("physical memory write")
+    /// A failed page leaves the successful prefix written; later pages may also have been written.
+    fn write_physical(&self, paddr: u64, buf: &[u8]) -> Result<(), Box<dyn Error>> {
+        let mut status = Vec::new();
+        let result = self
+            .client
+            .borrow_mut()
+            .write_physical(&[(paddr, buf)], &mut status);
+        let mut offset = 0usize;
+        for rc in status {
+            let addr = paddr + offset as u64;
+            if rc < 0 {
+                return Err(VBoxVmiDriverError::Unwritable { addr, rc }.into());
+            }
+            offset +=
+                (buf.len() - offset).min((vboxvmi::PAGE_SIZE - addr % vboxvmi::PAGE_SIZE) as usize);
+        }
+        result?;
+        debug_assert_eq!(offset, buf.len());
+        Ok(())
     }
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {

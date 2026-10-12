@@ -389,6 +389,12 @@ fn write_physical_matches_core(drv: Box<dyn Introspectable>) {
     let ranges = ram_ranges();
     let before = Core::dump();
     let page_addrs = zero_pages(&before, &ranges);
+    if ranges.iter().any(|r| r.end > FOUR_GIB) {
+        assert!(
+            page_addrs.iter().any(|&page| page >= FOUR_GIB),
+            "write test did not select RAM above 4 GiB"
+        );
+    }
     let pages: Vec<(u64, Vec<u8>)> = page_addrs
         .iter()
         .map(|&page| (page, before.ram(page, PAGE)))
