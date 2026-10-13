@@ -19,14 +19,16 @@ use std::time::{Duration, Instant, SystemTime};
 
 use log::debug;
 #[cfg(feature = "virtualbox-vmi")]
-use microvmi::api::events::{Event, EventReplyType, EventType, InterceptType};
+use microvmi::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use microvmi::api::registers::{Registers, X86Registers};
 use microvmi::api::{Introspectable, PAGE_SIZE};
 
-use super::IntegrationTest;
 #[cfg(feature = "virtualbox-vmi")]
-use crate::common::virtualbox::vboxvmi_socket;
+use super::next_event;
+use super::IntegrationTest;
 use crate::common::virtualbox::{core_path, try_vboxmanage, vboxmanage, vm_info, vm_name};
+#[cfg(feature = "virtualbox-vmi")]
+use crate::common::virtualbox::{start_guest_process, vboxvmi_socket};
 
 const PAGE: u64 = PAGE_SIZE as u64;
 const CHUNK: u64 = 1 << 20;
@@ -381,9 +383,22 @@ pub fn vboxvmi_pause_child() -> ! {
     }
 }
 
-/// Entry point for a killed client with a vCPU parked by a single-step intercept.
+/// The Intercept a parked child sets on vCPU 0, named by `MICROVMI_VBOXVMI_PARKED_CHILD`.
+#[cfg(feature = "virtualbox-vmi")]
+fn parked_child_intercept(name: &str) -> InterceptType {
+    match name {
+        "singlestep" => InterceptType::Singlestep,
+        "cr3" => InterceptType::Cr(CrType::Cr3),
+        "msr" => InterceptType::Msr(TEST_MSR),
+        other => panic!("unknown parked child Intercept {:?}", other),
+    }
+}
+
+/// Entry point for a killed client with vCPU 0 parked at an event of the Intercept named by
+/// `MICROVMI_VBOXVMI_PARKED_CHILD`.
 #[cfg(feature = "virtualbox-vmi")]
 pub fn vboxvmi_parked_child() -> ! {
+    let intercept = parked_child_intercept(&env::var("MICROVMI_VBOXVMI_PARKED_CHILD").unwrap());
     let mut drv = microvmi::init(
         Some(microvmi::api::DriverType::VirtualBox),
         Some(microvmi::api::params::DriverInitParams {
@@ -394,10 +409,19 @@ pub fn vboxvmi_parked_child() -> ! {
         }),
     )
     .expect("child failed to connect");
-    drv.toggle_intercept(0, InterceptType::Singlestep, true)
-        .unwrap();
-    let event = drv.listen(5000).unwrap().expect("child: no step");
-    assert!(matches!(event.kind, EventType::Singlestep { .. }));
+    drv.toggle_intercept(0, intercept, true).unwrap();
+    let event = next_event(drv.as_mut(), &mut start_guest_process);
+    let expected = match (intercept, &event.kind) {
+        (InterceptType::Singlestep, EventType::Singlestep { .. }) => true,
+        (InterceptType::Cr(cr), EventType::Cr { cr_type, .. }) => *cr_type == cr,
+        (InterceptType::Msr(index), EventType::Msr { msr_type, .. }) => *msr_type == index,
+        _ => false,
+    };
+    assert!(
+        expected,
+        "child: {:?} event for {:?}",
+        event.kind, intercept
+    );
     println!("parked");
     std::io::stdout()
         .flush()
@@ -487,11 +511,13 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_killed_client_resumes
 });
 
+/// A killed client with vCPU 0 parked at an event of `intercept` (see `parked_child_intercept`)
+/// leaves the vCPU released and no Intercepts for the next client.
 #[cfg(feature = "virtualbox-vmi")]
-fn vboxvmi_killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>) {
+fn killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>, intercept: &str) {
     drop(drv);
     let child = Command::new(std::env::current_exe().unwrap())
-        .env("MICROVMI_VBOXVMI_PARKED_CHILD", "1")
+        .env("MICROVMI_VBOXVMI_PARKED_CHILD", intercept)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
@@ -517,9 +543,10 @@ fn vboxvmi_killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>) {
         }),
     )
     .unwrap();
-    assert!(
-        drv.listen(250).unwrap().is_none(),
-        "stale step after disconnect"
+    assert_no_event(
+        drv.as_mut(),
+        &mut start_guest_process,
+        &format!("stale {} event after disconnect", intercept),
     );
     let resumed = vcpu_stats("cNsExecuting")[0];
     sleep(Duration::from_millis(500));
@@ -530,9 +557,36 @@ fn vboxvmi_killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>) {
 }
 
 #[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>) {
+    killed_client_releases_parked_vcpu(drv, "singlestep");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_disconnect_killed_client_releases_parked_vcpu",
     test_fn: vboxvmi_killed_client_releases_parked_vcpu
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_releases_cr_parked_vcpu(drv: Box<dyn Introspectable>) {
+    killed_client_releases_parked_vcpu(drv, "cr3");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_killed_client_releases_cr_parked_vcpu",
+    test_fn: vboxvmi_killed_client_releases_cr_parked_vcpu
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_releases_msr_parked_vcpu(drv: Box<dyn Introspectable>) {
+    killed_client_releases_parked_vcpu(drv, "msr");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_killed_client_releases_msr_parked_vcpu",
+    test_fn: vboxvmi_killed_client_releases_msr_parked_vcpu
 });
 
 #[cfg(feature = "virtualbox-vmi")]
@@ -1202,20 +1256,22 @@ fn debugger_console() -> (TcpStream, String) {
 }
 
 /// VBoxVMI Intercepts and the VirtualBox debugger exclude each other (ADR-0005): the debugger
-/// can't attach while an Intercept is set, an Intercept can't be set while it is attached, and
-/// either works again once the other is gone.
+/// can't attach while an Intercept (`set`) is set, an Intercept (`while_attached`) can't be set
+/// while it is attached, and either works again once the other is gone.
 #[cfg(feature = "virtualbox-vmi")]
-fn vboxvmi_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
-    drv.toggle_intercept(0, InterceptType::Breakpoint, true)
-        .unwrap();
+fn debugger_exclusion(
+    mut drv: Box<dyn Introspectable>,
+    set: InterceptType,
+    while_attached: InterceptType,
+) {
+    drv.toggle_intercept(0, set, true).unwrap();
     let (_, output) = debugger_console();
     assert!(
         output.contains("VERR_DBGF_VMI_INTERCEPTS_ACTIVE"),
         "debugger attached with an Intercept set: {:?}",
         output
     );
-    drv.toggle_intercept(0, InterceptType::Breakpoint, false)
-        .unwrap();
+    drv.toggle_intercept(0, set, false).unwrap();
 
     let (console, output) = debugger_console();
     assert!(
@@ -1224,25 +1280,41 @@ fn vboxvmi_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
         output
     );
     let error = drv
-        .toggle_intercept(0, InterceptType::Singlestep, true)
+        .toggle_intercept(0, while_attached, true)
         .expect_err("Intercept set with the debugger attached");
     assert!(error.to_string().contains("debugger"), "{}", error);
 
     // closing the console detaches the debugger, asynchronously
     drop(console);
     let deadline = Instant::now() + Duration::from_secs(5);
-    while let Err(e) = drv.toggle_intercept(0, InterceptType::Breakpoint, true) {
+    while let Err(e) = drv.toggle_intercept(0, set, true) {
         assert!(Instant::now() < deadline, "debugger still attached: {}", e);
         sleep(Duration::from_millis(100));
     }
-    drv.toggle_intercept(0, InterceptType::Breakpoint, false)
-        .unwrap();
+    drv.toggle_intercept(0, set, false).unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_debugger_exclusion(drv: Box<dyn Introspectable>) {
+    debugger_exclusion(drv, InterceptType::Breakpoint, InterceptType::Singlestep);
 }
 
 #[cfg(feature = "virtualbox-vmi")]
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_events_debugger_exclusion",
     test_fn: vboxvmi_debugger_exclusion
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr_debugger_exclusion(drv: Box<dyn Introspectable>) {
+    let cr3 = InterceptType::Cr(CrType::Cr3);
+    debugger_exclusion(drv, cr3, cr3);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_cr_debugger_exclusion",
+    test_fn: vboxvmi_cr_debugger_exclusion
 });
 
 /// A parked vCPU serves register reads/writes; pause and resume do not answer its event.
@@ -1319,6 +1391,409 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_events_parked_vcpu",
     test_fn: vboxvmi_parked_vcpu
+});
+
+/// Control register number of `cr`.
+#[cfg(feature = "virtualbox-vmi")]
+fn cr_number(cr: CrType) -> u8 {
+    match cr {
+        CrType::Cr0 => 0,
+        CrType::Cr3 => 3,
+        CrType::Cr4 => 4,
+    }
+}
+
+/// `cr`'s value in `regs`.
+#[cfg(feature = "virtualbox-vmi")]
+fn cr_value(regs: &X86Registers, cr: CrType) -> u64 {
+    match cr {
+        CrType::Cr0 => regs.cr0,
+        CrType::Cr3 => regs.cr3,
+        CrType::Cr4 => regs.cr4,
+    }
+}
+
+/// Old and new value of a write event to `cr`.
+#[cfg(feature = "virtualbox-vmi")]
+fn cr_event(event: &Event, cr: CrType) -> (u64, u64) {
+    match event.kind {
+        EventType::Cr { cr_type, new, old } if cr_type == cr => (old, new),
+        ref other => panic!("not a {:?} write event: {:?}", cr, other),
+    }
+}
+
+/// The first bytes of the instruction at `regs.rip`, read through the page tables at `regs.cr3`.
+#[cfg(feature = "virtualbox-vmi")]
+fn code_at_rip(drv: &dyn Introspectable, regs: &X86Registers) -> Vec<u8> {
+    (regs.rip..regs.rip + 4)
+        .map(|vaddr| {
+            let gpa = translate(drv, regs.cr3, vaddr)
+                .unwrap_or_else(|| panic!("instruction byte {:#x} is not mapped", vaddr));
+            let mut byte = [0];
+            let mut bytes_read = 0;
+            drv.read_physical(gpa, &mut byte, &mut bytes_read).unwrap();
+            byte[0]
+        })
+        .collect()
+}
+
+/// Whether `code` starts with `MOV CRn, r64`: optional REX prefix, `0f 22`, ModRM with mod 11
+/// and reg `n`.
+#[cfg(feature = "virtualbox-vmi")]
+fn is_mov_to_cr(code: &[u8], n: u8) -> bool {
+    let code = match code[0] {
+        0x40..=0x4f => &code[1..],
+        _ => code,
+    };
+    code[..2] == [0x0f, 0x22] && code[2] >> 6 == 3 && (code[2] >> 3) & 7 == n
+}
+
+/// No event within 2 s of `activity`.
+#[cfg(feature = "virtualbox-vmi")]
+fn assert_no_event(drv: &mut dyn Introspectable, activity: &mut dyn FnMut(), what: &str) {
+    activity();
+    if let Some(event) = drv.listen(2000).unwrap() {
+        panic!("{}: {:?} on vCPU {}", what, event.kind, event.vcpu);
+    }
+}
+
+/// `events` write events to `cr`, with its Intercept on vCPU 0 only and `activity` making the
+/// guest write it; returns their old and new values. Each is reported before the write (the
+/// register still holds the old value) with RIP at a `MOV CRn`. Each old value is the previous
+/// event's new one, so the write proceeded with the new value after the reply (not checked for
+/// CR0: `CLTS`/`LMSW` are not reported). Reinjection is refused and leaves the vCPU parked. No
+/// event from a vCPU without the Intercept (needs 2 vCPUs); none after clearing it from within
+/// event handling.
+#[cfg(feature = "virtualbox-vmi")]
+fn cr_write_events(
+    drv: &mut dyn Introspectable,
+    cr: CrType,
+    events: usize,
+    activity: &mut dyn FnMut(),
+) -> Vec<(u64, u64)> {
+    let n = cr_number(cr);
+    drv.toggle_intercept(0, InterceptType::Cr(cr), true)
+        .unwrap();
+    let mut values: Vec<(u64, u64)> = Vec::new();
+    for _ in 0..events {
+        let event = next_event(drv, activity);
+        assert_eq!(event.vcpu, 0, "CR event from a vCPU without the Intercept");
+        let (old, new) = cr_event(&event, cr);
+        let regs = x86_registers(drv, 0);
+        assert_eq!(
+            old,
+            cr_value(&regs, cr),
+            "old value is not CR{} at the event",
+            n
+        );
+        if cr == CrType::Cr3 {
+            assert_eq!(new >> 63, 0, "CR3 new value {:#x} has bit 63 set", new);
+        }
+        if let (Some(&(_, previous)), true) = (values.last(), cr != CrType::Cr0) {
+            assert_eq!(
+                old, previous,
+                "CR{} is not the previous write's new value",
+                n
+            );
+        }
+        let code = code_at_rip(drv, &regs);
+        assert!(
+            is_mov_to_cr(&code, n),
+            "RIP {:#x} is not a MOV CR{}: {:02x?}",
+            regs.rip,
+            n,
+            code
+        );
+        let reinjected = drv.reply_event(
+            Event {
+                vcpu: 0,
+                kind: EventType::Cr {
+                    cr_type: cr,
+                    new,
+                    old,
+                },
+            },
+            EventReplyType::Continue { reinject: true },
+        );
+        assert!(reinjected.is_err(), "CR event reinjected");
+        let parked = x86_registers(drv, 0);
+        assert_eq!((parked.rip, cr_value(&parked, cr)), (regs.rip, old));
+        values.push((old, new));
+        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+            .unwrap();
+    }
+    let event = next_event(drv, activity);
+    assert_eq!(event.vcpu, 0, "CR event from a vCPU without the Intercept");
+    drv.toggle_intercept(0, InterceptType::Cr(cr), false)
+        .unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv, activity, "CR event after clear");
+    values
+}
+
+/// CR3 writes of the processes `start_guest_process` starts.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr3_write(mut drv: Box<dyn Introspectable>) {
+    cr_write_events(drv.as_mut(), CrType::Cr3, 8, &mut start_guest_process);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_cr3_write",
+    test_fn: vboxvmi_cr3_write
+});
+
+/// Runs `command` in the guest through `VBOX_TEST_GUEST_SSH`, an ssh command line into it,
+/// without waiting: the command may need the vCPU a test parks.
+#[cfg(feature = "virtualbox-vmi")]
+fn guest_command(command: &str) -> ChildGuard {
+    let ssh = env::var("VBOX_TEST_GUEST_SSH")
+        .expect("set VBOX_TEST_GUEST_SSH to an ssh command line into the test guest");
+    let mut ssh = ssh.split_whitespace();
+    let child = Command::new(ssh.next().expect("empty VBOX_TEST_GUEST_SSH"))
+        .args(ssh)
+        .arg(command)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("failed to start ssh");
+    ChildGuard::new(child)
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+const CR4_TSD: u64 = 1 << 2;
+
+/// A process on vCPU 0 with `PR_SET_TSC` set to `PR_TSC_SIGSEGV` (prctl 26, 2) sleeping in a
+/// loop: Linux flips CR4.TSD on every switch to and from it.
+#[cfg(feature = "virtualbox-vmi")]
+const CR4_TSD_COMMAND: &str = "taskset -c 0 perl -e 'syscall(157, 26, 2, 0, 0, 0) == 0 or die; select(undef, undef, undef, 0.01) for 1..500'";
+
+/// CR4 writes, including writes changing only CR4.TSD, a bit VirtualBox leaves to the guest.
+/// Needs the Ubuntu guest (`VBOX_TEST_VM=microvmi-ubuntu`) and `VBOX_TEST_GUEST_SSH`.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr4_write(mut drv: Box<dyn Introspectable>) {
+    let mut ssh = Vec::new();
+    let values = cr_write_events(drv.as_mut(), CrType::Cr4, 16, &mut || {
+        ssh.push(guest_command(CR4_TSD_COMMAND))
+    });
+    assert!(
+        values.iter().any(|(old, new)| old ^ new == CR4_TSD),
+        "no write changing only CR4.TSD: {:x?}",
+        values
+    );
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_ssh_events_cr4_write",
+    test_fn: vboxvmi_cr4_write
+});
+
+/// Adds and removes a write-combining MTRR: every CPU disables its caches meanwhile (CR0.CD).
+#[cfg(feature = "virtualbox-vmi")]
+const CR0_CD_COMMAND: &str = r#"sudo sh -c 'echo base=0xf0000000 size=0x100000 type=write-combining >/proc/mtrr; r=$(sed -n "s/^reg0*\([0-9][0-9]*\): base=0x0*f0000000 .*/\1/p" /proc/mtrr); echo disable=$r >/proc/mtrr'"#;
+
+#[cfg(feature = "virtualbox-vmi")]
+const CR0_CD: u64 = 1 << 30;
+
+/// CR0 writes: setting and clearing CR0.CD. Needs the Ubuntu guest
+/// (`VBOX_TEST_VM=microvmi-ubuntu`) and `VBOX_TEST_GUEST_SSH`.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr0_write(mut drv: Box<dyn Introspectable>) {
+    let mut ssh = Vec::new();
+    let values = cr_write_events(drv.as_mut(), CrType::Cr0, 4, &mut || {
+        ssh.push(guest_command(CR0_CD_COMMAND))
+    });
+    assert!(
+        values.iter().any(|(old, new)| old ^ new == CR0_CD),
+        "no write toggling CR0.CD: {:x?}",
+        values
+    );
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_ssh_events_cr0_write",
+    test_fn: vboxvmi_cr0_write
+});
+
+/// CR Intercepts are set and cleared while paused (no event while paused); a vCPU parked at a
+/// CR event stays parked, its write not done, through pause and resume; a reply while paused is
+/// accepted and the vCPU continues on resume.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr_paused(mut drv: Box<dyn Introspectable>) {
+    let cr3 = InterceptType::Cr(CrType::Cr3);
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, cr3, true).unwrap();
+    assert!(drv.listen(500).unwrap().is_none(), "CR event while paused");
+    drv.toggle_intercept(0, cr3, false).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(
+        drv.as_mut(),
+        &mut start_guest_process,
+        "CR event after clear",
+    );
+
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, cr3, true).unwrap();
+    drv.resume().unwrap();
+    let event = next_event(drv.as_mut(), &mut start_guest_process);
+    let (old, _) = cr_event(&event, CrType::Cr3);
+    let regs = x86_registers(drv.as_ref(), 0);
+    drv.pause().unwrap();
+    drv.resume().unwrap();
+    sleep(Duration::from_millis(200));
+    let parked = x86_registers(drv.as_ref(), 0);
+    assert_eq!(
+        (parked.rip, parked.cr3),
+        (regs.rip, old),
+        "vCPU left its CR event on pause and resume"
+    );
+    drv.pause().unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    drv.toggle_intercept(0, cr3, false).unwrap();
+    assert_eq!(vm_info("VMState"), "paused");
+    drv.resume().unwrap();
+    let resumed = vcpu_stats("cNsExecuting")[0];
+    sleep(Duration::from_millis(500));
+    assert!(
+        vcpu_stats("cNsExecuting")[0] > resumed,
+        "vCPU did not run after a reply while paused"
+    );
+    assert_no_event(
+        drv.as_mut(),
+        &mut start_guest_process,
+        "CR event after clear",
+    );
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_cr_paused",
+    test_fn: vboxvmi_cr_paused
+});
+
+/// With single step also set, the CR event comes first, then the single-step event after the
+/// write: CR3 then holds the new value.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cr_before_singlestep(mut drv: Box<dyn Introspectable>) {
+    let cr3 = InterceptType::Cr(CrType::Cr3);
+    drv.toggle_intercept(0, cr3, true).unwrap();
+    let event = next_event(drv.as_mut(), &mut start_guest_process);
+    let (_, new) = cr_event(&event, CrType::Cr3);
+    let rip = x86_registers(drv.as_ref(), 0).rip;
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    let step = drv
+        .listen(5000)
+        .unwrap()
+        .expect("no step after the CR event");
+    assert_eq!(step.vcpu, 0);
+    assert!(
+        matches!(step.kind, EventType::Singlestep { .. }),
+        "{:?} instead of the step after the CR event",
+        step.kind
+    );
+    let regs = x86_registers(drv.as_ref(), 0);
+    assert_ne!(regs.rip, rip, "step before the MOV CR3 executed");
+    assert_eq!(
+        regs.cr3, new,
+        "CR3 is not the CR event's new value after the step"
+    );
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.toggle_intercept(0, cr3, false).unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv.as_mut(), &mut start_guest_process, "event after clear");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_cr_before_singlestep",
+    test_fn: vboxvmi_cr_before_singlestep
+});
+
+/// x2APIC TMICT (LAPIC timer initial count), which the idle test guest writes about 900 times a
+/// second; it also writes the x2APIC EOI (0x80b) as often, without the Intercept.
+#[cfg(feature = "virtualbox-vmi")]
+const TEST_MSR: u32 = 0x838;
+
+/// Write events for `TEST_MSR` with its Intercept on vCPU 0 only: the right MSR index on the
+/// right vCPU only (the guest writes other MSRs too), reported before the write with RIP at a
+/// `WRMSR` (ECX the index, EDX:EAX the new value). Each old value is the previous event's new one
+/// (TMICT reads back what was written), so the write proceeded after the reply. Reinjection is
+/// refused and leaves the vCPU parked; none after clearing the Intercept from within event
+/// handling.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_msr_write(mut drv: Box<dyn Introspectable>) {
+    let intercept = InterceptType::Msr(TEST_MSR);
+    drv.toggle_intercept(0, intercept, true).unwrap();
+    let mut previous_new = None;
+    for _ in 0..8 {
+        let event = next_event(drv.as_mut(), &mut || {});
+        assert_eq!(event.vcpu, 0, "MSR event from a vCPU without the Intercept");
+        let (old, new) = match event.kind {
+            EventType::Msr {
+                msr_type,
+                value,
+                old,
+            } => {
+                assert_eq!(msr_type, TEST_MSR, "event for an MSR without the Intercept");
+                (old, value)
+            }
+            ref other => panic!("not an MSR write event: {:?}", other),
+        };
+        if let Some(previous) = previous_new {
+            assert_eq!(old, previous, "MSR is not the previous write's new value");
+        }
+        previous_new = Some(new);
+        let regs = x86_registers(drv.as_ref(), 0);
+        assert_eq!(regs.rcx as u32, TEST_MSR, "ECX is not the MSR index");
+        assert_eq!(
+            new,
+            (regs.rdx << 32) | (regs.rax & 0xffff_ffff),
+            "new value is not EDX:EAX"
+        );
+        let code = code_at_rip(drv.as_ref(), &regs);
+        assert_eq!(
+            code[..2],
+            [0x0f, 0x30],
+            "RIP {:#x} is not a WRMSR",
+            regs.rip
+        );
+        let reinjected = drv.reply_event(
+            Event {
+                vcpu: 0,
+                kind: EventType::Msr {
+                    msr_type: TEST_MSR,
+                    value: new,
+                    old,
+                },
+            },
+            EventReplyType::Continue { reinject: true },
+        );
+        assert!(reinjected.is_err(), "MSR event reinjected");
+        assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip);
+        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+            .unwrap();
+    }
+    let event = next_event(drv.as_mut(), &mut || {});
+    drv.toggle_intercept(0, intercept, false).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv.as_mut(), &mut || {}, "MSR event after clear");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_msr_write",
+    test_fn: vboxvmi_msr_write
 });
 
 /// The registers make sense against guest memory: walking each vCPU's page tables from CR3

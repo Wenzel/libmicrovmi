@@ -17,6 +17,11 @@
 - **Breaking:** event replies now use `EventReplyType::Continue { reinject: bool }`: choose
   explicitly whether an intercepted breakpoint is delivered to the guest. Reinjection on
   other event kinds is an error (ADR-0005); KVMi uses `Retry` for non-reinjected breakpoints.
+- `Introspectable` methods a driver does not implement, and the Xen driver's unsupported intercept
+  and event kinds, now return `MicrovmiError::NotSupported` (naming the operation) instead of
+  panicking; over the C API that is a `false` return instead of an abort.
+- **Breaking:** `EventType::Msr` gains `old`, the MSR's value before the write (C:
+  `EventType_Msr_Body.old`). KVM reports KVMi's old value; Xen does not expose it and reports 0.
 
 ### Added
 
@@ -27,3 +32,8 @@
   offer events and returns a clear error.
 - C API: `microvmi_toggle_intercept`, `microvmi_listen`, `microvmi_reply_event`, with plain C
   event/reply types and an explicit `reinject` flag.
+- VBoxVMI CR0/CR3/CR4 write and MSR write intercepts (`InterceptType::Cr`, `InterceptType::Msr`),
+  VT-x only: events are reported before the write with the old and new value, the vCPU parked
+  at the `MOV CRx`/`WRMSR` until the reply. Reinjection on them is an error.
+- The `msr-events` example prints the old value and accepts `-r` MSR indexes (decimal or `0x`
+  hex); `cr-events` intercepts every vCPU and replies to each event.

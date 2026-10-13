@@ -16,7 +16,7 @@ _Avoid_: backend, mode, transport
 A VMI protocol served from inside a patched VirtualBox VM process over a Unix domain socket, with one client per VM.
 
 **VBoxVMI method**:
-The VirtualBox **access method** that speaks **VBoxVMI**. Fastest option; provides **VM state access** and breakpoint/single-step **VMI events**; requires a patched VirtualBox.
+The VirtualBox **access method** that speaks **VBoxVMI**. Fastest option; provides **VM state access** and breakpoint, single-step, CR0/CR3/CR4 write and MSR write **VMI events** (CR and MSR write Intercepts require VT-x); requires a patched VirtualBox.
 
 **MachineDebugger method**:
 The VirtualBox **access method** that uses VirtualBox's public `IMachineDebugger` COM API. Slower (cross-process RPC per call, and each memory access waits for the vCPU) and limited to **VM state access**, but intended to need no patched VirtualBox once upstreamed.

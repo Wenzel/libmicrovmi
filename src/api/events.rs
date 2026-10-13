@@ -39,6 +39,8 @@ pub enum EventType {
         msr_type: u32,
         /// new value after msr register has been intercepted by the guest.
         value: u64,
+        /// value of the msr register before the write. Xen does not report it: always 0 there.
+        old: u64,
     },
     ///int3 interception
     Breakpoint {

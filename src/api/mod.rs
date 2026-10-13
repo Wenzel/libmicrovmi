@@ -1,6 +1,7 @@
 use enum_iterator::IntoEnumIterator;
 use std::error::Error;
 
+use crate::errors::MicrovmiError;
 use events::{Event, EventReplyType, InterceptType};
 use registers::Registers;
 
@@ -53,11 +54,17 @@ pub enum DriverType {
 pub const PAGE_SHIFT: u32 = 12;
 pub const PAGE_SIZE: u32 = 4096;
 
+/// The result of an `Introspectable` method a driver does not implement.
+fn not_supported<T>(operation: &str) -> Result<T, Box<dyn Error>> {
+    Err(MicrovmiError::NotSupported(operation.into()).into())
+}
+
+/// Every method but `get_driver_type` defaults to a [`MicrovmiError::NotSupported`] error.
 pub trait Introspectable {
     /// Retrieve the number of VCPUs.
     ///
     fn get_vcpu_count(&self) -> Result<u16, Box<dyn Error>> {
-        unimplemented!();
+        not_supported("get_vcpu_count")
     }
 
     /// read the physical memory, starting from paddr, into buf
@@ -74,7 +81,7 @@ pub trait Introspectable {
         _buf: &mut [u8],
         _bytes_read: &mut u64,
     ) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("read_physical")
     }
 
     /// Modify contents of physical memory, starting at paddr, from buf
@@ -85,7 +92,7 @@ pub trait Introspectable {
     /// * 'buf' - the data to be written into memory
     ///
     fn write_physical(&self, _paddr: u64, _buf: &[u8]) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("write_physical")
     }
 
     /// Get the maximum physical address
@@ -93,7 +100,7 @@ pub trait Introspectable {
     /// Returns maximum physical address in 64 bit unsigned integer format.
     ///
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
-        unimplemented!();
+        not_supported("get_max_physical_addr")
     }
 
     /// Read register values
@@ -102,7 +109,7 @@ pub trait Introspectable {
     /// * 'vcpu' - vcpu id for which the value of registers are to be dumped as the argument
     ///
     fn read_registers(&self, _vcpu: u16) -> Result<Registers, Box<dyn Error>> {
-        unimplemented!();
+        not_supported("read_registers")
     }
 
     ///get page access
@@ -111,7 +118,7 @@ pub trait Introspectable {
     /// * 'paddr' - physical address of the page whose access we want to know.
     ///
     fn get_page_access(&self, _paddr: u64) -> Result<Access, Box<dyn Error>> {
-        unimplemented!();
+        not_supported("get_page_access")
     }
 
     ///set page access
@@ -121,7 +128,7 @@ pub trait Introspectable {
     /// * 'access' - access flags to be set on the given page
     ///
     fn set_page_access(&self, _paddr: u64, _access: Access) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("set_page_access")
     }
 
     /// Write register values
@@ -131,19 +138,19 @@ pub trait Introspectable {
     /// * 'reg' - Registers enum having values to be set
     ///
     fn write_registers(&self, _vcpu: u16, _reg: Registers) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("write_registers")
     }
 
     /// Used to pause the VM
     ///
     fn pause(&mut self) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("pause")
     }
 
     /// Used to resume the VM
     ///
     fn resume(&mut self) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("resume")
     }
 
     /// Used to enable/disable an event interception
@@ -159,7 +166,7 @@ pub trait Introspectable {
         _intercept_type: InterceptType,
         _enabled: bool,
     ) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("toggle_intercept")
     }
 
     /// Listen and return the next event, or None
@@ -168,7 +175,7 @@ pub trait Introspectable {
     /// * 'timeout' - Time in milliseconds for which it will wait for a new event
     ///
     fn listen(&mut self, _timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
-        unimplemented!();
+        not_supported("listen")
     }
 
     /// Send reply corresponding to the current event being popped
@@ -184,9 +191,54 @@ pub trait Introspectable {
         _event: Event,
         _reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
-        unimplemented!();
+        not_supported("reply_event")
     }
 
     /// Return the concrete DriverType
     fn get_driver_type(&self) -> DriverType;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::events::{CrType, EventType};
+    use crate::api::registers::X86Registers;
+
+    struct Nothing;
+
+    impl Introspectable for Nothing {
+        fn get_driver_type(&self) -> DriverType {
+            DriverType::KVM
+        }
+    }
+
+    #[test]
+    fn defaults_return_not_supported() {
+        let mut d = Nothing;
+        assert!(d.get_vcpu_count().is_err());
+        assert!(d.read_physical(0, &mut [0; 1], &mut 0).is_err());
+        assert!(d.write_physical(0, &[0]).is_err());
+        assert!(d.get_max_physical_addr().is_err());
+        assert!(d.read_registers(0).is_err());
+        assert!(d.get_page_access(0).is_err());
+        assert!(d.set_page_access(0, Access::R).is_err());
+        assert!(d
+            .write_registers(0, Registers::X86(X86Registers::default()))
+            .is_err());
+        assert!(d.pause().is_err());
+        assert!(d.resume().is_err());
+        assert!(d
+            .toggle_intercept(0, InterceptType::Cr(CrType::Cr3), true)
+            .is_err());
+        assert!(d.listen(0).is_err());
+        let event = Event {
+            vcpu: 0,
+            kind: EventType::Singlestep { gpa: 0 },
+        };
+        assert!(d
+            .reply_event(event, EventReplyType::Continue { reinject: false })
+            .is_err());
+        let e = d.pause().unwrap_err().to_string();
+        assert!(e.contains("pause") && e.contains("not supported"), "{}", e);
+    }
 }
