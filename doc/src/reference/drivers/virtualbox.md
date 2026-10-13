@@ -51,9 +51,11 @@ Segment selectors, bases and limits are written as raw state: no descriptor tabl
 
 ### VMI events
 
-`toggle_intercept(vcpu, InterceptType::Breakpoint | InterceptType::Singlestep, enabled)` sets or
-clears an intercept, also while paused or while handling an event on that vCPU. Other intercept
-kinds are not supported by this access method. `listen(timeout_ms)` returns the oldest pending
+`toggle_intercept(vcpu, intercept, enabled)` sets or clears an intercept, also while paused or
+while handling an event on that vCPU: `InterceptType::Breakpoint`, `InterceptType::Singlestep`,
+`InterceptType::Cr(CrType::Cr0 | Cr3 | Cr4)` (writes to that control register) and
+`InterceptType::Msr(index)` (writes to that MSR). The page fault intercept is not supported by
+this access method. `listen(timeout_ms)` returns the oldest pending
 event across vCPUs or `None` after the timeout. Each reported event parks only its vCPU; other
 vCPUs continue. The client can read and write the parked vCPU's registers and guest memory, and
 pause/resume keeps it parked.
@@ -65,6 +67,20 @@ instruction, or choose `reinject: true` to deliver the guest's own #BP. A single
 `gpa` points at the next instruction (at RIP); reply with `reinject: false`. Reinjection on a
 non-breakpoint event fails without releasing the vCPU. A reply for an unparked vCPU or a second
 reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does.
+
+CR and MSR write intercepts need VT-x; setting one on AMD-V or NEM fails with "not supported".
+A vCPU holds at most 64 MSR intercepts; setting more fails. Only the intercepted vCPU and
+register exit: the other vCPUs, MSR reads and other MSRs run at full speed. Writes are reported
+before they take effect: every `MOV CR3` and `WRMSR` (also unchanged values and MSRs VirtualBox
+does not implement), and every `MOV CR0`/`MOV CR4` that changes the register, including bits
+VirtualBox normally leaves to the guest (VT-x does not exit on an unchanged CR0/CR4 write;
+`CLTS` and `LMSW` are not reported). RIP points at the `MOV CRx` or `WRMSR`, the register still
+holds `old`, and after `reply_event(event, EventReplyType::Continue { reinject: false })` the
+instruction executes unchanged (change the source register first to write another value). A CR
+event's `new` is the value the register will hold (CR3: bit 63, the PCID no-flush bit,
+cleared); an MSR event's `value` is EDX:EAX and `old` is the MSR's current value, 0 for an MSR
+VirtualBox does not implement (the guest then gets its #GP). With single step also set, the CR
+or MSR event comes first, then the single-step event after the instruction.
 
 VBoxVMI intercepts and the VirtualBox debugger exclude each other: setting an intercept while
 the debugger is attached fails; debugger attachment while any intercept is set fails. Clear the

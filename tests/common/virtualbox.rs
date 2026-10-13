@@ -209,6 +209,14 @@ fn power_off_and_restore() {
     });
 }
 
+/// Types `ls /` and Enter at the guest console: a new process (`login` at the login prompt, `ls`
+/// in a shell), whose address space switches write CR3. The idle test guest writes none.
+pub fn start_guest_process() {
+    let vm = vm_name();
+    vboxmanage(&["controlvm", &vm, "keyboardputstring", "ls /"]);
+    vboxmanage(&["controlvm", &vm, "keyboardputscancode", "1c", "9c"]);
+}
+
 impl VirtualBox {
     /// Driver params for the test VM and `method`.
     pub fn init_params(&self) -> DriverInitParams {
@@ -303,6 +311,10 @@ impl Context for VirtualBox {
     fn timeout(&self) -> Duration {
         let mib: u64 = vm_info("memory").parse().unwrap();
         Duration::from_secs(TIMEOUT + 10 * mib / 1024)
+    }
+
+    fn start_guest_process(&self) {
+        start_guest_process()
     }
 
     fn vcpu_count(&self) -> u16 {

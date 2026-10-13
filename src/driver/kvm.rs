@@ -308,9 +308,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                         new,
                         old,
                     },
-                    KVMiEventType::Msr { msr_type, new, old: _ } => EventType::Msr {
+                    KVMiEventType::Msr { msr_type, new, old } => EventType::Msr {
                         msr_type,
                         value: new,
+                        old,
                     },
                     KVMiEventType::Breakpoint {gpa, insn_len } =>  EventType::Breakpoint {
                         gpa,

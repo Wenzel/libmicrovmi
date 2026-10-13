@@ -16,6 +16,9 @@ pub trait Context: Send {
     fn vcpu_count(&self) -> u16 {
         VM_VCPU_COUNT
     }
+    /// Makes the guest start a process soon, which writes CR3, for tests waiting for CR3 write
+    /// events. Default: nothing, the guest switches processes on its own.
+    fn start_guest_process(&self) {}
 }
 
 #[cfg(feature = "kvm")]

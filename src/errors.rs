@@ -15,6 +15,8 @@ pub enum MicrovmiError {
         method: &'static str,
         feature: &'static str,
     },
+    #[error("{0} is not supported by this driver")]
+    NotSupported(String),
     #[error("{source}")]
     Other {
         #[from]

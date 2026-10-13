@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use vboxvmi::{Client, EventKind, InterceptKind, Segment, TableRegister};
 
-use crate::api::events::{Event, EventReplyType, EventType, InterceptType};
+use crate::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable};
 use crate::driver::EferMismatch;
@@ -20,6 +20,8 @@ pub enum VBoxVmiDriverError {
     Unwritable { addr: u64, rc: i32 },
     #[error("VirtualBox driver, VBoxVMI method: {0:?} intercepts are not supported")]
     InterceptNotSupported(InterceptType),
+    #[error("VirtualBox driver, VBoxVMI method: CR write event for CR{0}, not CR0, CR3 or CR4")]
+    UnexpectedCr(u32),
 }
 
 fn segment_reg(s: &Segment) -> SegmentReg {
@@ -264,8 +266,10 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.get_mut().resume()?)
     }
 
-    /// Breakpoint and single step only. Idempotent, per vCPU, also while paused or from within
-    /// the handling of an event before its reply. Fails while a VirtualBox debugger is attached.
+    /// Breakpoint, single step, CR0/CR3/CR4 write and MSR write (one MSR index per Intercept).
+    /// Idempotent, per vCPU, also while paused or from within the handling of an event before
+    /// its reply. Fails while a VirtualBox debugger is attached; CR and MSR write Intercepts fail
+    /// with "not supported" on AMD-V and NEM (VT-x only).
     fn toggle_intercept(
         &mut self,
         vcpu: u16,
@@ -275,6 +279,10 @@ impl Introspectable for VBoxVmi {
         let kind = match intercept_type {
             InterceptType::Breakpoint => InterceptKind::Breakpoint,
             InterceptType::Singlestep => InterceptKind::Singlestep,
+            InterceptType::Cr(CrType::Cr0) => InterceptKind::CrWrite(0),
+            InterceptType::Cr(CrType::Cr3) => InterceptKind::CrWrite(3),
+            InterceptType::Cr(CrType::Cr4) => InterceptKind::CrWrite(4),
+            InterceptType::Msr(index) => InterceptKind::MsrWrite(index),
             other => return Err(VBoxVmiDriverError::InterceptNotSupported(other).into()),
         };
         let client = self.client.get_mut();
@@ -285,7 +293,9 @@ impl Introspectable for VBoxVmi {
     }
 
     /// The oldest event of any vCPU, which stays parked until `reply_event`; the other vCPUs keep
-    /// running. At a breakpoint event RIP is the int3's address.
+    /// running. At a breakpoint event RIP is the int3's address. CR and MSR write events come
+    /// before the write: the register still holds `old`, RIP is at the `MOV CRx`/`WRMSR`, which
+    /// executes after the reply (CR3's `new` has bit 63, PCID no-flush, cleared).
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         let event = match self
             .client
@@ -301,6 +311,21 @@ impl Introspectable for VBoxVmi {
                 insn_len: u8::try_from(insn_len)?,
             },
             EventKind::Singlestep { gpa } => EventType::Singlestep { gpa },
+            EventKind::CrWrite { cr, old, new } => EventType::Cr {
+                cr_type: match cr {
+                    0 => CrType::Cr0,
+                    3 => CrType::Cr3,
+                    4 => CrType::Cr4,
+                    other => return Err(VBoxVmiDriverError::UnexpectedCr(other).into()),
+                },
+                new,
+                old,
+            },
+            EventKind::MsrWrite { msr, old, new } => EventType::Msr {
+                msr_type: msr,
+                value: new,
+                old,
+            },
         };
         Ok(Some(Event {
             vcpu: u16::try_from(event.vcpu)?,
@@ -309,8 +334,8 @@ impl Introspectable for VBoxVmi {
     }
 
     /// Releases the parked vCPU, also while the VM is paused (it continues on resume). Fails, and
-    /// the vCPU stays parked, on reinjection for a single-step event; fails for a vCPU that is not
-    /// parked, including a second reply.
+    /// the vCPU stays parked, on reinjection for any event but a breakpoint (single step, CR or
+    /// MSR write); fails for a vCPU that is not parked, including a second reply.
     fn reply_event(
         &mut self,
         event: Event,
