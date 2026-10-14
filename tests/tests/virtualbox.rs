@@ -21,7 +21,7 @@ use log::debug;
 #[cfg(feature = "virtualbox-vmi")]
 use microvmi::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use microvmi::api::registers::{Registers, X86Registers};
-use microvmi::api::{Introspectable, PAGE_SIZE};
+use microvmi::api::{Access, Introspectable, PAGE_SIZE};
 
 #[cfg(feature = "virtualbox-vmi")]
 use super::next_event;
@@ -390,6 +390,7 @@ fn parked_child_intercept(name: &str) -> InterceptType {
         "singlestep" => InterceptType::Singlestep,
         "cr3" => InterceptType::Cr(CrType::Cr3),
         "msr" => InterceptType::Msr(TEST_MSR),
+        "pagefault" => InterceptType::Pagefault,
         other => panic!("unknown parked child Intercept {:?}", other),
     }
 }
@@ -409,12 +410,20 @@ pub fn vboxvmi_parked_child() -> ! {
         }),
     )
     .expect("child failed to connect");
-    drv.toggle_intercept(0, intercept, true).unwrap();
+    // a page-access event needs a restriction: the page of RIP, printed after the readiness line
+    let page = match intercept {
+        InterceptType::Pagefault => Some(restrict_rip_page(drv.as_mut(), Access::RW)),
+        _ => {
+            drv.toggle_intercept(0, intercept, true).unwrap();
+            None
+        }
+    };
     let event = next_event(drv.as_mut(), &mut start_guest_process);
     let expected = match (intercept, &event.kind) {
         (InterceptType::Singlestep, EventType::Singlestep { .. }) => true,
         (InterceptType::Cr(cr), EventType::Cr { cr_type, .. }) => *cr_type == cr,
         (InterceptType::Msr(index), EventType::Msr { msr_type, .. }) => *msr_type == index,
+        (InterceptType::Pagefault, EventType::Pagefault { .. }) => true,
         _ => false,
     };
     assert!(
@@ -423,6 +432,9 @@ pub fn vboxvmi_parked_child() -> ! {
         event.kind, intercept
     );
     println!("parked");
+    if let Some(page) = page {
+        println!("{:#x}", page);
+    }
     std::io::stdout()
         .flush()
         .expect("child failed to flush readiness");
@@ -523,11 +535,18 @@ fn killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>, intercept: &
         .spawn()
         .expect("failed to start parked client");
     let mut child = ChildGuard::new(child);
+    let mut stdout = BufReader::new(child.child_mut().stdout.take().unwrap());
     let mut ready = String::new();
-    BufReader::new(child.child_mut().stdout.take().unwrap())
+    stdout
         .read_line(&mut ready)
         .expect("failed to read child readiness");
     assert_eq!(ready.trim_end(), "parked", "child did not park vCPU");
+    let mut page = String::new();
+    if intercept == "pagefault" {
+        stdout
+            .read_line(&mut page)
+            .expect("failed to read child page");
+    }
     let before = vcpu_stats("cNsExecuting")[0];
     sleep(Duration::from_millis(200));
     assert_eq!(vcpu_stats("cNsExecuting")[0], before);
@@ -543,6 +562,14 @@ fn killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>, intercept: &
         }),
     )
     .unwrap();
+    if intercept == "pagefault" {
+        let page = u64::from_str_radix(page.trim().trim_start_matches("0x"), 16).unwrap();
+        assert_eq!(
+            drv.get_page_access(page).unwrap(),
+            Access::RWX,
+            "page access restriction left after disconnect"
+        );
+    }
     assert_no_event(
         drv.as_mut(),
         &mut start_guest_process,
@@ -587,6 +614,17 @@ fn vboxvmi_killed_client_releases_msr_parked_vcpu(drv: Box<dyn Introspectable>) 
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_disconnect_killed_client_releases_msr_parked_vcpu",
     test_fn: vboxvmi_killed_client_releases_msr_parked_vcpu
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_killed_client_releases_page_access_parked_vcpu(drv: Box<dyn Introspectable>) {
+    killed_client_releases_parked_vcpu(drv, "pagefault");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_disconnect_killed_client_releases_page_access_parked_vcpu",
+    test_fn: vboxvmi_killed_client_releases_page_access_parked_vcpu
 });
 
 #[cfg(feature = "virtualbox-vmi")]
@@ -1422,10 +1460,10 @@ fn cr_event(event: &Event, cr: CrType) -> (u64, u64) {
     }
 }
 
-/// The first bytes of the instruction at `regs.rip`, read through the page tables at `regs.cr3`.
+/// The first `len` bytes at `regs.rip`, read through the page tables at `regs.cr3`.
 #[cfg(feature = "virtualbox-vmi")]
-fn code_at_rip(drv: &dyn Introspectable, regs: &X86Registers) -> Vec<u8> {
-    (regs.rip..regs.rip + 4)
+fn code_at_rip(drv: &dyn Introspectable, regs: &X86Registers, len: u64) -> Vec<u8> {
+    (regs.rip..regs.rip + len)
         .map(|vaddr| {
             let gpa = translate(drv, regs.cr3, vaddr)
                 .unwrap_or_else(|| panic!("instruction byte {:#x} is not mapped", vaddr));
@@ -1496,7 +1534,7 @@ fn cr_write_events(
                 n
             );
         }
-        let code = code_at_rip(drv, &regs);
+        let code = code_at_rip(drv, &regs, 4);
         assert!(
             is_mov_to_cr(&code, n),
             "RIP {:#x} is not a MOV CR{}: {:02x?}",
@@ -1719,6 +1757,483 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_cr_before_singlestep
 });
 
+/// The gva, gpa and access of a page-access event.
+#[cfg(feature = "virtualbox-vmi")]
+fn page_access_event(event: &Event) -> (u64, u64, Access) {
+    match event.kind {
+        EventType::Pagefault { gva, gpa, access } => (gva, gpa, access),
+        ref other => panic!("{:?} instead of a page-access event", other),
+    }
+}
+
+/// Restricts the page of vCPU 0's RIP, the idle loop of the idle test guest, which runs again at
+/// every timer interrupt, to `allowed` while paused, and sets the page-access Intercept on vCPU 0
+/// only. Returns RIP's gpa.
+#[cfg(feature = "virtualbox-vmi")]
+fn restrict_rip_page(drv: &mut dyn Introspectable, allowed: Access) -> u64 {
+    drv.pause().unwrap();
+    let regs = x86_registers(drv, 0);
+    let gpa = translate(drv, regs.cr3, regs.rip).expect("RIP is not mapped");
+    assert_eq!(
+        drv.get_page_access(gpa).unwrap(),
+        Access::RWX,
+        "unrestricted page"
+    );
+    drv.set_page_access(gpa, allowed).unwrap();
+    assert_eq!(drv.get_page_access(gpa).unwrap(), allowed, "get after set");
+    drv.toggle_intercept(0, InterceptType::Pagefault, true)
+        .unwrap();
+    drv.resume().unwrap();
+    gpa
+}
+
+/// The next event, an execute access of vCPU 0 at RIP, on `page`. Returns it with RIP.
+#[cfg(feature = "virtualbox-vmi")]
+fn execute_event(drv: &mut dyn Introspectable, page: u64) -> (Event, u64) {
+    let event = drv.listen(5000).unwrap().expect("no page-access event");
+    assert_eq!(
+        event.vcpu, 0,
+        "page-access event from a vCPU without the Intercept"
+    );
+    let (gva, gpa, access) = page_access_event(&event);
+    let regs = x86_registers(drv, 0);
+    assert_eq!(access, Access::X);
+    assert_eq!(gpa / PAGE, page / PAGE, "event outside the restricted page");
+    assert_eq!(
+        translate(drv, regs.cr3, regs.rip),
+        Some(gpa),
+        "gpa is not RIP's"
+    );
+    assert!(
+        gva == 0 || gva == regs.rip,
+        "gva {:#x}, RIP {:#x}",
+        gva,
+        regs.rip
+    );
+    (event, regs.rip)
+}
+
+/// Execute restriction on the idle loop: refusals, events at RIP on vCPU 0 only, reinjection and
+/// a reply that does not fit refused with the vCPU parked, a plain retry faulting again,
+/// `Emulate` running one instruction with the restriction kept, and no event once lifted.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_page_access_execute(mut drv: Box<dyn Introspectable>) {
+    assert!(
+        drv.set_page_access(0, Access::W).is_err(),
+        "write without read"
+    );
+    assert!(
+        drv.set_page_access(0, Access::WX).is_err(),
+        "write without read"
+    );
+    assert!(
+        drv.set_page_access(0xfee0_0000, Access::R).is_err(),
+        "local APIC (MMIO) page"
+    );
+    let page = restrict_rip_page(drv.as_mut(), Access::RW);
+    let (event, rip) = execute_event(drv.as_mut(), page);
+    if drv.get_vcpu_count().unwrap() > 1 {
+        let before = vcpu_stats("cNsExecuting")[1];
+        sleep(Duration::from_millis(500));
+        assert!(
+            vcpu_stats("cNsExecuting")[1] > before,
+            "vCPU without the Intercept stopped on the restricted page"
+        );
+    }
+    assert!(drv
+        .reply_event(event.clone(), EventReplyType::Continue { reinject: true })
+        .is_err());
+    assert!(drv
+        .reply_event(
+            event.clone(),
+            EventReplyType::EmulateInsn { data: [0x90; 16] }
+        )
+        .is_err());
+    assert_eq!(
+        x86_registers(drv.as_ref(), 0).rip,
+        rip,
+        "vCPU left on a refused reply"
+    );
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    let (event, retried) = execute_event(drv.as_mut(), page);
+    assert_eq!(retried, rip, "retry did not fault again");
+
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    drv.reply_event(event, EventReplyType::Emulate).unwrap();
+    let step = drv.listen(5000).unwrap().expect("no step after Emulate");
+    assert!(
+        matches!(step.kind, EventType::Singlestep { .. }),
+        "{:?}",
+        step.kind
+    );
+    assert_ne!(
+        x86_registers(drv.as_ref(), 0).rip,
+        rip,
+        "Emulate did not run the instruction"
+    );
+    assert_eq!(
+        drv.get_page_access(page).unwrap(),
+        Access::RW,
+        "Emulate lifted the restriction"
+    );
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+        .unwrap();
+
+    let (event, _) = execute_event(drv.as_mut(), page);
+    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv.as_mut(), &mut || (), "page-access event after lifting");
+    drv.toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_page_access_execute",
+    test_fn: vboxvmi_page_access_execute
+});
+
+/// Restricts the page of vCPU 0's RSP, the idle task's stack, to `allowed`, with the page-access
+/// Intercept on vCPU 0. Returns RSP's gpa.
+#[cfg(feature = "virtualbox-vmi")]
+fn restrict_stack_page(drv: &mut dyn Introspectable, allowed: Access) -> u64 {
+    drv.pause().unwrap();
+    let regs = x86_registers(drv, 0);
+    let gpa = translate(drv, regs.cr3, regs.rsp).expect("RSP is not mapped");
+    drv.set_page_access(gpa, allowed).unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, true)
+        .unwrap();
+    drv.resume().unwrap();
+    gpa
+}
+
+/// The next page-access event of vCPU 0 on `page`, checking gva against gpa and that RIP is mapped.
+#[cfg(feature = "virtualbox-vmi")]
+fn data_event(drv: &mut dyn Introspectable, page: u64) -> (Event, Access, u64, X86Registers) {
+    let event = drv.listen(5000).unwrap().expect("no page-access event");
+    assert_eq!(
+        event.vcpu, 0,
+        "page-access event from a vCPU without the Intercept"
+    );
+    let (gva, gpa, access) = page_access_event(&event);
+    let regs = x86_registers(drv, 0);
+    assert_eq!(gpa / PAGE, page / PAGE, "event outside the restricted page");
+    assert!(
+        gva == 0 || translate(drv, regs.cr3, gva) == Some(gpa),
+        "gva {:#x} is not gpa {:#x}",
+        gva,
+        gpa
+    );
+    assert!(
+        translate(drv, regs.cr3, regs.rip).is_some(),
+        "RIP is not mapped"
+    );
+    (event, access, gpa, regs)
+}
+
+/// Write restriction on the idle stack: write events, a plain retry faulting again at the same
+/// RIP, reinjection refused, no event once lifted.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_page_access_write(mut drv: Box<dyn Introspectable>) {
+    let page = restrict_stack_page(drv.as_mut(), Access::RX);
+    let (event, access, gpa, regs) = data_event(drv.as_mut(), page);
+    assert_eq!(access, Access::W);
+    assert!(drv
+        .reply_event(event.clone(), EventReplyType::Continue { reinject: true })
+        .is_err());
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    let (event, access, retried, again) = data_event(drv.as_mut(), page);
+    assert_eq!(
+        (access, retried, again.rip),
+        (Access::W, gpa, regs.rip),
+        "retry did not fault again"
+    );
+    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv.as_mut(), &mut || (), "page-access event after lifting");
+    drv.toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_page_access_write",
+    test_fn: vboxvmi_page_access_write
+});
+
+/// The register `POP` (`58+r`, `41 58+r`) writes, `None` for any other instruction and for
+/// `POP RSP`.
+#[cfg(feature = "virtualbox-vmi")]
+fn pop_register<'a>(code: &[u8], regs: &'a mut X86Registers) -> Option<&'a mut u64> {
+    let (high, op) = match code {
+        [0x41, op @ 0x58..=0x5f, ..] => (8, op),
+        [op @ 0x58..=0x5f, ..] => (0, op),
+        _ => return None,
+    };
+    Some(match high + (op & 7) {
+        0 => &mut regs.rax,
+        1 => &mut regs.rcx,
+        2 => &mut regs.rdx,
+        3 => &mut regs.rbx,
+        5 => &mut regs.rbp,
+        6 => &mut regs.rsi,
+        7 => &mut regs.rdi,
+        8 => &mut regs.r8,
+        9 => &mut regs.r9,
+        10 => &mut regs.r10,
+        11 => &mut regs.r11,
+        12 => &mut regs.r12,
+        13 => &mut regs.r13,
+        14 => &mut regs.r14,
+        15 => &mut regs.r15,
+        _ => return None,
+    })
+}
+
+/// No access to the idle stack: read events; `Emulate` lets the other accesses through until a
+/// `POP` reads the page, whose `EmulateReadData` must land in its register (then restored to the
+/// stack's value, the guest must not run with it).
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
+    const DATA: u64 = 0x1122_3344_5566_7788;
+    let page = restrict_stack_page(drv.as_mut(), Access::NIL);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (event, real, regs) = loop {
+        assert!(
+            Instant::now() < deadline,
+            "no POP reading the restricted stack"
+        );
+        let (event, access, gpa, mut regs) = data_event(drv.as_mut(), page);
+        let code = code_at_rip(drv.as_ref(), &regs, 2);
+        if access == Access::R && pop_register(&code, &mut regs).is_some() {
+            let mut real = [0; 8];
+            drv.read_physical(gpa, &mut real, &mut 0).unwrap();
+            break (event, u64::from_le_bytes(real), regs);
+        }
+        drv.reply_event(event, EventReplyType::Emulate).unwrap();
+    };
+    assert!(drv
+        .reply_event(
+            event.clone(),
+            EventReplyType::EmulateInsn { data: [0x90; 16] }
+        )
+        .is_err());
+    let mut data = [0; 256];
+    data[..8].copy_from_slice(&DATA.to_le_bytes());
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    drv.reply_event(event, EventReplyType::EmulateReadData { size: 8, data })
+        .unwrap();
+    let step = drv
+        .listen(5000)
+        .unwrap()
+        .expect("no step after EmulateReadData");
+    assert!(
+        matches!(step.kind, EventType::Singlestep { .. }),
+        "{:?}",
+        step.kind
+    );
+    let code = code_at_rip(drv.as_ref(), &regs, 2);
+    let mut after = x86_registers(drv.as_ref(), 0);
+    let register = pop_register(&code, &mut after).unwrap();
+    assert_eq!(*register, DATA, "POP did not read the supplied data");
+    *register = real;
+    drv.write_registers(0, Registers::X86(after)).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_page_access_emulate_read_data",
+    test_fn: vboxvmi_page_access_emulate_read_data
+});
+
+/// With single step also set, the page-access event of the first instruction comes first, then,
+/// once the restriction is lifted, the step past it.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_page_access_before_singlestep(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    let page = restrict_rip_page(drv.as_mut(), Access::RW);
+    let (event, rip) = execute_event(drv.as_mut(), page);
+    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    let step = drv
+        .listen(5000)
+        .unwrap()
+        .expect("no step after the page-access event");
+    assert!(
+        matches!(step.kind, EventType::Singlestep { .. }),
+        "{:?}",
+        step.kind
+    );
+    assert_ne!(
+        x86_registers(drv.as_ref(), 0).rip,
+        rip,
+        "step before the instruction ran"
+    );
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+        .unwrap();
+    assert_no_event(drv.as_mut(), &mut || (), "event after clear");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_page_access_before_singlestep",
+    test_fn: vboxvmi_page_access_before_singlestep
+});
+
+/// `EmulateInsn` at a breakpoint runs supplied safe bytes while the int3 stays in guest
+/// memory; page-access emulation replies don't fit a breakpoint.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_emulate_insn(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    let before = x86_registers(drv.as_ref(), 0);
+    let gpa = translate(drv.as_ref(), before.cr3, before.rip).expect("RIP is not mapped");
+    let mut data = [0; 16];
+    data.copy_from_slice(&code_at_rip(drv.as_ref(), &before, 16));
+    assert_ne!(data[0], 0xcc, "RIP was already an int3");
+    let mut restore = BreakpointRestore {
+        drv,
+        gpa,
+        original: data[0],
+        patched: true,
+        intercepted: true,
+        paused: true,
+    };
+    restore.drv.write_physical(gpa, &[0xcc]).unwrap();
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    restore.drv.resume().unwrap();
+    restore.paused = false;
+    let event = restore.drv.listen(5000).unwrap().expect("no int3 at RIP");
+    assert!(matches!(event.kind, EventType::Breakpoint { gpa: addr, .. } if addr == gpa));
+    assert!(restore
+        .drv
+        .reply_event(event.clone(), EventReplyType::Emulate)
+        .is_err());
+    assert!(restore
+        .drv
+        .reply_event(
+            event.clone(),
+            EventReplyType::EmulateReadData {
+                size: 1,
+                data: [0; 256]
+            }
+        )
+        .is_err());
+    let replacement = [
+        0xb8, 0x34, 0x12, 0, 0, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+    ];
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    restore
+        .drv
+        .reply_event(event, EventReplyType::EmulateInsn { data: replacement })
+        .unwrap();
+    let step = restore
+        .drv
+        .listen(5000)
+        .unwrap()
+        .expect("no step after EmulateInsn");
+    assert!(
+        matches!(step.kind, EventType::Singlestep { .. }),
+        "{:?}",
+        step.kind
+    );
+    let after = x86_registers(restore.drv.as_ref(), 0);
+    assert_eq!(after.rax as u32, 0x1234, "supplied instruction did not run");
+    assert_eq!(after.rip, before.rip + 5, "instruction did not advance RIP");
+    let mut byte = [0];
+    restore.drv.read_physical(gpa, &mut byte, &mut 0).unwrap();
+    assert_eq!(byte[0], 0xcc, "int3 left guest memory");
+    restore.drv.pause().unwrap();
+    restore.paused = true;
+    restore.drv.write_physical(gpa, &data[..1]).unwrap();
+    restore.patched = false;
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    restore
+        .drv
+        .reply_event(step, EventReplyType::Continue { reinject: false })
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_emulate_insn",
+    test_fn: vboxvmi_emulate_insn
+});
+
+/// Page access restrictions and the VirtualBox debugger exclude each other like Intercepts;
+/// lifting a restriction works while it is attached.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_page_access_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    let regs = x86_registers(drv.as_ref(), 0);
+    let page = translate(drv.as_ref(), regs.cr3, regs.rsp).expect("RSP is not mapped");
+    drv.resume().unwrap();
+    drv.set_page_access(page, Access::RX).unwrap();
+    let (_, output) = debugger_console();
+    assert!(
+        output.contains("VERR_DBGF_VMI_INTERCEPTS_ACTIVE"),
+        "debugger attached with a page access restriction: {:?}",
+        output
+    );
+    drv.set_page_access(page, Access::RWX).unwrap();
+
+    let (console, output) = debugger_console();
+    assert!(
+        output.ends_with("VBoxDbg> "),
+        "debugger did not attach: {:?}",
+        output
+    );
+    let error = drv
+        .set_page_access(page, Access::RX)
+        .expect_err("restriction set with the debugger attached");
+    assert!(error.to_string().contains("debugger"), "{}", error);
+    drv.set_page_access(page, Access::RWX).unwrap();
+
+    drop(console);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while let Err(e) = drv.set_page_access(page, Access::RX) {
+        assert!(Instant::now() < deadline, "debugger still attached: {}", e);
+        sleep(Duration::from_millis(100));
+    }
+    drv.set_page_access(page, Access::RWX).unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_page_access_debugger_exclusion",
+    test_fn: vboxvmi_page_access_debugger_exclusion
+});
+
 /// x2APIC TMICT (LAPIC timer initial count), which the idle test guest writes about 900 times a
 /// second; it also writes the x2APIC EOI (0x80b) as often, without the Intercept.
 #[cfg(feature = "virtualbox-vmi")]
@@ -1760,7 +2275,7 @@ fn vboxvmi_msr_write(mut drv: Box<dyn Introspectable>) {
             (regs.rdx << 32) | (regs.rax & 0xffff_ffff),
             "new value is not EDX:EAX"
         );
-        let code = code_at_rip(drv.as_ref(), &regs);
+        let code = code_at_rip(drv.as_ref(), &regs, 4);
         assert_eq!(
             code[..2],
             [0x0f, 0x30],

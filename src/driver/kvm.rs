@@ -14,6 +14,7 @@ use crate::api::events::{CrType, Event, EventReplyType, EventType, InterceptType
 use crate::api::params::{DriverInitParams, KVMInitParams};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{Access, DriverType, Introspectable};
+use crate::errors::MicrovmiError;
 
 impl TryFrom<Access> for KVMiPageAccess {
     type Error = &'static str;
@@ -342,7 +343,11 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         event: Event,
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
-        let EventReplyType::Continue { reinject } = reply_type;
+        let EventReplyType::Continue { reinject } = reply_type else {
+            return Err(
+                MicrovmiError::NotSupported("reply_event: KVM emulation replies".into()).into(),
+            );
+        };
         // KVMi Continue reinjects a breakpoint; Retry re-executes from RIP
         let kvm_reply_type = match (&event.kind, reinject) {
             (EventType::Breakpoint { .. }, true) => KVMiEventReply::Continue,

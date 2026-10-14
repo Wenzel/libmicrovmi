@@ -35,6 +35,10 @@ Hypervisor-delivered notifications of guest activity (breakpoints, single steps,
 A client's request, for one vCPU, that one kind of guest activity be reported as a **VMI event**.
 _Avoid_: hook, trap, monitor
 
+**Page access restriction**:
+The accesses (read, write, execute) a client denies to one guest-physical RAM page, for the whole VM. A denied access by a vCPU is reported as a page-access **VMI event** only on vCPUs that have the page-access **Intercept**; device and DMA accesses are never restricted.
+_Avoid_: page permission, mem access (LibVMI's name), EPT protection
+
 **Parked vCPU**:
 A vCPU stopped by a **VMI event** until the client replies; the other vCPUs keep running.
 _Avoid_: paused vCPU (pause is VM-wide)
@@ -53,8 +57,9 @@ _Avoid_: DBGF (the internal component name)
 - The VirtualBox **Driver** offers the **VBoxVMI method** and the **MachineDebugger method**
 - Both methods provide **VM state access**; only the **VBoxVMI method** provides **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
-- A **VBoxVMI** client that disconnects leaves no session state behind: intercepts are removed, parked vCPUs released, and anything it paused is resumed
-- **Intercepts** are set per vCPU; a **VBoxVMI** client can set none while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set
+- A **VBoxVMI** client that disconnects leaves no session state behind: intercepts and **Page access restrictions** are removed, parked vCPUs released, and anything it paused is resumed
+- **Intercepts** are set per vCPU; a **VBoxVMI** client can set no **Intercept** or **Page access restriction** while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set
+- **Page access restrictions** are VM-wide, the page-access **Intercept** is per vCPU: a vCPU without the **Intercept** performs a restricted access unreported
 - A **Parked vCPU** stays parked across a pause; a client that disconnects releases its **Parked vCPUs** without **reinjection**
 - Whether a breakpoint is **reinjected** is part of the client's reply, not a property of the hypervisor
 

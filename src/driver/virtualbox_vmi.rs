@@ -5,11 +5,11 @@ use std::error::Error;
 use std::path::Path;
 use std::time::Duration;
 
-use vboxvmi::{Client, EventKind, InterceptKind, Segment, TableRegister};
+use vboxvmi::{Client, EventKind, InterceptKind, Reply, Segment, TableRegister};
 
 use crate::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
-use crate::api::{DriverType, Introspectable};
+use crate::api::{Access, DriverType, Introspectable};
 use crate::driver::EferMismatch;
 
 #[derive(thiserror::Error, Debug)]
@@ -18,10 +18,12 @@ pub enum VBoxVmiDriverError {
     Unreadable { addr: u64, rc: i32 },
     #[error("VirtualBox driver, VBoxVMI method: guest physical page {addr:#x} is unwritable (VirtualBox status {rc})")]
     Unwritable { addr: u64, rc: i32 },
-    #[error("VirtualBox driver, VBoxVMI method: {0:?} intercepts are not supported")]
-    InterceptNotSupported(InterceptType),
     #[error("VirtualBox driver, VBoxVMI method: CR write event for CR{0}, not CR0, CR3 or CR4")]
     UnexpectedCr(u32),
+    #[error("VirtualBox driver, VBoxVMI method: unexpected page access {0:#x}")]
+    UnexpectedAccess(u32),
+    #[error("VirtualBox driver, VBoxVMI method: emulation read data size {0}, not 1 to 256")]
+    ReadDataSize(u32),
 }
 
 fn segment_reg(s: &Segment) -> SegmentReg {
@@ -87,6 +89,10 @@ impl VBoxVmi {
 pub fn is_socket_missing(e: &(dyn Error + 'static)) -> bool {
     matches!(e.downcast_ref(), Some(vboxvmi::Error::Connect { source, .. })
         if source.kind() == std::io::ErrorKind::NotFound)
+}
+
+fn access(bits: u32) -> Result<Access, VBoxVmiDriverError> {
+    Access::from_bits(bits).ok_or(VBoxVmiDriverError::UnexpectedAccess(bits))
 }
 
 impl Introspectable for VBoxVmi {
@@ -266,10 +272,28 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.get_mut().resume()?)
     }
 
-    /// Breakpoint, single step, CR0/CR3/CR4 write and MSR write (one MSR index per Intercept).
-    /// Idempotent, per vCPU, also while paused or from within the handling of an event before
-    /// its reply. Fails while a VirtualBox debugger is attached; CR and MSR write Intercepts fail
-    /// with "not supported" on AMD-V and NEM (VT-x only).
+    /// The allowed access of `paddr`'s 4K page, RWX if never restricted.
+    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        Ok(access(self.client.borrow_mut().get_page_access(paddr)?)?)
+    }
+
+    /// Restricts `paddr`'s 4K RAM page to `access` (allowed) for every vCPU; RWX lifts the
+    /// restriction. Idempotent, also while paused or from within the handling of an event before
+    /// its reply. Fails for write without read, execute-only if the CPU's EPT cannot enforce it,
+    /// MMIO, ROM and unbacked addresses, while a VirtualBox debugger is attached, and with "not
+    /// supported" on AMD-V and NEM (VT-x only). Only vCPUs with the `Pagefault` Intercept report
+    /// denied accesses; the others perform them unreported.
+    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .client
+            .borrow_mut()
+            .set_page_access(paddr, access.bits())?)
+    }
+
+    /// Breakpoint, single step, CR0/CR3/CR4 write, MSR write (one MSR index per Intercept) and
+    /// page access (`Pagefault`). Idempotent, per vCPU, also while paused or from within the
+    /// handling of an event before its reply. Fails while a VirtualBox debugger is attached; CR,
+    /// MSR write and page access Intercepts fail with "not supported" on AMD-V and NEM (VT-x only).
     fn toggle_intercept(
         &mut self,
         vcpu: u16,
@@ -283,7 +307,7 @@ impl Introspectable for VBoxVmi {
             InterceptType::Cr(CrType::Cr3) => InterceptKind::CrWrite(3),
             InterceptType::Cr(CrType::Cr4) => InterceptKind::CrWrite(4),
             InterceptType::Msr(index) => InterceptKind::MsrWrite(index),
-            other => return Err(VBoxVmiDriverError::InterceptNotSupported(other).into()),
+            InterceptType::Pagefault => InterceptKind::PageAccess,
         };
         let client = self.client.get_mut();
         Ok(match enabled {
@@ -295,7 +319,9 @@ impl Introspectable for VBoxVmi {
     /// The oldest event of any vCPU, which stays parked until `reply_event`; the other vCPUs keep
     /// running. At a breakpoint event RIP is the int3's address. CR and MSR write events come
     /// before the write: the register still holds `old`, RIP is at the `MOV CRx`/`WRMSR`, which
-    /// executes after the reply (CR3's `new` has bit 63, PCID no-flush, cleared).
+    /// executes after the reply (CR3's `new` has bit 63, PCID no-flush, cleared). Page access
+    /// events come before the access, RIP at the faulting instruction; `access` is the single
+    /// access attempted, `gva` 0 when the CPU reported no linear address.
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         let event = match self
             .client
@@ -326,6 +352,15 @@ impl Introspectable for VBoxVmi {
                 value: new,
                 old,
             },
+            EventKind::PageAccess {
+                gpa,
+                gva,
+                access: bits,
+            } => EventType::Pagefault {
+                gva,
+                gpa,
+                access: access(bits)?,
+            },
         };
         Ok(Some(Event {
             vcpu: u16::try_from(event.vcpu)?,
@@ -333,19 +368,32 @@ impl Introspectable for VBoxVmi {
         }))
     }
 
-    /// Releases the parked vCPU, also while the VM is paused (it continues on resume). Fails, and
-    /// the vCPU stays parked, on reinjection for any event but a breakpoint (single step, CR or
-    /// MSR write); fails for a vCPU that is not parked, including a second reply.
+    /// Releases the parked vCPU, also while the VM is paused (it continues on resume). `Continue`
+    /// at a page-access event retries the access. `Emulate`/`EmulateReadData` (page-access event)
+    /// and `EmulateInsn` (breakpoint event) return once the vCPU ran the instruction, every page
+    /// access restriction ignored. Fails, and the vCPU stays parked untouched, on reinjection for
+    /// any event but a breakpoint, a reply that does not fit the event, or an emulation the
+    /// hypervisor cannot perform; fails for a vCPU that is not parked, including a second reply.
     fn reply_event(
         &mut self,
         event: Event,
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
-        let EventReplyType::Continue { reinject } = reply_type;
+        let reply = match &reply_type {
+            EventReplyType::Continue { reinject } => Reply::Continue {
+                reinject: *reinject,
+            },
+            EventReplyType::Emulate => Reply::Emulate,
+            EventReplyType::EmulateReadData { size, data } => Reply::EmulateReadData(
+                data.get(..*size as usize)
+                    .ok_or(VBoxVmiDriverError::ReadDataSize(*size))?,
+            ),
+            EventReplyType::EmulateInsn { data } => Reply::EmulateInsn(*data),
+        };
         Ok(self
             .client
             .get_mut()
-            .reply_event(event.vcpu.into(), reinject)?)
+            .reply_event(event.vcpu.into(), reply)?)
     }
 
     fn get_driver_type(&self) -> DriverType {

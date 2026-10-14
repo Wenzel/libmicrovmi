@@ -34,7 +34,8 @@ a version 1 client is refused at the handshake.
 
 Supported: reading and writing guest physical memory, reading and writing the complete x86 register set,
 max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
-pause/resume, vCPU count, and breakpoint (int3) and single-step intercepts per vCPU.
+pause/resume, vCPU count, page access restrictions, and breakpoint (int3), single-step, CR, MSR
+and page-access intercepts per vCPU.
 Physical reads and writes are served inside the VM process without waiting for a vCPU, batching pages into requests of at most 64 KiB.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
 A physical write to a non-RAM page fails; other pages in the same batch may already have been written, so writes are not atomic. MMIO devices are never accessed.
@@ -53,9 +54,9 @@ Segment selectors, bases and limits are written as raw state: no descriptor tabl
 
 `toggle_intercept(vcpu, intercept, enabled)` sets or clears an intercept, also while paused or
 while handling an event on that vCPU: `InterceptType::Breakpoint`, `InterceptType::Singlestep`,
-`InterceptType::Cr(CrType::Cr0 | Cr3 | Cr4)` (writes to that control register) and
-`InterceptType::Msr(index)` (writes to that MSR). The page fault intercept is not supported by
-this access method. `listen(timeout_ms)` returns the oldest pending
+`InterceptType::Cr(CrType::Cr0 | Cr3 | Cr4)` (writes to that control register),
+`InterceptType::Msr(index)` (writes to that MSR) and `InterceptType::Pagefault` (page-access
+events). `listen(timeout_ms)` returns the oldest pending
 event across vCPUs or `None` after the timeout. Each reported event parks only its vCPU; other
 vCPUs continue. The client can read and write the parked vCPU's registers and guest memory, and
 pause/resume keeps it parked.
@@ -66,7 +67,8 @@ points at the int3. Restore the original byte before
 instruction, or choose `reinject: true` to deliver the guest's own #BP. A single-step event's
 `gpa` points at the next instruction (at RIP); reply with `reinject: false`. Reinjection on a
 non-breakpoint event fails without releasing the vCPU. A reply for an unparked vCPU or a second
-reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does.
+reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does. A reply
+that fails leaves the vCPU parked and untouched, so the client can reply again.
 
 CR and MSR write intercepts need VT-x; setting one on AMD-V or NEM fails with "not supported".
 A vCPU holds at most 64 MSR intercepts; setting more fails. Only the intercepted vCPU and
@@ -85,6 +87,37 @@ or MSR event comes first, then the single-step event after the instruction.
 VBoxVMI intercepts and the VirtualBox debugger exclude each other: setting an intercept while
 the debugger is attached fails; debugger attachment while any intercept is set fails. Clear the
 intercepts or disconnect before attaching the debugger. See [ADR-0005](https://github.com/Wenzel/libmicrovmi/blob/dev/docs/adr/0005-vboxvmi-events-reinjection-and-debugger-exclusion.md).
+
+#### Page access
+
+`set_page_access(paddr, access)` restricts the 4K guest RAM page holding `paddr` to the
+**allowed** `access`, for every vCPU, as on KVM; `Access::RWX` lifts the restriction.
+`get_page_access` returns the allowed access, `RWX` for a page never restricted. Setting is
+idempotent and works while paused and while handling an event, before the reply. It fails for
+write without read (`W`, `WX`), execute-only (`X`) on a CPU whose EPT cannot enforce it, MMIO, ROM
+and unbacked addresses, and while the VirtualBox debugger is attached; while any restriction is
+set the debugger cannot attach (as for intercepts). Page access and the page-access intercept need
+VT-x ("not supported" on AMD-V and NEM). Only vCPU accesses are restricted (also VirtualBox's
+emulation of vCPU instructions); device, DMA and the client's own physical reads and writes are
+not. Disconnect removes every restriction.
+
+Only vCPUs with `InterceptType::Pagefault` report a denied access; the others perform it
+unreported. An `EventType::Pagefault` event is reported before the access, RIP at the faulting
+instruction: `gpa` is the full guest-physical address, `gva` the linear address (0 when the CPU
+reported none), `access` the single access attempted (`R`, `W` or `X`). It comes before the
+breakpoint and single-step events of the same instruction; an instruction touching several
+restricted pages raises one event per retry. Replies (ADR-0007):
+
+- `Continue { reinject: false }` retries the access: it faults again unless the restriction was
+  lifted (or the vCPU steps). `reinject: true` fails.
+- `Emulate` runs the instruction once with every restriction ignored, keeping them set.
+- `EmulateReadData { size, data }` does the same, the instruction's memory reads returning
+  `data[..size]` (`size` 1 to 256).
+- `EmulateInsn { data }`, at a breakpoint event only, runs the 16 `data` bytes as the instruction
+  at RIP instead of guest memory (e.g. the instruction the int3 replaced, without restoring it).
+
+An emulation reply returns once the vCPU ran the instruction. A reply that does not fit the event,
+or an emulation VirtualBox cannot perform, fails with the vCPU parked and untouched.
 
 ### Requirements
 

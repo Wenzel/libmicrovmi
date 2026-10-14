@@ -7,7 +7,7 @@ use std::slice;
 use crate::api::events::{Event, EventReplyType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::Registers;
-use crate::api::{DriverType, Introspectable};
+use crate::api::{Access, DriverType, Introspectable};
 use crate::capi::params::DriverInitParamsFFI;
 use crate::init;
 use std::convert::TryFrom;
@@ -200,6 +200,52 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
+/// Sets the allowed access of `paddr`'s page. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_set_page_access(
+    context: *mut c_void,
+    paddr: uint64_t,
+    access: Access,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).set_page_access(paddr, access) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_set_page_access: {}", e);
+            false
+        }
+    }
+}
+
+/// Writes the allowed access of `paddr`'s page to `*access`. Returns false on error, which is
+/// logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_page_access(
+    context: *mut c_void,
+    paddr: uint64_t,
+    access: *mut Access,
+) -> bool {
+    if context.is_null() || access.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_page_access(paddr) {
+        Ok(a) => {
+            access.write(a);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_get_page_access: {}", e);
+            false
+        }
+    }
+}
+
 /// Enables or disables an intercept on a vCPU. Returns false on error, which is logged.
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
@@ -248,8 +294,9 @@ pub unsafe extern "C" fn microvmi_listen(
     }
 }
 
-/// Replies to an event from `microvmi_listen` and frees it, also on error. Returns false on
-/// error, which is logged.
+/// Replies to an event from `microvmi_listen` and frees it on success. Returns false on error,
+/// which is logged; the caller then still owns the event and may reply to it again (a failed
+/// reply leaves the vCPU parked).
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_reply_event(
@@ -257,16 +304,15 @@ pub unsafe extern "C" fn microvmi_reply_event(
     event: *mut Event,
     reply: EventReplyType,
 ) -> bool {
-    if event.is_null() {
-        return false;
-    }
-    let event = Box::from_raw(event);
-    if context.is_null() {
+    if event.is_null() || context.is_null() {
         return false;
     }
     let driver = get_driver_mut_ptr(context);
-    match (*driver).reply_event(*event, reply) {
-        Ok(()) => true,
+    match (*driver).reply_event((*event).clone(), reply) {
+        Ok(()) => {
+            drop(Box::from_raw(event));
+            true
+        }
         Err(e) => {
             error!("microvmi_reply_event: {}", e);
             false

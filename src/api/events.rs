@@ -22,7 +22,7 @@ pub enum InterceptType {
 ///
 /// cbindgen:prefix-with-name
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EventType {
     ///Cr register interception
     Cr {
@@ -49,12 +49,14 @@ pub enum EventType {
         /// instruction length. Generally it should be one. Anything other than one implies malicious guest.
         insn_len: u8,
     },
+    /// Page access: the vCPU attempted an access its page's access restriction denies, reported
+    /// before the access, RIP at the faulting instruction
     Pagefault {
-        /// Virtual memory address of the guest
+        /// Virtual memory address of the guest, 0 if the hypervisor did not report one
         gva: u64,
         /// Physical memory address of the guest
         gpa: u64,
-        /// Acsess responsible for thr pagefault
+        /// Access attempted (VirtualBox: exactly one of R, W, X)
         access: Access,
     },
     /// Single step: the vCPU reached the next instruction boundary
@@ -79,6 +81,7 @@ pub enum CrType {
 
 ///This provides an abstraction of event which the hypervisor reports and using which we introspect the guest
 #[repr(C)]
+#[derive(Clone)]
 pub struct Event {
     ///vcpu on which the event is detected
     pub vcpu: u16,
@@ -91,6 +94,8 @@ pub struct Event {
 /// cbindgen:prefix-with-name
 #[repr(C)]
 #[derive(Debug)]
+// inline buffers keep the C layout plain (ADR-0007)
+#[allow(clippy::large_enum_variant)]
 pub enum EventReplyType {
     /// Resume the vCPU.
     ///
@@ -99,4 +104,12 @@ pub enum EventReplyType {
     /// address at a breakpoint event: restore the original byte first. Reinjection on any other
     /// event is an error (ADR-0005).
     Continue { reinject: bool },
+    /// Emulate the faulting instruction once, ignoring every page access restriction (page-access
+    /// event only, ADR-0007)
+    Emulate,
+    /// Like `Emulate`, the instruction's memory reads returning `data[..size]` (page-access event
+    /// only; `size` 1..=256)
+    EmulateReadData { size: u32, data: [u8; 256] },
+    /// Execute `data` as the instruction at RIP instead of guest memory (breakpoint event only)
+    EmulateInsn { data: [u8; 16] },
 }
