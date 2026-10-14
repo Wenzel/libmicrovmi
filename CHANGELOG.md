@@ -22,6 +22,11 @@
   panicking; over the C API that is a `false` return instead of an abort.
 - **Breaking:** `EventType::Msr` gains `old`, the MSR's value before the write (C:
   `EventType_Msr_Body.old`). KVM reports KVMi's old value; Xen does not expose it and reports 0.
+- **Breaking:** `EventReplyType` gains `Emulate`, `EmulateReadData { size, data: [u8; 256] }` and
+  `EmulateInsn { data: [u8; 16] }` (ADR-0007); its C layout grows to about 260 bytes, rebuild C
+  callers. KVM and Xen reject the new replies as not supported.
+- **Breaking:** C `microvmi_reply_event` frees the event only on success; on failure the caller
+  still owns it and may reply again (the vCPU stays parked).
 
 ### Added
 
@@ -37,3 +42,7 @@
   at the `MOV CRx`/`WRMSR` until the reply. Reinjection on them is an error.
 - The `msr-events` example prints the old value and accepts `-r` MSR indexes (decimal or `0x`
   hex); `cr-events` intercepts every vCPU and replies to each event.
+- VBoxVMI page access restrictions (`set_page_access`/`get_page_access`, VM-wide, allowed access
+  as on KVM) and page-access events (`InterceptType::Pagefault`, per vCPU), VT-x only, with
+  emulation replies; `EmulateInsn` at a breakpoint event.
+- C API: `microvmi_set_page_access`, `microvmi_get_page_access`.

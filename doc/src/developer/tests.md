@@ -83,14 +83,15 @@ MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test int
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
 MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
 for f in init vcpu_count pause double_resume virtualbox_read_ virtualbox_write_physical_ registers_match write_registers intercept_cr3 vboxvmi_disconnect_ vboxvmi_events_; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
-for f in vcpu pause registers_match write_registers intercept_cr3 vboxvmi_events_cr vboxvmi_events_msr; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
+for f in vcpu pause registers_match write_registers intercept_cr3 vboxvmi_events_cr vboxvmi_events_msr vboxvmi_events_page_access_execute; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
 MICROVMI_TEST_FILTER=vboxvmi_ssh_events_ MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_VM=microvmi-ubuntu VBOX_TEST_GUEST_SSH='ssh -i /path/to/id_ed25519 -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes vmi@127.0.0.1' VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
 ~~~
 
 The VBoxVMI filters above run every test, each once; `virtualbox_write_physical_` checks random
 patterns against a fresh core dump, after resume/re-pause and after restoring the original pages.
 `vboxvmi_disconnect_` covers normal close, a killed client process, a killed client with a vCPU
-parked at a single-step, CR3 write or MSR write event, both external-pause ownership cases, a
+parked at a single-step, CR3 write, MSR write or page-access event (and no page access
+restriction left for the next client), both external-pause ownership cases, a
 repeated external resume/pause versus disconnect race, and immediate `Busy` refusal of a second
 client. `vboxvmi_events_` checks the int3 at RIP (translated via the guest's page tables),
 single-step (also into an interrupt handler), parked-vCPU register access, pause/resume, invalid
@@ -102,8 +103,17 @@ set and cleared while paused, a reply while paused, and the CR event before the 
 with `VBOX_TEST_CPUS=2` also that the vCPU without the Intercept gives no event. The CR3 tests
 type `ls /` at the guest console to start processes; `vboxvmi_ssh_events_` gets CR4 writes
 (including CR4.TSD-only flips, a bit VirtualBox leaves to the guest) and CR0.CD writes from
-commands run over `VBOX_TEST_GUEST_SSH`. Run
-`vboxvmi_events_breakpoint_at_rip` on the one-vCPU Alpine snapshot only:
+commands run over `VBOX_TEST_GUEST_SSH`. The page-access tests (VT-x hosts) restrict pages the
+idle guest touches, found while paused: vCPU 0's RIP page (the idle loop, executed at every timer
+interrupt) for execute events, and its RSP page (the idle stack) for write and read events. They
+check gpa/gva against the page tables and RIP, `get_page_access` round trips, refusals (write
+without read, the local APIC MMIO page, reinjection, an emulation reply that does not fit the
+event), retry faulting again, `Emulate` stepping past the instruction with the restriction kept,
+`EmulateReadData` landing in the register of a `POP` from the stack (then restored),
+`EmulateInsn` at an int3 running the original bytes, the page-access event before the
+single-step event, and the debugger exclusion for a restriction. Run
+`vboxvmi_events_breakpoint_at_rip` and `vboxvmi_events_emulate_insn` on the one-vCPU Alpine
+snapshot only:
 on a multi-vCPU guest another CPU could execute the patched instruction. The other filters cover `pause`,
 `double_pause`, `pause_resume`, `multiple_pause_resume`, `virtualbox_pause_*` and
 `virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
