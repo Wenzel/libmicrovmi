@@ -79,7 +79,7 @@ _Avoid_: DBGF (the internal component name)
 - The VirtualBox **Driver** offers the **VBoxVMI method** and the **MachineDebugger method**
 - Both methods provide **VM state access**; only the **VBoxVMI method** provides **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
-- A **VBoxVMI** client that disconnects leaves no session state behind: intercepts, **Page access restrictions**, **Remaps**, **Memory views** and **Hidden pages** are removed, every vCPU returns to the **Default view**, parked vCPUs are released, and anything it paused is resumed
+1: - A **VBoxVMI** client that disconnects leaves no session state behind: intercepts, **Page access restrictions**, **Remaps**, **Memory views** and **Hidden pages** are removed, every vCPU returns to the **Default view**, parked vCPUs are released, and anything it paused is resumed
 - **Intercepts** are set per vCPU; a **VBoxVMI** client can set no **Intercept** or **Page access restriction**, nor enable **Memory views**, while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set or enabled
 - **Page access restrictions** belong to a **Memory view**, the page-access **Intercept** to a vCPU: a vCPU without the **Intercept** performs an access its **Active view** restricts unreported
 - A **Remap** is possible in any **Memory view** but the **Default view**, from and to RAM pages and **Hidden pages** only; remapping a page clears its **Page access restriction** in that view
@@ -89,8 +89,23 @@ _Avoid_: DBGF (the internal component name)
 - A **Stealth breakpoint** is built either with **Page access restrictions** alone (page-access method) or with a **Remap** to a **Hidden page** (memory-view method)
 - A **Parked vCPU** stays parked across a pause; a client that disconnects releases its **Parked vCPUs** without **reinjection**
 - Whether a breakpoint is **reinjected** is part of the client's reply, not a property of the hypervisor
+- When the caller selects no **Access method**, the VirtualBox **Driver** uses the **VBoxVMI method** if the VM serves a VBoxVMI socket, and the **MachineDebugger method** only if it does not; an explicitly selected method never falls back
+2: - `EventReplyType::Continue` meant **reinjection** on KVM and no reinjection on Xen — resolved: reinjection is an explicit part of the reply.
+- "Mode" in LibVMI (Xen, KVM, VirtualBox, ...) names the hypervisor being monitored — resolved: a **LibVMI mode** corresponds to a libmicrovmi **Driver**, never to an **Access method**; VBoxVMI and MachineDebugger are two access methods of one LibVMI mode.
 
 ## Flagged ambiguities
 
 - "VirtualBox driver" was used for both the libmicrovmi Driver and the patched hypervisor — resolved: **Driver** is always the libmicrovmi side; the hypervisor side is "patched VirtualBox".
-- `EventReplyType::Continue` meant **reinjection** on KVM and no reinjection on Xen — resolved: reinjection is an explicit part of the reply.
+1: - A **VBoxVMI** client that disconnects leaves no session state behind: intercepts, **Page access restrictions**, **Remaps**, **Memory views** and **Hidden pages** are removed, every vCPU returns to the **Default view**, parked vCPUs are released, and anything it paused is resumed
+- **Intercepts** are set per vCPU; a **VBoxVMI** client can set no **Intercept** or **Page access restriction**, nor enable **Memory views**, while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set or enabled
+- **Page access restrictions** belong to a **Memory view**, the page-access **Intercept** to a vCPU: a vCPU without the **Intercept** performs an access its **Active view** restricts unreported
+- A **Remap** is possible in any **Memory view** but the **Default view**, from and to RAM pages and **Hidden pages** only; remapping a page clears its **Page access restriction** in that view
+- Every **VMI event** reports the **Active view** of its vCPU; a reply may switch that vCPU to another **Memory view**
+- A **Memory view** that is some vCPU's **Active view** cannot be destroyed
+- **Hidden pages** come from a fixed pool reserved when the VM is created; they are not part of the **RAM ranges**
+- A **Stealth breakpoint** is built either with **Page access restrictions** alone (page-access method) or with a **Remap** to a **Hidden page** (memory-view method)
+- A **Parked vCPU** stays parked across a pause; a client that disconnects releases its **Parked vCPUs** without **reinjection**
+- Whether a breakpoint is **reinjected** is part of the client's reply, not a property of the hypervisor
+- When the caller selects no **Access method**, the VirtualBox **Driver** uses the **VBoxVMI method** if the VM serves a VBoxVMI socket, and the **MachineDebugger method** only if it does not; an explicitly selected method never falls back
+2: - `EventReplyType::Continue` meant **reinjection** on KVM and no reinjection on Xen — resolved: reinjection is an explicit part of the reply.
+- "Mode" in LibVMI (Xen, KVM, VirtualBox, ...) names the hypervisor being monitored — resolved: a **LibVMI mode** corresponds to a libmicrovmi **Driver**, never to an **Access method**; VBoxVMI and MachineDebugger are two access methods of one LibVMI mode.
