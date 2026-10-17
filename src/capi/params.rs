@@ -41,8 +41,8 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
-// `access_method = 0` means no VirtualBox parameters. Selecting the VirtualBox driver with this
-// value is an error.
+// `access_method = 0` means no VirtualBox parameters: the VirtualBox driver then uses its default
+// access method.
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
 pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
 /// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::VBoxVMI`, with `VBoxInitParamsFFI.socket_path`
@@ -50,14 +50,15 @@ pub const VBOX_ACCESS_METHOD_VBOXVMI: u32 = 2;
 
 /// equivalent of `Option<VBoxInitParams>` with C compatibility.
 ///
-/// A zero-initialized struct has no VirtualBox parameters.
+/// A zero-initialized struct has no VirtualBox parameters: the default access method.
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct VBoxInitParamsFFI {
-    /// one of the `VBOX_ACCESS_METHOD_*` constants, or zero for no VirtualBox parameters
+    /// one of the `VBOX_ACCESS_METHOD_*` constants, or zero for the default access method
     // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
     pub access_method: u32,
-    /// `VBOX_ACCESS_METHOD_VBOXVMI`: the VM's VBoxVMI socket path (mandatory); ignored otherwise
+    /// `VBOX_ACCESS_METHOD_VBOXVMI`: the VM's VBoxVMI socket path, or null for the VM's default
+    /// socket; ignored otherwise
     pub socket_path: *mut c_char,
 }
 
@@ -140,12 +141,12 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
             VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
             VBOX_ACCESS_METHOD_VBOXVMI => {
                 let path = value.virtualbox.socket_path;
-                if path.is_null() {
-                    return Err("VBOX_ACCESS_METHOD_VBOXVMI requires a socket_path".into());
-                }
-                Some(VBoxInitParams::VBoxVMI {
-                    socket_path: unsafe { CStr::from_ptr(path) }.to_owned().into_string()?,
-                })
+                let socket_path = if path.is_null() {
+                    None
+                } else {
+                    Some(unsafe { CStr::from_ptr(path) }.to_owned().into_string()?)
+                };
+                Some(VBoxInitParams::VBoxVMI { socket_path })
             }
             other => return Err(format!("unknown VirtualBox access method: {}", other).into()),
         };

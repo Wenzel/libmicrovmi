@@ -49,11 +49,12 @@ configured `cpus`.
 - `VBOX_APP_HOME`: VirtualBox bin directory (`VBoxManage`, `VBoxHeadless`, C API library)
 - `VBOX_USER_HOME`: VirtualBox configuration directory holding the VM, if not the default one
 - `VBOX_TEST_VM` (default `microvmi-alpine`), `VBOX_TEST_SNAPSHOT` (default `base`)
-- `VBOX_TEST_METHOD`: `machinedebugger` or `vboxvmi`; unset selects an access method compiled into
-  the test binary. With `vboxvmi`, setup enables VBoxVMI on the VM and teardown restores the prior
-  `VBoxInternal/VMI/Enabled` value. The driver honors `VBoxInternal/VMI/SocketPath`; otherwise it
-  derives the socket from VirtualBox's user home (`VBOX_USER_HOME`, legacy `~/.VirtualBox`, or
-  `$XDG_CONFIG_HOME/VirtualBox` / `~/.config/VirtualBox`).
+- `VBOX_TEST_METHOD`: `machinedebugger` or `vboxvmi`, or the driver's default access method with
+  VBoxVMI enabled (`default`) or not (`default-fallback`); unset selects an access method compiled
+  into the test binary. With `vboxvmi` and `default`, setup enables VBoxVMI on the VM and teardown
+  restores the prior `VBoxInternal/VMI/Enabled` value. The driver honors
+  `VBoxInternal/VMI/SocketPath`; otherwise it derives the socket from VirtualBox's user home
+  (`VBOX_USER_HOME`, legacy `~/.VirtualBox`, or `$XDG_CONFIG_HOME/VirtualBox` / `~/.config/VirtualBox`).
 - `VBOX_TEST_MEMORY_MB`: discard the snapshot's saved state and cold boot the guest with this much RAM
   (e.g. `5120`, to test above 4 GiB). Teardown restores the snapshot, which restores the VM's RAM size.
 - `VBOX_TEST_CPUS`: same, with this many vCPUs. The multi-vCPU checks (vCPU count, pause stopping
@@ -89,6 +90,16 @@ second client. The other filters cover `pause`,
 `virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
 `virtualbox_vcpu_count_matches_vmm`. With `VBOX_TEST_CPUS=2`, the register tests read every vCPU
 and write the last one.
+
+`virtualbox_default_method_selection` (`virtualbox` feature) checks the default access method under
+any `VBOX_TEST_METHOD`: with VBoxVMI enabled, the context's driver holds the socket and a second
+default init must fail as busy instead of falling back; with it disabled, the socket is missing, the
+driver (MachineDebugger) reads memory, and an explicit VBoxVMI without a socket path must fail. Run it
+under each selection:
+
+~~~
+for m in default default-fallback vboxvmi machinedebugger; do MICROVMI_TEST_FILTER=virtualbox_default_method_selection VBOX_TEST_METHOD=$m RUST_LOG=microvmi=info cargo test --features virtualbox --test integration; done
+~~~
 
 ### MachineDebugger/VBoxVMI cross-method consistency
 

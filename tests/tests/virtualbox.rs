@@ -544,6 +544,59 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_second_client_is_busy
 });
 
+/// The default access method takes VBoxVMI when the VM serves its socket, and MachineDebugger only
+/// when the socket file is missing; a busy socket, or an explicit VBoxVMI without the socket, is an
+/// error. Meaningful under every `VBOX_TEST_METHOD`: it only relies on whether VBoxVMI is enabled.
+#[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
+fn default_method_selection(drv: Box<dyn Introspectable>) {
+    use crate::common::virtualbox::extradata;
+    use microvmi::api::params::{CommonInitParams, DriverInitParams, VBoxInitParams};
+    use microvmi::api::DriverType;
+
+    let init = |virtualbox| {
+        microvmi::init(
+            Some(DriverType::VirtualBox),
+            Some(DriverInitParams {
+                common: Some(CommonInitParams { vm_name: vm_name() }),
+                virtualbox,
+                ..Default::default()
+            }),
+        )
+    };
+    if extradata("VBoxInternal/VMI/Enabled").as_deref() == Some("1") {
+        // Fails only if `drv` holds the one VBoxVMI client slot, and the default didn't fall back.
+        let err = init(None)
+            .err()
+            .expect("default init succeeded while the VBoxVMI socket is busy");
+        assert!(
+            err.to_string().contains("already connected"),
+            "default init: {}",
+            err
+        );
+    } else {
+        assert!(!std::path::Path::new(&vboxvmi_socket()).exists());
+        let (mut byte, mut read) = ([0u8], 0);
+        drv.read_physical(0, &mut byte, &mut read)
+            .expect("MachineDebugger read");
+        let err = init(Some(VBoxInitParams::VBoxVMI { socket_path: None }))
+            .err()
+            .expect("explicit VBoxVMI without a socket fell back");
+        assert!(
+            err.to_string()
+                .contains("cannot connect to the VBoxVMI socket"),
+            "explicit VBoxVMI: {}",
+            err
+        );
+    }
+    drop(drv);
+}
+
+#[cfg(all(feature = "virtualbox-api", feature = "virtualbox-vmi"))]
+inventory::submit!(IntegrationTest {
+    name: "virtualbox_default_method_selection",
+    test_fn: default_method_selection
+});
+
 /// Resumes the VM even if selecting pages or dumping the first core fails.
 struct ResumeVm;
 

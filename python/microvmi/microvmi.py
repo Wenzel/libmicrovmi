@@ -45,7 +45,9 @@ class Microvmi:
             # init
             m = Microvmi(None, init_params)
 
-            # VirtualBox: select the MachineDebugger access method
+            # VirtualBox: the default access method (VBoxVMI if the VM serves its socket, else
+            # MachineDebugger), or select one explicitly
+            m = Microvmi(DriverType.VirtualBox, init_params)
             init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
             m = Microvmi(DriverType.VirtualBox, init_params)
         """

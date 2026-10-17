@@ -7,8 +7,8 @@ pub enum MicrovmiError {
     NoDriverAvailable,
     #[error("driver {0:?} has not been compiled")]
     DriverNotCompiled(DriverType),
-    #[error("{0:?} requires an explicit access method")]
-    AccessMethodRequired(DriverType),
+    #[error("VirtualBox VBoxVMI method needs a socket path (enable feature virtualbox-api for the VM's default socket)")]
+    VBoxVmiSocketPathRequired,
     #[error("{driver:?} access method {method} has not been compiled (enable feature {feature})")]
     AccessMethodNotCompiled {
         driver: DriverType,
