@@ -13,7 +13,7 @@ use kvmi::{
 use crate::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use crate::api::params::{DriverInitParams, KVMInitParams};
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
-use crate::api::{Access, DriverType, Introspectable};
+use crate::api::{Access, DriverType, Introspectable, DEFAULT_MEMORY_VIEW};
 use crate::errors::MicrovmiError;
 
 impl TryFrom<Access> for KVMiPageAccess {
@@ -236,8 +236,17 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(())
     }
 
-    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
-        self.kvmi.set_page_access(paddr, access.try_into()?, 0)?;
+    fn set_page_access(
+        &self,
+        view: u16,
+        paddr: u64,
+        access: Access,
+    ) -> Result<(), Box<dyn Error>> {
+        if view != DEFAULT_MEMORY_VIEW {
+            return Err(MicrovmiError::NotSupported("set_page_access".into()).into());
+        }
+        self.kvmi
+            .set_page_access(paddr, access.try_into()?, DEFAULT_MEMORY_VIEW)?;
         Ok(())
     }
 

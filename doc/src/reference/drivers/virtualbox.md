@@ -29,8 +29,8 @@ With one method compiled in: `virtualbox-api` only uses MachineDebugger by defau
 ## VBoxVMI method
 
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
-It is the fast path for VM state access and VMI events. VBoxVMI protocol version 2 is required;
-a version 1 client is refused at the handshake.
+It is the fast path for VM state access and VMI events. VBoxVMI protocol version 3 is required;
+an older client is refused at the handshake.
 
 Supported: reading and writing guest physical memory, reading and writing the complete x86 register set,
 max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
@@ -90,9 +90,10 @@ intercepts or disconnect before attaching the debugger. See [ADR-0005](https://g
 
 #### Page access
 
-`set_page_access(paddr, access)` restricts the 4K guest RAM page holding `paddr` to the
-**allowed** `access`, for every vCPU, as on KVM; `Access::RWX` lifts the restriction.
-`get_page_access` returns the allowed access, `RWX` for a page never restricted. Setting is
+`set_page_access(view, paddr, access)` restricts the 4K guest RAM page holding `paddr` to the
+**allowed** `access` in Memory view `view`, for every vCPU whose Active view is `view`, as on KVM;
+`Access::RWX` lifts the restriction. `get_page_access(view, paddr)` returns the allowed access in
+that view, `RWX` for a page never restricted there. Setting is
 idempotent and works while paused and while handling an event, before the reply. It fails for
 write without read (`W`, `WX`), execute-only (`X`) on a CPU whose EPT cannot enforce it, MMIO, ROM
 and unbacked addresses, and while the VirtualBox debugger is attached; while any restriction is
@@ -118,6 +119,32 @@ restricted pages raises one event per retry. Replies (ADR-0007):
 
 An emulation reply returns once the vCPU ran the instruction. A reply that does not fit the event,
 or an emulation VirtualBox cannot perform, fails with the vCPU parked and untouched.
+
+#### Memory views
+
+`enable_memory_views(true)` turns on Memory views for the VM (fails while the debugger is
+attached, like an Intercept); every vCPU starts in the Default view (`DEFAULT_MEMORY_VIEW`, 0).
+`create_memory_view()` allocates a view and returns its number; `destroy_memory_view(view)` frees
+one that is no vCPU's Active view. `switch_memory_view(view)` moves every vCPU to `view`.
+`enable_memory_views(false)` switches every vCPU back to Default, destroys every other view and
+lifts every restriction.
+
+Each view has its own page-access restrictions and Remaps: `remap_memory_page(view, page, target)`
+makes `page` (a page number, not a byte address) show the contents of `target`'s page in `view`
+only; `target: RESTORE_PAGE`-equivalent (pass `page` itself) undoes it. A Remap is not available
+in the Default view. Every `Event` carries the `view` its vCPU was running in; an event reply's
+`view` field switches that vCPU to another view (`KEEP_MEMORY_VIEW` keeps its Active view, the
+usual choice). A view that is some vCPU's Active view cannot be destroyed.
+
+`allocate_hidden_page()`/`free_hidden_page(page)` hand out pages from a pool reserved when the VM
+starts (`VBoxInternal/VMI/HiddenPages`, a page count, default 0), for Remap targets: content only
+a Remap can expose, invisible in the Default view and absent from the RAM ranges VBoxVMI reports.
+A common pattern (a stealth breakpoint) remaps the int3's page to a Hidden page holding the
+patched byte, so the Default view (and the client's own physical reads) keep seeing the original
+byte.
+
+The client's own physical reads and writes always use the Default view, regardless of any vCPU's
+Active view.
 
 ### Requirements
 
