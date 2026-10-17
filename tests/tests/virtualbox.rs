@@ -1213,10 +1213,11 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_singlestep
 });
 
-/// Interrupts are delivered while stepping: a step lands on the first instruction of an external
-/// interrupt handler (an IDT gate target for vectors 32-255) on a guest taking timer interrupts.
+/// No interrupt is delivered while stepping, as on Xen: for two seconds of steps on a guest taking
+/// timer interrupts, no step lands on an external interrupt handler (an IDT gate target for vectors
+/// 32-255).
 #[cfg(feature = "virtualbox-vmi")]
-fn vboxvmi_singlestep_enters_interrupt_handler(mut drv: Box<dyn Introspectable>) {
+fn vboxvmi_singlestep_skips_interrupt_handlers(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
     let regs = x86_registers(drv.as_ref(), 0);
     let idt = translate(drv.as_ref(), regs.cr3, regs.idt.base).expect("IDT is not mapped");
@@ -1236,7 +1237,7 @@ fn vboxvmi_singlestep_enters_interrupt_handler(mut drv: Box<dyn Introspectable>)
     drv.toggle_intercept(0, InterceptType::Singlestep, true)
         .unwrap();
     drv.resume().unwrap();
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + Duration::from_secs(2);
     let mut steps = 0;
     let entered = loop {
         let event = drv.listen(5000).unwrap().expect("no single-step event");
@@ -1254,18 +1255,14 @@ fn vboxvmi_singlestep_enters_interrupt_handler(mut drv: Box<dyn Introspectable>)
             break entered;
         }
     };
-    assert!(
-        entered,
-        "no step entered an interrupt handler in {} steps",
-        steps
-    );
-    print!("interrupt handler entered after {} steps ", steps);
+    assert!(!entered, "step {} entered an interrupt handler", steps);
+    print!("{} steps, no interrupt handler entered ", steps);
 }
 
 #[cfg(feature = "virtualbox-vmi")]
 inventory::submit!(IntegrationTest {
-    name: "vboxvmi_events_singlestep_enters_interrupt_handler",
-    test_fn: vboxvmi_singlestep_enters_interrupt_handler
+    name: "vboxvmi_events_singlestep_skips_interrupt_handlers",
+    test_fn: vboxvmi_singlestep_skips_interrupt_handlers
 });
 
 /// Connects to the VM's debugger console (enabled by the VBoxVMI context, default port 5000),

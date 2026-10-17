@@ -94,7 +94,7 @@ parked at a single-step, CR3 write, MSR write or page-access event (and no page 
 restriction left for the next client), both external-pause ownership cases, a
 repeated external resume/pause versus disconnect race, and immediate `Busy` refusal of a second
 client. `vboxvmi_events_` checks the int3 at RIP (translated via the guest's page tables),
-single-step (also into an interrupt handler), parked-vCPU register access, pause/resume, invalid
+single-step (never into an interrupt handler), parked-vCPU register access, pause/resume, invalid
 replies, and the VirtualBox debugger exclusion both ways with a breakpoint and a CR3 Intercept
 through the debugger console (the VBoxVMI context enables it on TCP port 5000, which must be
 free). Its CR and MSR write tests (VT-x hosts) check events against the parked vCPU's registers

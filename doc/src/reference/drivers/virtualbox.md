@@ -65,7 +65,9 @@ At a breakpoint event `gpa` is the physical address of the int3, `insn_len` is i
 points at the int3. Restore the original byte before
 `reply_event(event, EventReplyType::Continue { reinject: false })` to execute the original
 instruction, or choose `reinject: true` to deliver the guest's own #BP. A single-step event's
-`gpa` points at the next instruction (at RIP); reply with `reinject: false`. Reinjection on a
+`gpa` points at the next instruction (at RIP); reply with `reinject: false`. As on Xen, a stepping
+vCPU gets no external interrupt until stepping stops, so a step never lands in an interrupt
+handler. Reinjection on a
 non-breakpoint event fails without releasing the vCPU. A reply for an unparked vCPU or a second
 reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does. A reply
 that fails leaves the vCPU parked and untouched, so the client can reply again.
@@ -185,10 +187,10 @@ DRAKVUF runs on a Linux guest through LibVMI's libmicrovmi driver and VBoxVMI, w
 
 | Component | Repository, branch | Revision |
 |-----------|--------------------|----------|
-| VirtualBox | [Wenzel/virtualbox](https://github.com/Wenzel/virtualbox) `vmi/vboxvmi` | `8d4cc4332c6167711f3cb27770d332d92d854521` |
+| VirtualBox | [Wenzel/virtualbox](https://github.com/Wenzel/virtualbox) `vmi/vboxvmi` | `5656fb6754fe8d9062c8121cbcd6bd233cabda89` |
 | rs-vboxvmi | [Wenzel/rs-vboxvmi](https://github.com/Wenzel/rs-vboxvmi) `memory-views` | `6a076b8fc1c44464a0cdd23ba1baf8363f71becc` |
 | libmicrovmi | Wenzel/libmicrovmi `dev` | `e50934fd2c861dd7bc3aeb5b4f550b3147abbfa9` |
-| LibVMI | [Wenzel/libvmi](https://github.com/Wenzel/libvmi) `libmicrovmi` | `65558ed981754832e3b871076ec637210a78fa5a` |
+| LibVMI | [Wenzel/libvmi](https://github.com/Wenzel/libvmi) `libmicrovmi` | `8709db25c93af6528c360b57ddbfa888031e4896` |
 | DRAKVUF | [tklengyel/drakvuf](https://github.com/tklengyel/drakvuf) `main` + commit | `b0aee4b7e6789f03ea8873f7b0ffd5e169bb446f` |
 
 Guest: Ubuntu 24.04, kernel 6.8.0-146-generic, 2 vCPUs, 2 GiB, VT-x with nested paging, and a
@@ -203,16 +205,17 @@ Volatility 3 ISF for its kernel (`linux-6.8.0-146-generic.json`).
    $ VBoxManage setextradata <vm> VBoxInternal/VMI/HiddenPages 64
    ~~~
    DRAKVUF needs one Hidden page for its sink page plus one per hooked page.
-3. Start a repeating `PTRACE_ATTACH` in the guest first (the guest runs very slowly while hooked:
-   ring-3 emulation in a non-Default view), e.g. a Python loop with `ctypes` calling
-   `ptrace(PTRACE_ATTACH, child)`, `waitpid`, `ptrace(PTRACE_DETACH, child)` every second.
-4. Run as the VM's user:
+3. Run as the VM's user:
    ~~~
-   $ drakvuf -r linux-6.8.0-146-generic.json -d vbox:<vm> -a ptracemon -o json -t 60
+   $ drakvuf -r linux-6.8.0-146-generic.json -d vbox:<vm> -a ptracemon -o json -t 60 -v
    ~~~
-   Expected: a record such as
-   `{"Plugin":"ptracemon",...,"Method":"ptrace",...,"Type":"PTRACE_ATTACH","TargetPID":1512,...}`,
-   exit status 0, the VM still running, and the guest's attach loop completing once DRAKVUF exits.
+4. Once DRAKVUF prints "Started DRAKVUF polling loop" (`-v`), trigger ptrace in the guest, e.g. a
+   Python `ctypes` script forking a child, then `ptrace(PTRACE_ATTACH, child)`, `waitpid`,
+   `ptrace(PTRACE_DETACH, child)`.
+   Expected: one record per call, e.g.
+   `{"Plugin":"ptracemon",...,"Method":"ptrace",...,"Type":"PTRACE_ATTACH","TargetPID":1512,...}`
+   then `"PTRACE_DETACH"`; the guest script finishes while DRAKVUF runs, DRAKVUF exits 0 on
+   SIGINT or timeout, and the VM keeps running and answering afterwards.
 
 With too few Hidden pages DRAKVUF prints "Failed to allocate a Hidden page", ptracemon fails to
 start and DRAKVUF exits non-zero after removing its views. `-F` and `-p` are Xen-only.
