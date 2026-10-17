@@ -1965,7 +1965,17 @@ fn vboxvmi_emulated_int3_breakpoint(mut drv: Box<dyn Introspectable>) {
     restore.drv.resume().unwrap();
     restore.paused = false;
 
-    let (execute, _) = execute_event(restore.drv.as_mut(), gpa);
+    // The restriction covers the page: let earlier instructions on it run until the int3 faults.
+    let execute = loop {
+        let (event, _) = execute_event(restore.drv.as_mut(), gpa);
+        if page_access_event(&event).1 == gpa {
+            break event;
+        }
+        restore
+            .drv
+            .reply_event(event, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW })
+            .unwrap();
+    };
     restore
         .drv
         .reply_event(execute, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW })
@@ -1988,9 +1998,11 @@ fn vboxvmi_emulated_int3_breakpoint(mut drv: Box<dyn Introspectable>) {
         .drv
         .toggle_intercept(0, InterceptType::Pagefault, false)
         .unwrap();
+    restore.drv.write_physical(gpa, &original[..1]).unwrap();
+    restore.patched = false;
     restore
         .drv
-        .reply_event(breakpoint, EventReplyType::EmulateInsn { data: original, view: KEEP_MEMORY_VIEW })
+        .reply_event(breakpoint, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
 }
 
@@ -2193,7 +2205,24 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
             drv.read_physical(gpa, &mut real, &mut 0).unwrap();
             break (event, u64::from_le_bytes(real), regs);
         }
-        drv.reply_event(event, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).unwrap();
+        if drv
+            .reply_event(event.clone(), EventReplyType::Emulate { view: KEEP_MEMORY_VIEW })
+            .is_err()
+        {
+            // IRET and other instructions VBoxVMI won't emulate: step this one access unrestricted.
+            drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
+            drv.toggle_intercept(0, InterceptType::Singlestep, true)
+                .unwrap();
+            drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
+                .unwrap();
+            let step = drv.listen(5000).unwrap().expect("no step past the refused access");
+            assert!(matches!(step.kind, EventType::Singlestep { .. }));
+            drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::NIL).unwrap();
+            drv.toggle_intercept(0, InterceptType::Singlestep, false)
+                .unwrap();
+            drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
+                .unwrap();
+        }
     };
     assert!(drv
         .reply_event(
