@@ -55,15 +55,20 @@ pub struct MemflowInitParams {
 
 /// VirtualBox initialization parameters: selects one of the two access methods.
 ///
-/// MachineDebugger names the VM by `common.vm_name`; VBoxVMI names it by its socket. VirtualBox
-/// initialization requires this parameter.
+/// MachineDebugger names the VM by `common.vm_name`; VBoxVMI names it by its socket, or by
+/// `common.vm_name` when `socket_path` is omitted. Without this parameter, the VirtualBox driver
+/// uses the VBoxVMI method at the VM's default socket, and falls back to the MachineDebugger
+/// method only if that socket file does not exist.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VBoxInitParams {
     /// MachineDebugger access method (`virtualbox-api` or `virtualbox` feature):
     /// VirtualBox's `IMachineDebugger` API
     MachineDebugger,
-    /// VBoxVMI access method (`virtualbox-vmi` or `virtualbox` feature): the VM's VBoxVMI socket
-    VBoxVMI { socket_path: String },
+    /// VBoxVMI access method (`virtualbox-vmi` or `virtualbox` feature): the VM's VBoxVMI socket.
+    /// `None`: the VM's default socket, `<VirtualBox user home>/vmi/<VM UUID>.sock` or the VM's
+    /// `VBoxInternal/VMI/SocketPath` extradata (`virtualbox` feature only: resolved through the
+    /// VirtualBox API).
+    VBoxVMI { socket_path: Option<String> },
 }
 
 /// Common initialization parameters
