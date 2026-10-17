@@ -272,22 +272,60 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.get_mut().resume()?)
     }
 
-    /// The allowed access of `paddr`'s 4K page, RWX if never restricted.
-    fn get_page_access(&self, paddr: u64) -> Result<Access, Box<dyn Error>> {
-        Ok(access(self.client.borrow_mut().get_page_access(paddr)?)?)
+    /// The allowed access of `paddr`'s 4K page in `view`, RWX if unrestricted.
+    fn get_page_access(&self, view: u16, paddr: u64) -> Result<Access, Box<dyn Error>> {
+        Ok(access(
+            self.client.borrow_mut().get_page_access(view, paddr)?,
+        )?)
     }
 
-    /// Restricts `paddr`'s 4K RAM page to `access` (allowed) for every vCPU; RWX lifts the
-    /// restriction. Idempotent, also while paused or from within the handling of an event before
-    /// its reply. Fails for write without read, execute-only if the CPU's EPT cannot enforce it,
-    /// MMIO, ROM and unbacked addresses, while a VirtualBox debugger is attached, and with "not
-    /// supported" on AMD-V and NEM (VT-x only). Only vCPUs with the `Pagefault` Intercept report
-    /// denied accesses; the others perform them unreported.
-    fn set_page_access(&self, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
+    /// Restricts `paddr`'s 4K RAM page in `view` to `access`; RWX lifts the restriction.
+    fn set_page_access(
+        &self,
+        view: u16,
+        paddr: u64,
+        access: Access,
+    ) -> Result<(), Box<dyn Error>> {
         Ok(self
             .client
             .borrow_mut()
-            .set_page_access(paddr, access.bits())?)
+            .set_page_access(view, paddr, access.bits())?)
+    }
+
+    fn enable_memory_views(&self, enabled: bool) -> Result<(), Box<dyn Error>> {
+        Ok(self.client.borrow_mut().enable_memory_views(enabled)?)
+    }
+
+    fn create_memory_view(&self) -> Result<u16, Box<dyn Error>> {
+        Ok(self.client.borrow_mut().create_memory_view()?)
+    }
+
+    fn destroy_memory_view(&self, view: u16) -> Result<(), Box<dyn Error>> {
+        Ok(self.client.borrow_mut().destroy_memory_view(view)?)
+    }
+
+    fn switch_memory_view(&self, view: u16) -> Result<(), Box<dyn Error>> {
+        Ok(self.client.borrow_mut().switch_memory_view(view)?)
+    }
+
+    fn remap_memory_page(
+        &self,
+        view: u16,
+        page: u64,
+        target: u64,
+    ) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .client
+            .borrow_mut()
+            .remap_memory_page(view, page, target)?)
+    }
+
+    fn allocate_hidden_page(&self) -> Result<u64, Box<dyn Error>> {
+        Ok(self.client.borrow_mut().allocate_hidden_page()?)
+    }
+
+    fn free_hidden_page(&self, page: u64) -> Result<(), Box<dyn Error>> {
+        Ok(self.client.borrow_mut().free_hidden_page(page)?)
     }
 
     /// Breakpoint, single step, CR0/CR3/CR4 write, MSR write (one MSR index per Intercept) and
@@ -364,6 +402,7 @@ impl Introspectable for VBoxVmi {
         };
         Ok(Some(Event {
             vcpu: u16::try_from(event.vcpu)?,
+            view: event.view,
             kind,
         }))
     }
@@ -380,15 +419,21 @@ impl Introspectable for VBoxVmi {
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
         let reply = match &reply_type {
-            EventReplyType::Continue { reinject } => Reply::Continue {
+            EventReplyType::Continue { reinject, view } => Reply::Continue {
                 reinject: *reinject,
+                view: *view,
             },
-            EventReplyType::Emulate => Reply::Emulate,
-            EventReplyType::EmulateReadData { size, data } => Reply::EmulateReadData(
-                data.get(..*size as usize)
+            EventReplyType::Emulate { view } => Reply::Emulate { view: *view },
+            EventReplyType::EmulateReadData { size, data, view } => Reply::EmulateReadData {
+                data: data
+                    .get(..*size as usize)
                     .ok_or(VBoxVmiDriverError::ReadDataSize(*size))?,
-            ),
-            EventReplyType::EmulateInsn { data } => Reply::EmulateInsn(*data),
+                view: *view,
+            },
+            EventReplyType::EmulateInsn { data, view } => Reply::EmulateInsn {
+                data: *data,
+                view: *view,
+            },
         };
         Ok(self
             .client

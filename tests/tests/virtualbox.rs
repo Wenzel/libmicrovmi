@@ -21,7 +21,9 @@ use log::debug;
 #[cfg(feature = "virtualbox-vmi")]
 use microvmi::api::events::{CrType, Event, EventReplyType, EventType, InterceptType};
 use microvmi::api::registers::{Registers, X86Registers};
-use microvmi::api::{Access, Introspectable, PAGE_SIZE};
+use microvmi::api::{
+    Access, Introspectable, DEFAULT_MEMORY_VIEW, KEEP_MEMORY_VIEW, PAGE_SIZE,
+};
 
 #[cfg(feature = "virtualbox-vmi")]
 use super::next_event;
@@ -565,7 +567,7 @@ fn killed_client_releases_parked_vcpu(drv: Box<dyn Introspectable>, intercept: &
     if intercept == "pagefault" {
         let page = u64::from_str_radix(page.trim().trim_start_matches("0x"), 16).unwrap();
         assert_eq!(
-            drv.get_page_access(page).unwrap(),
+            drv.get_page_access(DEFAULT_MEMORY_VIEW, page).unwrap(),
             Access::RWX,
             "page access restriction left after disconnect"
         );
@@ -1157,7 +1159,7 @@ fn vboxvmi_breakpoint_at_rip(mut drv: Box<dyn Introspectable>) {
     restore.intercepted = false;
     restore
         .drv
-        .reply_event(event, EventReplyType::Continue { reinject: false })
+        .reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let before_resume = vcpu_stats("cNsExecuting")[0];
     sleep(Duration::from_millis(500));
@@ -1193,14 +1195,14 @@ fn vboxvmi_singlestep(mut drv: Box<dyn Introspectable>) {
             advanced |= last != regs.rip;
         }
         previous_rip = Some(regs.rip);
-        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
             .unwrap();
     }
     assert!(advanced, "RIP never advanced while stepping");
     let event = drv.listen(5000).unwrap().expect("no event to clear from");
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
         .unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert!(drv.listen(250).unwrap().is_none(), "step after clear");
 }
@@ -1246,7 +1248,7 @@ fn vboxvmi_singlestep_enters_interrupt_handler(mut drv: Box<dyn Introspectable>)
             drv.toggle_intercept(0, InterceptType::Singlestep, false)
                 .unwrap();
         }
-        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
             .unwrap();
         if done {
             break entered;
@@ -1377,9 +1379,13 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
             drv.reply_event(
                 Event {
                     vcpu: 1,
+                    view: DEFAULT_MEMORY_VIEW,
                     kind: EventType::Singlestep { gpa: 0 }
                 },
-                EventReplyType::Continue { reinject: false }
+                EventReplyType::Continue {
+                    reinject: false,
+                    view: KEEP_MEMORY_VIEW,
+                }
             )
             .is_err(),
             "reply to an unparked vCPU succeeded"
@@ -1390,18 +1396,26 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
         .reply_event(
             Event {
                 vcpu,
+                view: DEFAULT_MEMORY_VIEW,
                 kind: EventType::Singlestep { gpa: 0 }
             },
-            EventReplyType::Continue { reinject: false }
+            EventReplyType::Continue {
+                reinject: false,
+                view: KEEP_MEMORY_VIEW,
+            }
         )
         .is_err());
     assert!(drv
         .reply_event(
             Event {
                 vcpu: 0,
+                view: DEFAULT_MEMORY_VIEW,
                 kind: EventType::Singlestep { gpa: 0 }
             },
-            EventReplyType::Continue { reinject: true }
+            EventReplyType::Continue {
+                reinject: true,
+                view: KEEP_MEMORY_VIEW,
+            }
         )
         .is_err());
     assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip);
@@ -1409,16 +1423,20 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
         .unwrap();
     drv.pause().unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_eq!(vm_info("VMState"), "paused");
     assert!(drv
         .reply_event(
             Event {
                 vcpu: 0,
+                view: DEFAULT_MEMORY_VIEW,
                 kind: EventType::Singlestep { gpa: 0 }
             },
-            EventReplyType::Continue { reinject: false }
+            EventReplyType::Continue {
+                reinject: false,
+                view: KEEP_MEMORY_VIEW,
+            }
         )
         .is_err());
     drv.resume().unwrap();
@@ -1543,28 +1561,25 @@ fn cr_write_events(
             code
         );
         let reinjected = drv.reply_event(
-            Event {
-                vcpu: 0,
-                kind: EventType::Cr {
-                    cr_type: cr,
-                    new,
-                    old,
-                },
-            },
-            EventReplyType::Continue { reinject: true },
+            Event { vcpu: 0, view: DEFAULT_MEMORY_VIEW, kind: EventType::Cr {
+                cr_type: cr,
+                new,
+                old,
+            } },
+            EventReplyType::Continue { reinject: true, view: KEEP_MEMORY_VIEW },
         );
         assert!(reinjected.is_err(), "CR event reinjected");
         let parked = x86_registers(drv, 0);
         assert_eq!((parked.rip, cr_value(&parked, cr)), (regs.rip, old));
         values.push((old, new));
-        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
             .unwrap();
     }
     let event = next_event(drv, activity);
     assert_eq!(event.vcpu, 0, "CR event from a vCPU without the Intercept");
     drv.toggle_intercept(0, InterceptType::Cr(cr), false)
         .unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv, activity, "CR event after clear");
     values
@@ -1690,7 +1705,7 @@ fn vboxvmi_cr_paused(mut drv: Box<dyn Introspectable>) {
         "vCPU left its CR event on pause and resume"
     );
     drv.pause().unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     drv.toggle_intercept(0, cr3, false).unwrap();
     assert_eq!(vm_info("VMState"), "paused");
@@ -1725,7 +1740,7 @@ fn vboxvmi_cr_before_singlestep(mut drv: Box<dyn Introspectable>) {
     let rip = x86_registers(drv.as_ref(), 0).rip;
     drv.toggle_intercept(0, InterceptType::Singlestep, true)
         .unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let step = drv
         .listen(5000)
@@ -1746,7 +1761,7 @@ fn vboxvmi_cr_before_singlestep(mut drv: Box<dyn Introspectable>) {
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
         .unwrap();
     drv.toggle_intercept(0, cr3, false).unwrap();
-    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv.as_mut(), &mut start_guest_process, "event after clear");
 }
@@ -1775,12 +1790,16 @@ fn restrict_rip_page(drv: &mut dyn Introspectable, allowed: Access) -> u64 {
     let regs = x86_registers(drv, 0);
     let gpa = translate(drv, regs.cr3, regs.rip).expect("RIP is not mapped");
     assert_eq!(
-        drv.get_page_access(gpa).unwrap(),
+        drv.get_page_access(DEFAULT_MEMORY_VIEW, gpa).unwrap(),
         Access::RWX,
         "unrestricted page"
     );
-    drv.set_page_access(gpa, allowed).unwrap();
-    assert_eq!(drv.get_page_access(gpa).unwrap(), allowed, "get after set");
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, allowed).unwrap();
+    assert_eq!(
+        drv.get_page_access(DEFAULT_MEMORY_VIEW, gpa).unwrap(),
+        allowed,
+        "get after set"
+    );
     drv.toggle_intercept(0, InterceptType::Pagefault, true)
         .unwrap();
     drv.resume().unwrap();
@@ -1819,15 +1838,18 @@ fn execute_event(drv: &mut dyn Introspectable, page: u64) -> (Event, u64) {
 #[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_page_access_execute(mut drv: Box<dyn Introspectable>) {
     assert!(
-        drv.set_page_access(0, Access::W).is_err(),
+        drv.set_page_access(DEFAULT_MEMORY_VIEW, 0, Access::W)
+            .is_err(),
         "write without read"
     );
     assert!(
-        drv.set_page_access(0, Access::WX).is_err(),
+        drv.set_page_access(DEFAULT_MEMORY_VIEW, 0, Access::WX)
+            .is_err(),
         "write without read"
     );
     assert!(
-        drv.set_page_access(0xfee0_0000, Access::R).is_err(),
+        drv.set_page_access(DEFAULT_MEMORY_VIEW, 0xfee0_0000, Access::R)
+            .is_err(),
         "local APIC (MMIO) page"
     );
     let page = restrict_rip_page(drv.as_mut(), Access::RW);
@@ -1841,12 +1863,21 @@ fn vboxvmi_page_access_execute(mut drv: Box<dyn Introspectable>) {
         );
     }
     assert!(drv
-        .reply_event(event.clone(), EventReplyType::Continue { reinject: true })
+        .reply_event(
+            event.clone(),
+            EventReplyType::Continue {
+                reinject: true,
+                view: KEEP_MEMORY_VIEW,
+            },
+        )
         .is_err());
     assert!(drv
         .reply_event(
             event.clone(),
-            EventReplyType::EmulateInsn { data: [0x90; 16] }
+            EventReplyType::EmulateInsn {
+                data: [0x90; 16],
+                view: KEEP_MEMORY_VIEW,
+            }
         )
         .is_err());
     assert_eq!(
@@ -1854,14 +1885,14 @@ fn vboxvmi_page_access_execute(mut drv: Box<dyn Introspectable>) {
         rip,
         "vCPU left on a refused reply"
     );
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let (event, retried) = execute_event(drv.as_mut(), page);
     assert_eq!(retried, rip, "retry did not fault again");
 
     drv.toggle_intercept(0, InterceptType::Singlestep, true)
         .unwrap();
-    drv.reply_event(event, EventReplyType::Emulate).unwrap();
+    drv.reply_event(event, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).unwrap();
     let step = drv.listen(5000).unwrap().expect("no step after Emulate");
     assert!(
         matches!(step.kind, EventType::Singlestep { .. }),
@@ -1874,18 +1905,18 @@ fn vboxvmi_page_access_execute(mut drv: Box<dyn Introspectable>) {
         "Emulate did not run the instruction"
     );
     assert_eq!(
-        drv.get_page_access(page).unwrap(),
+        drv.get_page_access(DEFAULT_MEMORY_VIEW, page).unwrap(),
         Access::RW,
         "Emulate lifted the restriction"
     );
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
         .unwrap();
-    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
 
     let (event, _) = execute_event(drv.as_mut(), page);
-    drv.set_page_access(page, Access::RWX).unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv.as_mut(), &mut || (), "page-access event after lifting");
     drv.toggle_intercept(0, InterceptType::Pagefault, false)
@@ -1898,6 +1929,145 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_page_access_execute
 });
 
+/// An int3 fetched from an execute-restricted page and executed by VirtualBox's emulator still
+/// raises a breakpoint event.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_emulated_int3_breakpoint(mut drv: Box<dyn Introspectable>) {
+    assert_eq!(
+        drv.get_vcpu_count().unwrap(),
+        1,
+        "breakpoint test requires one vCPU"
+    );
+    drv.pause().unwrap();
+    let regs = x86_registers(drv.as_ref(), 0);
+    let gpa = translate(drv.as_ref(), regs.cr3, regs.rip).expect("RIP is not mapped");
+    let mut original = [0; 16];
+    drv.read_physical(gpa, &mut original, &mut 0).unwrap();
+    assert_ne!(original[0], 0xcc, "RIP was already an int3");
+    let mut restore = BreakpointRestore {
+        drv,
+        gpa,
+        original: original[0],
+        patched: true,
+        intercepted: true,
+        paused: true,
+    };
+    restore.drv.write_physical(gpa, &[0xcc]).unwrap();
+    restore.drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, Access::RW).unwrap();
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Pagefault, true)
+        .unwrap();
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    restore.drv.resume().unwrap();
+    restore.paused = false;
+
+    let (execute, _) = execute_event(restore.drv.as_mut(), gpa);
+    restore
+        .drv
+        .reply_event(execute, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW })
+        .unwrap();
+    let breakpoint = restore
+        .drv
+        .listen(5000)
+        .unwrap()
+        .expect("emulated int3 did not raise a breakpoint event");
+    assert!(matches!(
+        breakpoint.kind,
+        EventType::Breakpoint {
+            gpa: address,
+            insn_len: 1
+        } if address == gpa
+    ));
+
+    restore.drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, Access::RWX).unwrap();
+    restore
+        .drv
+        .toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+    restore
+        .drv
+        .reply_event(breakpoint, EventReplyType::EmulateInsn { data: original, view: KEEP_MEMORY_VIEW })
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_emulated_int3_breakpoint",
+    test_fn: vboxvmi_emulated_int3_breakpoint
+});
+
+/// A non-default view remaps RIP to an int3 in a Hidden page. The event reports that view,
+/// an event reply switches back to Default, and physical reads stay in Default.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_hidden_breakpoint(mut drv: Box<dyn Introspectable>) {
+    assert_eq!(drv.get_vcpu_count().unwrap(), 1, "breakpoint test requires one vCPU");
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let hidden = drv.allocate_hidden_page().unwrap();
+    let regs = x86_registers(drv.as_ref(), 0);
+    let gpa = translate(drv.as_ref(), regs.cr3, regs.rip).expect("RIP is not mapped");
+    let page = gpa & !(PAGE - 1);
+    let offset = (gpa - page) as usize;
+    assert!(offset <= PAGE as usize - 16, "instruction crosses a page");
+    let mut original_page = vec![0; PAGE as usize];
+    drv.read_physical(page, &mut original_page, &mut 0).unwrap();
+    let mut instruction = [0; 16];
+    instruction.copy_from_slice(&original_page[offset..offset + 16]);
+    assert_ne!(instruction[0], 0xcc, "RIP was already an int3");
+    let mut hidden_page = original_page.clone();
+    hidden_page[offset] = 0xcc;
+    drv.write_physical(hidden * PAGE, &hidden_page).unwrap();
+    drv.remap_memory_page(view, page / PAGE, hidden).unwrap();
+    drv.toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+
+    let breakpoint = drv
+        .listen(5000)
+        .unwrap()
+        .expect("remapped int3 did not raise a breakpoint");
+    assert_eq!(breakpoint.view, view);
+    assert!(matches!(
+        breakpoint.kind,
+        EventType::Breakpoint {
+            gpa: address,
+            insn_len: 1
+        } if address == gpa
+    ));
+    let mut default_byte = [0];
+    drv.read_physical(gpa, &mut default_byte, &mut 0).unwrap();
+    assert_eq!(default_byte[0], instruction[0], "physical read used the Active view");
+    // The Default view's page was never patched: switching to it and retrying the same RIP
+    // (Continue without reinject) re-executes the original, untouched instruction.
+    drv.reply_event(
+        breakpoint,
+        EventReplyType::Continue {
+            reinject: false,
+            view: DEFAULT_MEMORY_VIEW,
+        },
+    )
+    .unwrap();
+    drv.pause().unwrap(); // Liveness: the vCPU is running, not stuck re-faulting.
+    drv.toggle_intercept(0, InterceptType::Breakpoint, false)
+        .unwrap();
+    drv.destroy_memory_view(view).unwrap();
+    drv.free_hidden_page(hidden).unwrap();
+    drv.enable_memory_views(false).unwrap();
+    drv.resume().unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_hidden_breakpoint",
+    test_fn: vboxvmi_memory_view_hidden_breakpoint
+});
+
 /// Restricts the page of vCPU 0's RSP, the idle task's stack, to `allowed`, with the page-access
 /// Intercept on vCPU 0. Returns RSP's gpa.
 #[cfg(feature = "virtualbox-vmi")]
@@ -1905,7 +2075,7 @@ fn restrict_stack_page(drv: &mut dyn Introspectable, allowed: Access) -> u64 {
     drv.pause().unwrap();
     let regs = x86_registers(drv, 0);
     let gpa = translate(drv, regs.cr3, regs.rsp).expect("RSP is not mapped");
-    drv.set_page_access(gpa, allowed).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, allowed).unwrap();
     drv.toggle_intercept(0, InterceptType::Pagefault, true)
         .unwrap();
     drv.resume().unwrap();
@@ -1944,9 +2114,15 @@ fn vboxvmi_page_access_write(mut drv: Box<dyn Introspectable>) {
     let (event, access, gpa, regs) = data_event(drv.as_mut(), page);
     assert_eq!(access, Access::W);
     assert!(drv
-        .reply_event(event.clone(), EventReplyType::Continue { reinject: true })
+        .reply_event(
+            event.clone(),
+            EventReplyType::Continue {
+                reinject: true,
+                view: KEEP_MEMORY_VIEW,
+            },
+        )
         .is_err());
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let (event, access, retried, again) = data_event(drv.as_mut(), page);
     assert_eq!(
@@ -1954,8 +2130,8 @@ fn vboxvmi_page_access_write(mut drv: Box<dyn Introspectable>) {
         (Access::W, gpa, regs.rip),
         "retry did not fault again"
     );
-    drv.set_page_access(page, Access::RWX).unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv.as_mut(), &mut || (), "page-access event after lifting");
     drv.toggle_intercept(0, InterceptType::Pagefault, false)
@@ -2017,19 +2193,29 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
             drv.read_physical(gpa, &mut real, &mut 0).unwrap();
             break (event, u64::from_le_bytes(real), regs);
         }
-        drv.reply_event(event, EventReplyType::Emulate).unwrap();
+        drv.reply_event(event, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).unwrap();
     };
     assert!(drv
         .reply_event(
             event.clone(),
-            EventReplyType::EmulateInsn { data: [0x90; 16] }
+            EventReplyType::EmulateInsn {
+                data: [0x90; 16],
+                view: KEEP_MEMORY_VIEW,
+            }
         )
         .is_err());
     let mut data = [0; 256];
     data[..8].copy_from_slice(&DATA.to_le_bytes());
     drv.toggle_intercept(0, InterceptType::Singlestep, true)
         .unwrap();
-    drv.reply_event(event, EventReplyType::EmulateReadData { size: 8, data })
+    drv.reply_event(
+        event,
+        EventReplyType::EmulateReadData {
+            size: 8,
+            data,
+            view: KEEP_MEMORY_VIEW,
+        },
+    )
         .unwrap();
     let step = drv
         .listen(5000)
@@ -2048,10 +2234,10 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
     drv.write_registers(0, Registers::X86(after)).unwrap();
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
         .unwrap();
-    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
     drv.toggle_intercept(0, InterceptType::Pagefault, false)
         .unwrap();
-    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
 }
 
@@ -2070,8 +2256,8 @@ fn vboxvmi_page_access_before_singlestep(mut drv: Box<dyn Introspectable>) {
         .unwrap();
     let page = restrict_rip_page(drv.as_mut(), Access::RW);
     let (event, rip) = execute_event(drv.as_mut(), page);
-    drv.set_page_access(page, Access::RWX).unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let step = drv
         .listen(5000)
@@ -2091,7 +2277,7 @@ fn vboxvmi_page_access_before_singlestep(mut drv: Box<dyn Introspectable>) {
         .unwrap();
     drv.toggle_intercept(0, InterceptType::Pagefault, false)
         .unwrap();
-    drv.reply_event(step, EventReplyType::Continue { reinject: false })
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv.as_mut(), &mut || (), "event after clear");
 }
@@ -2131,7 +2317,12 @@ fn vboxvmi_emulate_insn(mut drv: Box<dyn Introspectable>) {
     assert!(matches!(event.kind, EventType::Breakpoint { gpa: addr, .. } if addr == gpa));
     assert!(restore
         .drv
-        .reply_event(event.clone(), EventReplyType::Emulate)
+        .reply_event(
+            event.clone(),
+            EventReplyType::Emulate {
+                view: KEEP_MEMORY_VIEW,
+            },
+        )
         .is_err());
     assert!(restore
         .drv
@@ -2139,7 +2330,8 @@ fn vboxvmi_emulate_insn(mut drv: Box<dyn Introspectable>) {
             event.clone(),
             EventReplyType::EmulateReadData {
                 size: 1,
-                data: [0; 256]
+                data: [0; 256],
+                view: KEEP_MEMORY_VIEW,
             }
         )
         .is_err());
@@ -2152,7 +2344,7 @@ fn vboxvmi_emulate_insn(mut drv: Box<dyn Introspectable>) {
         .unwrap();
     restore
         .drv
-        .reply_event(event, EventReplyType::EmulateInsn { data: replacement })
+        .reply_event(event, EventReplyType::EmulateInsn { data: replacement, view: KEEP_MEMORY_VIEW })
         .unwrap();
     let step = restore
         .drv
@@ -2180,7 +2372,7 @@ fn vboxvmi_emulate_insn(mut drv: Box<dyn Introspectable>) {
         .unwrap();
     restore
         .drv
-        .reply_event(step, EventReplyType::Continue { reinject: false })
+        .reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
 }
 
@@ -2198,14 +2390,14 @@ fn vboxvmi_page_access_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
     let regs = x86_registers(drv.as_ref(), 0);
     let page = translate(drv.as_ref(), regs.cr3, regs.rsp).expect("RSP is not mapped");
     drv.resume().unwrap();
-    drv.set_page_access(page, Access::RX).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RX).unwrap();
     let (_, output) = debugger_console();
     assert!(
         output.contains("VERR_DBGF_VMI_INTERCEPTS_ACTIVE"),
         "debugger attached with a page access restriction: {:?}",
         output
     );
-    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
 
     let (console, output) = debugger_console();
     assert!(
@@ -2213,19 +2405,18 @@ fn vboxvmi_page_access_debugger_exclusion(mut drv: Box<dyn Introspectable>) {
         "debugger did not attach: {:?}",
         output
     );
-    let error = drv
-        .set_page_access(page, Access::RX)
+    let error = drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RX)
         .expect_err("restriction set with the debugger attached");
     assert!(error.to_string().contains("debugger"), "{}", error);
-    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
 
     drop(console);
     let deadline = Instant::now() + Duration::from_secs(5);
-    while let Err(e) = drv.set_page_access(page, Access::RX) {
+    while let Err(e) = drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RX) {
         assert!(Instant::now() < deadline, "debugger still attached: {}", e);
         sleep(Duration::from_millis(100));
     }
-    drv.set_page_access(page, Access::RWX).unwrap();
+    drv.set_page_access(DEFAULT_MEMORY_VIEW, page, Access::RWX).unwrap();
 }
 
 #[cfg(feature = "virtualbox-vmi")]
@@ -2283,24 +2474,21 @@ fn vboxvmi_msr_write(mut drv: Box<dyn Introspectable>) {
             regs.rip
         );
         let reinjected = drv.reply_event(
-            Event {
-                vcpu: 0,
-                kind: EventType::Msr {
-                    msr_type: TEST_MSR,
-                    value: new,
-                    old,
-                },
-            },
-            EventReplyType::Continue { reinject: true },
+            Event { vcpu: 0, view: DEFAULT_MEMORY_VIEW, kind: EventType::Msr {
+                msr_type: TEST_MSR,
+                value: new,
+                old,
+            } },
+            EventReplyType::Continue { reinject: true, view: KEEP_MEMORY_VIEW },
         );
         assert!(reinjected.is_err(), "MSR event reinjected");
         assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip);
-        drv.reply_event(event, EventReplyType::Continue { reinject: false })
+        drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
             .unwrap();
     }
     let event = next_event(drv.as_mut(), &mut || {});
     drv.toggle_intercept(0, intercept, false).unwrap();
-    drv.reply_event(event, EventReplyType::Continue { reinject: false })
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     assert_no_event(drv.as_mut(), &mut || {}, "MSR event after clear");
 }

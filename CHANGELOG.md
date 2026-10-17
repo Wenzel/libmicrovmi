@@ -27,6 +27,10 @@
   callers. KVM and Xen reject the new replies as not supported.
 - **Breaking:** C `microvmi_reply_event` frees the event only on success; on failure the caller
   still owns it and may reply again (the vCPU stays parked).
+- **Breaking:** VBoxVMI protocol v3. `get_page_access`/`set_page_access` gain a `view` parameter
+  (`DEFAULT_MEMORY_VIEW` for the previous behavior); `Event` gains `view`, the vCPU's Active
+  Memory view; `EventReplyType::Continue`/`Emulate`/`EmulateReadData`/`EmulateInsn` gain a `view`
+  field (`KEEP_MEMORY_VIEW` to keep the current one). A v2 server is refused at the handshake.
 
 ### Added
 
@@ -46,3 +50,11 @@
   as on KVM) and page-access events (`InterceptType::Pagefault`, per vCPU), VT-x only, with
   emulation replies; `EmulateInsn` at a breakpoint event.
 - C API: `microvmi_set_page_access`, `microvmi_get_page_access`.
+- VBoxVMI Memory views: `enable_memory_views`, `create_memory_view`, `destroy_memory_view`,
+  `switch_memory_view`, `remap_memory_page` and the Hidden page pool
+  (`allocate_hidden_page`/`free_hidden_page`, `VBoxInternal/VMI/HiddenPages`), VT-x only. Each
+  view has its own page-access restrictions and Remaps; an event reply can switch its vCPU to
+  another view.
+- C API: `microvmi_enable_memory_views`, `microvmi_create_memory_view`,
+  `microvmi_destroy_memory_view`, `microvmi_switch_memory_view`, `microvmi_remap_memory_page`,
+  `microvmi_allocate_hidden_page`, `microvmi_free_hidden_page`.

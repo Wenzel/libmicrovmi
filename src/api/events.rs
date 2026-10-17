@@ -85,6 +85,8 @@ pub enum CrType {
 pub struct Event {
     ///vcpu on which the event is detected
     pub vcpu: u16,
+    /// The vCPU's Active view.
+    pub view: u16,
     /// Type of event detected
     pub kind: EventType,
 }
@@ -103,13 +105,17 @@ pub enum EventReplyType {
     /// intercepted. Without reinjection, the vCPU executes again from RIP, which is the int3's
     /// address at a breakpoint event: restore the original byte first. Reinjection on any other
     /// event is an error (ADR-0005).
-    Continue { reinject: bool },
+    Continue { reinject: bool, view: u16 },
     /// Emulate the faulting instruction once, ignoring every page access restriction (page-access
-    /// event only, ADR-0007)
-    Emulate,
+    /// event only, ADR-0007).
+    Emulate { view: u16 },
     /// Like `Emulate`, the instruction's memory reads returning `data[..size]` (page-access event
-    /// only; `size` 1..=256)
-    EmulateReadData { size: u32, data: [u8; 256] },
-    /// Execute `data` as the instruction at RIP instead of guest memory (breakpoint event only)
-    EmulateInsn { data: [u8; 16] },
+    /// only; `size` 1..=256).
+    EmulateReadData {
+        size: u32,
+        data: [u8; 256],
+        view: u16,
+    },
+    /// Execute `data` as the instruction at RIP instead of guest memory (breakpoint event only).
+    EmulateInsn { data: [u8; 16], view: u16 },
 }

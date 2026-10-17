@@ -7,7 +7,7 @@ use colored::*;
 
 use microvmi::api::events::{CrType, EventReplyType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::Introspectable;
+use microvmi::api::{Introspectable, KEEP_MEMORY_VIEW};
 use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {
@@ -110,7 +110,7 @@ fn main() {
                     "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
                     ev_nb_output, vcpu_output, cr_output, old, new
                 );
-                drv.reply_event(ev, EventReplyType::Continue { reinject: false })
+                drv.reply_event(ev, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
                     .expect("Failed to send event reply");
                 i += 1;
             }

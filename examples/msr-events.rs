@@ -7,7 +7,7 @@ use colored::*;
 
 use microvmi::api::events::{EventReplyType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::Introspectable;
+use microvmi::api::{Introspectable, KEEP_MEMORY_VIEW};
 use utilities::Clappable;
 
 // default set of MSRs to be intercepted
@@ -113,7 +113,7 @@ fn main() {
                     "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
                     ev_nb_output, vcpu_output, msr_output, old, value,
                 );
-                drv.reply_event(ev, EventReplyType::Continue { reinject: false })
+                drv.reply_event(ev, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
                     .expect("Failed to send event reply");
                 i += 1;
             }

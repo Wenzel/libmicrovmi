@@ -1,5 +1,5 @@
 use microvmi::api::events::{CrType, EventReplyType, EventType, InterceptType};
-use microvmi::api::Introspectable;
+use microvmi::api::{Introspectable, KEEP_MEMORY_VIEW};
 
 use super::{next_event, IntegrationTest};
 use crate::common::context::init_context;
@@ -36,7 +36,7 @@ fn intercept_cr3_multiple(mut drv: Box<dyn Introspectable>) {
         match event.kind {
             EventType::Cr { cr_type, .. } => {
                 assert_eq!(cr_type, CrType::Cr3);
-                drv.reply_event(event, EventReplyType::Continue { reinject: false })
+                drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
                     .expect("Failed to send event reply");
             }
             _ => panic!("Failed"),

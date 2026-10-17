@@ -23,6 +23,14 @@ its original byte. `EventReplyType_Emulate` and `EventReplyType_EmulateReadData`
 at a page-access event; `EventReplyType_EmulateInsn` runs the 16 `.emulate_insn.data` bytes at a
 breakpoint event (VBoxVMI only, ADR-0007). `EventReplyType` is
 passed by value and holds these buffers inline (about 260 bytes).
-`microvmi_set_page_access(context, paddr, access)` sets the allowed `Access` of `paddr`'s page,
-`microvmi_get_page_access(context, paddr, &access)` reads it; both return `false` on error.
+`microvmi_set_page_access(context, view, paddr, access)` sets the allowed `Access` of `paddr`'s
+page in Memory view `view` (`DEFAULT_MEMORY_VIEW` for the Default view),
+`microvmi_get_page_access(context, view, paddr, &access)` reads it; both return `false` on error.
+`microvmi_enable_memory_views(context, enabled)`, `microvmi_create_memory_view(context, &view)`,
+`microvmi_destroy_memory_view(context, view)` and `microvmi_switch_memory_view(context, view)`
+manage Memory views; `microvmi_remap_memory_page(context, view, page, target)` remaps one page
+(page numbers, not byte addresses) in `view`; `microvmi_allocate_hidden_page(context, &page)` and
+`microvmi_free_hidden_page(context, page)` manage the Hidden page pool. `Event.view` is the
+vCPU's Active view; `EventReplyType_Continue`/`Emulate`/`EmulateReadData`/`EmulateInsn` all take a
+`.view` field, `KEEP_MEMORY_VIEW` to keep it.
 See `c_examples/vbox-events.c`.

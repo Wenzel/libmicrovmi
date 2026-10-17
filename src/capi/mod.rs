@@ -200,11 +200,12 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
-/// Sets the allowed access of `paddr`'s page. Returns false on error, which is logged.
+/// Sets the allowed access of `paddr`'s page in `view`. Returns false on error, which is logged.
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_set_page_access(
     context: *mut c_void,
+    view: uint16_t,
     paddr: uint64_t,
     access: Access,
 ) -> bool {
@@ -212,7 +213,7 @@ pub unsafe extern "C" fn microvmi_set_page_access(
         return false;
     }
     let driver = get_driver_mut_ptr(context);
-    match (*driver).set_page_access(paddr, access) {
+    match (*driver).set_page_access(view, paddr, access) {
         Ok(()) => true,
         Err(e) => {
             error!("microvmi_set_page_access: {}", e);
@@ -221,12 +222,13 @@ pub unsafe extern "C" fn microvmi_set_page_access(
     }
 }
 
-/// Writes the allowed access of `paddr`'s page to `*access`. Returns false on error, which is
-/// logged.
+/// Writes the allowed access of `paddr`'s page in `view` to `*access`. Returns false on error,
+/// which is logged.
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn microvmi_get_page_access(
     context: *mut c_void,
+    view: uint16_t,
     paddr: uint64_t,
     access: *mut Access,
 ) -> bool {
@@ -234,13 +236,147 @@ pub unsafe extern "C" fn microvmi_get_page_access(
         return false;
     }
     let driver = get_driver_mut_ptr(context);
-    match (*driver).get_page_access(paddr) {
+    match (*driver).get_page_access(view, paddr) {
         Ok(a) => {
             access.write(a);
             true
         }
         Err(e) => {
             error!("microvmi_get_page_access: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_enable_memory_views(
+    context: *mut c_void,
+    enabled: bool,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).enable_memory_views(enabled) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_enable_memory_views: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_create_memory_view(
+    context: *mut c_void,
+    view: *mut uint16_t,
+) -> bool {
+    if context.is_null() || view.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).create_memory_view() {
+        Ok(created) => {
+            view.write(created);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_create_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_destroy_memory_view(
+    context: *mut c_void,
+    view: uint16_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).destroy_memory_view(view) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_destroy_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_switch_memory_view(
+    context: *mut c_void,
+    view: uint16_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).switch_memory_view(view) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_switch_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_remap_memory_page(
+    context: *mut c_void,
+    view: uint16_t,
+    page: uint64_t,
+    target: uint64_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).remap_memory_page(view, page, target) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_remap_memory_page: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_allocate_hidden_page(
+    context: *mut c_void,
+    page: *mut uint64_t,
+) -> bool {
+    if context.is_null() || page.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).allocate_hidden_page() {
+        Ok(allocated) => {
+            page.write(allocated);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_allocate_hidden_page: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_free_hidden_page(
+    context: *mut c_void,
+    page: uint64_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).free_hidden_page(page) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_free_hidden_page: {}", e);
             false
         }
     }
