@@ -178,6 +178,45 @@ $ python3 python/examples/mem-dump.py --vbox-vmi ~/.config/VirtualBox/vmi/<vm uu
 The client comes from the [vboxvmi](https://github.com/Wenzel/rs-vboxvmi) crate. To build against a local checkout of it:
 `cargo build --features virtualbox-vmi --config 'patch."https://github.com/Wenzel/rs-vboxvmi".vboxvmi.path="../rs-vboxvmi"'`
 
+### DRAKVUF proof of concept
+
+DRAKVUF runs on a Linux guest through LibVMI's libmicrovmi driver and VBoxVMI, without Xen
+([#361](https://github.com/Wenzel/libmicrovmi/issues/361)). Verified with these revisions:
+
+| Component | Repository, branch | Revision |
+|-----------|--------------------|----------|
+| VirtualBox | [Wenzel/virtualbox](https://github.com/Wenzel/virtualbox) `vmi/vboxvmi` | `8d4cc4332c6167711f3cb27770d332d92d854521` |
+| rs-vboxvmi | [Wenzel/rs-vboxvmi](https://github.com/Wenzel/rs-vboxvmi) `memory-views` | `6a076b8fc1c44464a0cdd23ba1baf8363f71becc` |
+| libmicrovmi | Wenzel/libmicrovmi `dev` | `e50934fd2c861dd7bc3aeb5b4f550b3147abbfa9` |
+| LibVMI | [Wenzel/libvmi](https://github.com/Wenzel/libvmi) `libmicrovmi` | `65558ed981754832e3b871076ec637210a78fa5a` |
+| DRAKVUF | [tklengyel/drakvuf](https://github.com/tklengyel/drakvuf) `main` + commit | `b0aee4b7e6789f03ea8873f7b0ffd5e169bb446f` |
+
+Guest: Ubuntu 24.04, kernel 6.8.0-146-generic, 2 vCPUs, 2 GiB, VT-x with nested paging, and a
+Volatility 3 ISF for its kernel (`linux-6.8.0-146-generic.json`).
+
+1. Build and install libmicrovmi with `--features virtualbox`, then LibVMI against it, then
+   DRAKVUF against that LibVMI (`meson setup build && ninja -C build`; DRAKVUF still links its Xen
+   libraries, VirtualBox mode never calls them).
+2. Before a cold start of the VM:
+   ~~~
+   $ VBoxManage setextradata <vm> VBoxInternal/VMI/Enabled 1
+   $ VBoxManage setextradata <vm> VBoxInternal/VMI/HiddenPages 64
+   ~~~
+   DRAKVUF needs one Hidden page for its sink page plus one per hooked page.
+3. Start a repeating `PTRACE_ATTACH` in the guest first (the guest runs very slowly while hooked:
+   ring-3 emulation in a non-Default view), e.g. a Python loop with `ctypes` calling
+   `ptrace(PTRACE_ATTACH, child)`, `waitpid`, `ptrace(PTRACE_DETACH, child)` every second.
+4. Run as the VM's user:
+   ~~~
+   $ drakvuf -r linux-6.8.0-146-generic.json -d vbox:<vm> -a ptracemon -o json -t 60
+   ~~~
+   Expected: a record such as
+   `{"Plugin":"ptracemon",...,"Method":"ptrace",...,"Type":"PTRACE_ATTACH","TargetPID":1512,...}`,
+   exit status 0, the VM still running, and the guest's attach loop completing once DRAKVUF exits.
+
+With too few Hidden pages DRAKVUF prints "Failed to allocate a Hidden page", ptracemon fails to
+start and DRAKVUF exits non-zero after removing its views. `-F` and `-p` are Xen-only.
+
 ## MachineDebugger method
 
 Uses VirtualBox's public `IMachineDebugger` API, loaded at runtime from the VirtualBox installation (no build-time dependency on VirtualBox).
