@@ -35,6 +35,7 @@
 ### Added
 
 - C API: `microvmi_get_vcpu_count`.
+- C API: `microvmi_write_registers`.
 - VBoxVMI protocol v2 breakpoint and per-vCPU single-step intercepts, event listening and
   replies. Parked vCPUs remain accessible and pause/resume does not release them; client
   disconnect clears intercepts and releases parked vCPUs. The MachineDebugger method does not

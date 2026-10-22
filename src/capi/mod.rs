@@ -200,6 +200,27 @@ pub unsafe extern "C" fn microvmi_read_registers(
     }
 }
 
+/// Writes `*registers` to `vcpu`. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_write_registers(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    registers: *const Registers,
+) -> bool {
+    if context.is_null() || registers.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).write_registers(vcpu, registers.read()) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_write_registers: {}", e);
+            false
+        }
+    }
+}
+
 /// Sets the allowed access of `paddr`'s page in `view`. Returns false on error, which is logged.
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
