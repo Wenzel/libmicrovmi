@@ -448,6 +448,18 @@ impl Introspectable for VBoxVmi {
             .reply_event(event.vcpu.into(), reply)?)
     }
 
+    fn inject_page_fault(
+        &self,
+        vcpu: u16,
+        virtual_address: u64,
+        error_code: u32,
+    ) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .client
+            .borrow_mut()
+            .inject_page_fault(vcpu.into(), virtual_address, error_code)?)
+    }
+
     fn get_driver_type(&self) -> DriverType {
         DriverType::VirtualBox
     }

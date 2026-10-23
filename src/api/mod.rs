@@ -237,6 +237,17 @@ pub trait Introspectable {
         not_supported("reply_event")
     }
 
+    /// Queues an x86 #PF for the parked `vcpu`, before `reply_event`. The vCPU stays parked;
+    /// `virtual_address` becomes CR2 and `error_code` is the x86 page-fault error code.
+    fn inject_page_fault(
+        &self,
+        _vcpu: u16,
+        _virtual_address: u64,
+        _error_code: u32,
+    ) -> Result<(), Box<dyn Error>> {
+        not_supported("inject_page_fault")
+    }
+
     /// Return the concrete DriverType
     fn get_driver_type(&self) -> DriverType;
 }
@@ -297,6 +308,8 @@ mod tests {
                 },
             )
             .is_err());
+        let e = d.inject_page_fault(0, 0x1234, 0).unwrap_err().to_string();
+        assert!(e.contains("inject_page_fault") && e.contains("not supported"), "{}", e);
         let e = d.pause().unwrap_err().to_string();
         assert!(e.contains("pause") && e.contains("not supported"), "{}", e);
     }

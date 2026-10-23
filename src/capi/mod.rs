@@ -425,6 +425,28 @@ pub unsafe extern "C" fn microvmi_toggle_intercept(
     }
 }
 
+/// Queues an x86 #PF for a parked vCPU before replying to its event. Returns false on error;
+/// the vCPU stays parked. `virtual_address` becomes CR2, `error_code` is the x86 PF error code.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_request_page_fault(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    virtual_address: uint64_t,
+    error_code: uint32_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).inject_page_fault(vcpu, virtual_address, error_code) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_request_page_fault: {}", e);
+            false
+        }
+    }
+}
+
 /// Waits up to `timeout_ms` for the next event. Returns false on error, which is logged. On
 /// success, `*event` is the event, owned by the caller until it is passed to
 /// `microvmi_reply_event`, or NULL after the timeout.

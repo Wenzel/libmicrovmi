@@ -37,6 +37,10 @@
 
 ### Added
 
+- VBoxVMI protocol v6: `inject_page_fault(vcpu, virtual_address, error_code)` queues an x86
+  #PF on a parked vCPU before its event reply without releasing it. Unsupported drivers return
+  `NotSupported`; C callers can use `microvmi_request_page_fault` (false on error).
+
 - C API: `microvmi_get_vcpu_count`.
 - C API: `microvmi_write_registers`.
 - VBoxVMI protocol v2 breakpoint and per-vCPU single-step intercepts, event listening and
