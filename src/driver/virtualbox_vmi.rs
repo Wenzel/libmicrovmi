@@ -353,6 +353,7 @@ impl Introspectable for VBoxVmi {
             InterceptType::Msr(index) => InterceptKind::MsrWrite(index),
             InterceptType::Pagefault => InterceptKind::PageAccess,
             InterceptType::Cpuid => InterceptKind::Cpuid,
+            InterceptType::Debug => InterceptKind::Debug,
         };
         let client = self.client.get_mut();
         Ok(match enabled {
@@ -418,6 +419,7 @@ impl Introspectable for VBoxVmi {
                 subleaf,
                 insn_len: insn_length,
             },
+            EventKind::Debug { dr6 } => EventType::Debug { dr6 },
         };
         Ok(Some(Event {
             vcpu: u16::try_from(event.vcpu)?,

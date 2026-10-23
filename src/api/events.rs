@@ -18,6 +18,8 @@ pub enum InterceptType {
     Singlestep,
     /// Intercept CPUID instructions before the vCPU resumes.
     Cpuid,
+    /// Intercept debug exceptions (#DB) before reinjection
+    Debug,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -74,6 +76,10 @@ pub enum EventType {
         subleaf: u32,
         /// Actual VM-exit instruction length (2..=15 bytes, including any prefixes).
         insn_len: u8,
+    },
+    /// Debug exception (#DB): DR6 value at the exception; reinjected by default
+    Debug {
+        dr6: u32,
     },
 }
 

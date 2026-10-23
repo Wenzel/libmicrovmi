@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Breaking:** `InterceptType::Debug` and `EventType::Debug { dr6 }` for debug exceptions (#DB);
+  VBoxVMI protocol v7; VirtualBox-only (Xen/KVM: not supported).
 
 ### Changed
 
