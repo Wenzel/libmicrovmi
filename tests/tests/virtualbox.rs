@@ -1225,6 +1225,68 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_cpuid
 });
 
+/// A fast reply executes one instruction without an event; ordinary stepping still reports the
+/// next instruction in the requested next view.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_fast_single_step(mut drv: Box<dyn Introspectable>) {
+    assert_eq!(drv.get_vcpu_count().unwrap(), 1, "breakpoint test requires one vCPU");
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let initial = drv.create_memory_view().unwrap();
+    let next = drv.create_memory_view().unwrap();
+    let hidden = drv.allocate_hidden_page().unwrap();
+    let regs = x86_registers(drv.as_ref(), 0);
+    let gpa = translate(drv.as_ref(), regs.cr3, regs.rip).expect("RIP is not mapped");
+    let page = gpa & !(PAGE - 1);
+    let offset = (gpa - page) as usize;
+    assert!(offset <= PAGE as usize - 16, "instruction crosses a page");
+    let mut original_page = vec![0; PAGE as usize];
+    drv.read_physical(page, &mut original_page, &mut 0).unwrap();
+    assert_ne!(original_page[offset], 0xcc, "RIP was already an int3");
+    let original = [original_page[offset], original_page[offset + 1]];
+    let mut hidden_page = original_page;
+    hidden_page[offset] = 0xcc;
+    drv.write_physical(hidden * PAGE, &hidden_page).unwrap();
+    drv.remap_memory_page(initial, page / PAGE, hidden).unwrap();
+    drv.write_physical(gpa, &[0x90, 0x90]).unwrap();
+    drv.toggle_intercept(0, InterceptType::Breakpoint, true).unwrap();
+    drv.switch_memory_view(initial).unwrap();
+    drv.resume().unwrap();
+
+    let breakpoint = drv.listen(5000).unwrap().expect("no remapped breakpoint");
+    assert!(matches!(breakpoint.kind, EventType::Breakpoint { gpa: address, .. } if address == gpa));
+    assert_eq!(breakpoint.view, initial);
+    drv.toggle_intercept(0, InterceptType::Breakpoint, false).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, true).unwrap();
+    drv.reply_event(breakpoint, EventReplyType::FastSingleStep {
+        immediate_view: DEFAULT_MEMORY_VIEW,
+        next_view: next,
+    }).unwrap();
+    let step = drv.listen(5000).unwrap().expect("no ordinary step after fast step");
+    assert!(matches!(step.kind, EventType::Singlestep { .. }));
+    assert_eq!(step.view, next, "ordinary step did not run in the next view");
+    assert_eq!(x86_registers(drv.as_ref(), 0).rip, regs.rip + 2,
+        "fast step delivered an event or did not execute exactly one instruction");
+    drv.toggle_intercept(0, InterceptType::Singlestep, false).unwrap();
+    drv.write_physical(gpa, &original).unwrap();
+    drv.reply_event(step, EventReplyType::Continue {
+        reinject: false,
+        view: DEFAULT_MEMORY_VIEW,
+    }).unwrap();
+    drv.pause().unwrap();
+    drv.destroy_memory_view(initial).unwrap();
+    drv.destroy_memory_view(next).unwrap();
+    drv.free_hidden_page(hidden).unwrap();
+    drv.enable_memory_views(false).unwrap();
+    drv.resume().unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_fast_single_step",
+    test_fn: vboxvmi_fast_single_step
+});
+
 /// A step arrives at every instruction boundary on one vCPU. Changing intercepts while that
 /// vCPU is parked must affect the instruction executed on reply.
 #[cfg(feature = "virtualbox-vmi")]

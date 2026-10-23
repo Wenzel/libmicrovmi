@@ -302,9 +302,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
             }
             InterceptType::Singlestep => Err(KVMDriverError::SinglestepNotSupported.into()),
-            InterceptType::Cpuid => Err(MicrovmiError::NotSupported(
-                "toggle_intercept: Cpuid intercept".into(),
-            )
+            other => Err(MicrovmiError::NotSupported(format!(
+                "toggle_intercept: {:?} intercept",
+                other
+            ))
             .into()),
         }
     }
@@ -349,6 +350,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
 
                 Ok(Some(Event {
                     vcpu,
+                    view: DEFAULT_MEMORY_VIEW,
                     kind: microvmi_event_kind,
                 }))
             }
@@ -360,11 +362,14 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         event: Event,
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
-        let EventReplyType::Continue { reinject } = reply_type else {
+        let EventReplyType::Continue { reinject, view } = reply_type else {
             return Err(
-                MicrovmiError::NotSupported("reply_event: KVM emulation replies".into()).into(),
+                MicrovmiError::NotSupported("reply_event: KVM non-Continue replies".into()).into(),
             );
         };
+        if view != DEFAULT_MEMORY_VIEW && view != crate::api::KEEP_MEMORY_VIEW {
+            return Err(MicrovmiError::NotSupported("reply_event: KVM Memory views".into()).into());
+        }
         // KVMi Continue reinjects a breakpoint; Retry re-executes from RIP
         let kvm_reply_type = match (&event.kind, reinject) {
             (EventType::Breakpoint { .. }, true) => KVMiEventReply::Continue,

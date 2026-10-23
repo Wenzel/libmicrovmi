@@ -3,6 +3,10 @@
 ## Unreleased
 - **Breaking:** `InterceptType::Debug` and `EventType::Debug { dr6 }` for debug exceptions (#DB);
   VBoxVMI protocol v7; VirtualBox-only (Xen/KVM: not supported).
+- **Breaking:** VBoxVMI protocol v8 adds `EventReplyType::FastSingleStep {
+  immediate_view, next_view }`: switch to the immediate Memory view for exactly one instruction,
+  then switch to the next view without a step event. The ordinary Singlestep intercept is
+  independent; Xen and KVM reject this reply. Rebuild C callers against the generated header.
 
 ### Changed
 

@@ -122,6 +122,9 @@ pub enum EventReplyType {
     /// address at a breakpoint event: restore the original byte first. Reinjection on any other
     /// event is an error (ADR-0005).
     Continue { reinject: bool, view: u16 },
+    /// Execute exactly one instruction in `immediate_view`, then switch to `next_view`
+    /// without delivering a step event. Independent of the Singlestep intercept (VBoxVMI only).
+    FastSingleStep { immediate_view: u16, next_view: u16 },
     /// Emulate the faulting instruction once, ignoring every page access restriction (page-access
     /// event only, ADR-0007).
     Emulate { view: u16 },

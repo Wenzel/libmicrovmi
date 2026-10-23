@@ -444,6 +444,10 @@ impl Introspectable for VBoxVmi {
                 reinject: *reinject,
                 view: *view,
             },
+            EventReplyType::FastSingleStep { immediate_view, next_view } => Reply::FastSingleStep {
+                immediate_view: *immediate_view,
+                next_view: *next_view,
+            },
             EventReplyType::Emulate { view } => Reply::Emulate { view: *view },
             EventReplyType::EmulateNoWrite { view } => Reply::EmulateNoWrite { view: *view },
             EventReplyType::EmulateReadData { size, data, view } => Reply::EmulateReadData {
