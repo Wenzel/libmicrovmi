@@ -1,0 +1,2 @@
+[patch."https://github.com/Wenzel/rs-vboxvmi"]
+vboxvmi = { path = "/home/ops/vmi/vboxvmi" }

@@ -1175,6 +1175,56 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_breakpoint_at_rip
 });
 
+/// CPUID reports the original inputs while register reads contain the computed outputs.
+/// Overriding an output while parked must survive Continue, which skips the instruction.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_cpuid(mut drv: Box<dyn Introspectable>) {
+    drv.toggle_intercept(0, InterceptType::Cpuid, true).unwrap();
+    let event = next_event(drv.as_mut(), &mut start_guest_process);
+    let (leaf, subleaf, insn_len) = match event.kind {
+        EventType::Cpuid {
+            leaf,
+            subleaf,
+            insn_len,
+        } => (leaf, subleaf, insn_len),
+        ref other => panic!("not a CPUID event: {:?}", other),
+    };
+    assert!((2..=15).contains(&insn_len));
+    let mut regs = x86_registers(drv.as_ref(), event.vcpu);
+    let rip = regs.rip;
+    if insn_len == 2 {
+        let gpa = translate(drv.as_ref(), regs.cr3, rip).expect("CPUID RIP is not mapped");
+        let mut instruction = [0; 2];
+        let mut bytes_read = 0;
+        drv.read_physical(gpa, &mut instruction, &mut bytes_read).unwrap();
+        assert_eq!(bytes_read, 2);
+        assert_eq!(instruction, [0x0f, 0xa2], "not a CPUID at RIP");
+    }
+    println!("CPUID leaf {leaf:#x}, subleaf {subleaf:#x}, outputs {:#x} {:#x} {:#x} {:#x}",
+        regs.rax, regs.rbx, regs.rcx, regs.rdx);
+    regs.rbx ^= 0x1234;
+    let overridden_rbx = regs.rbx;
+    drv.write_registers(event.vcpu, Registers::X86(regs)).unwrap();
+    drv.toggle_intercept(0, InterceptType::Cpuid, false).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, true).unwrap();
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
+        .unwrap();
+    let step = drv.listen(5000).unwrap().expect("no step after CPUID");
+    assert!(matches!(step.kind, EventType::Singlestep { .. }));
+    let after = x86_registers(drv.as_ref(), step.vcpu);
+    assert_eq!(after.rip, rip + u64::from(insn_len));
+    assert_eq!(after.rbx, overridden_rbx, "CPUID output override was lost");
+    drv.toggle_intercept(0, InterceptType::Singlestep, false).unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
+        .unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_cpuid",
+    test_fn: vboxvmi_cpuid
+});
+
 /// A step arrives at every instruction boundary on one vCPU. Changing intercepts while that
 /// vCPU is parked must affect the instruction executed on reply.
 #[cfg(feature = "virtualbox-vmi")]

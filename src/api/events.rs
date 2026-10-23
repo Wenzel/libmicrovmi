@@ -16,6 +16,8 @@ pub enum InterceptType {
     Pagefault,
     /// Intercept every instruction the vCPU executes: one event at each instruction boundary
     Singlestep,
+    /// Intercept CPUID instructions before the vCPU resumes.
+    Cpuid,
 }
 
 /// Various types of events along with their relevant attributes being handled by this driver
@@ -64,6 +66,14 @@ pub enum EventType {
         /// Guest physical address of the next instruction (at RIP), `u64::MAX` if RIP is not
         /// mapped (VirtualBox: a step onto a page the guest has not faulted in yet)
         gpa: u64,
+    },
+    /// CPUID: original EAX/ECX inputs, before execution; registers at the event contain
+    /// the computed EAX/EBX/ECX/EDX outputs, and RIP still points to CPUID.
+    Cpuid {
+        leaf: u32,
+        subleaf: u32,
+        /// Actual VM-exit instruction length (2..=15 bytes, including any prefixes).
+        insn_len: u8,
     },
 }
 

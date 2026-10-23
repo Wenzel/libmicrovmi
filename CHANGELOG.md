@@ -36,6 +36,11 @@
   refused at the handshake.
 
 ### Added
+- `InterceptType::Cpuid` and `EventType::Cpuid { leaf, subleaf, insn_len }`
+  (C: `InterceptType_Cpuid`, `EventType_Cpuid`, `kind.cpuid`) expose original EAX/ECX
+  inputs and CPUID instruction length. VBoxVMI protocol v6 delivers computed CPUID
+  outputs in registers while parked; callers may override them and RIP before Continue.
+  Xen and KVM do not support this intercept.
 
 - VBoxVMI protocol v6: `inject_page_fault(vcpu, virtual_address, error_code)` queues an x86
   #PF on a parked vCPU before its event reply without releasing it. Unsupported drivers return

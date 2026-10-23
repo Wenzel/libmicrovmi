@@ -302,6 +302,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     .control_events(vcpu, KVMiInterceptType::Pagefault, enabled)?)
             }
             InterceptType::Singlestep => Err(KVMDriverError::SinglestepNotSupported.into()),
+            InterceptType::Cpuid => Err(MicrovmiError::NotSupported(
+                "toggle_intercept: Cpuid intercept".into(),
+            )
+            .into()),
         }
     }
 

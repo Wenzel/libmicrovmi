@@ -334,10 +334,10 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.borrow_mut().free_hidden_page(page)?)
     }
 
-    /// Breakpoint, single step, CR0/CR3/CR4 write, MSR write (one MSR index per Intercept) and
-    /// page access (`Pagefault`). Idempotent, per vCPU, also while paused or from within the
-    /// handling of an event before its reply. Fails while a VirtualBox debugger is attached; CR,
-    /// MSR write and page access Intercepts fail with "not supported" on AMD-V and NEM (VT-x only).
+    /// Breakpoint, single step, CPUID, CR0/CR3/CR4 write, MSR write (one MSR index per
+    /// Intercept) and page access (`Pagefault`). Idempotent, per vCPU, also while paused or
+    /// from within an event before its reply. Fails while a VirtualBox debugger is attached;
+    /// CR, MSR, CPUID and page access Intercepts require VT-x (not AMD-V or NEM).
     fn toggle_intercept(
         &mut self,
         vcpu: u16,
@@ -352,6 +352,7 @@ impl Introspectable for VBoxVmi {
             InterceptType::Cr(CrType::Cr4) => InterceptKind::CrWrite(4),
             InterceptType::Msr(index) => InterceptKind::MsrWrite(index),
             InterceptType::Pagefault => InterceptKind::PageAccess,
+            InterceptType::Cpuid => InterceptKind::Cpuid,
         };
         let client = self.client.get_mut();
         Ok(match enabled {
@@ -366,6 +367,9 @@ impl Introspectable for VBoxVmi {
     /// executes after the reply (CR3's `new` has bit 63, PCID no-flush, cleared). Page access
     /// events come before the access, RIP at the faulting instruction; `access` is the single
     /// access attempted, `gva` 0 when the CPU reported no linear address.
+    /// CPUID events retain the original EAX/ECX inputs in `leaf`/`subleaf`; reading registers
+    /// returns the computed CPUID outputs while RIP still points to the instruction. Continue
+    /// advances RIP by the instruction length if unchanged and preserves any register overrides.
     fn listen(&mut self, timeout: u32) -> Result<Option<Event>, Box<dyn Error>> {
         let event = match self
             .client
@@ -404,6 +408,15 @@ impl Introspectable for VBoxVmi {
                 gva,
                 gpa,
                 access: access(bits)?,
+            },
+            EventKind::Cpuid {
+                leaf,
+                subleaf,
+                insn_length,
+            } => EventType::Cpuid {
+                leaf,
+                subleaf,
+                insn_len: insn_length,
             },
         };
         Ok(Some(Event {
