@@ -212,6 +212,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
             msr_efer: msrs_as_slice[3].data,
             msr_star: msrs_as_slice[4].data,
             msr_lstar: msrs_as_slice[5].data,
+            // kvmi's get_registers does not fetch these MSRs
+            msr_cstar: 0,
+            msr_sfmask: 0,
+            shadow_gs_base: 0,
             efer: sregs.efer,
             apic_base: sregs.apic_base,
             cs: sregs.cs.into(),

@@ -31,6 +31,9 @@
   (`DEFAULT_MEMORY_VIEW` for the previous behavior); `Event` gains `view`, the vCPU's Active
   Memory view; `EventReplyType::Continue`/`Emulate`/`EmulateReadData`/`EmulateInsn` gain a `view`
   field (`KEEP_MEMORY_VIEW` to keep the current one). A v2 server is refused at the handshake.
+- **Breaking:** VBoxVMI protocol v4. `X86Registers` gains `msr_cstar`, `msr_sfmask` and
+  `shadow_gs_base` for Linux current-process lookup and Windows KPCR access. A v3 server is
+  refused at the handshake.
 
 ### Added
 

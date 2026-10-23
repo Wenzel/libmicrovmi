@@ -86,6 +86,12 @@ pub struct X86Registers {
     pub efer: u64,
     ///Advanced Programmable Interrupt Control Register
     pub apic_base: u64,
+    ///Compatibility mode syscall target. Its index value is 0xc0000083.
+    pub msr_cstar: u64,
+    ///SYSCALL flag mask. Its index value is 0xc0000084.
+    pub msr_sfmask: u64,
+    ///Kernel GS base (shadow GS). Its index value is 0xc0000102.
+    pub shadow_gs_base: u64,
     ///Code segment register
     pub cs: SegmentReg,
     ///Data segment register
