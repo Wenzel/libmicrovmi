@@ -114,6 +114,8 @@ restricted pages raises one event per retry. Replies (ADR-0007):
 - `Continue { reinject: false }` retries the access: it faults again unless the restriction was
   lifted (or the vCPU steps). `reinject: true` fails.
 - `Emulate` runs the instruction once with every restriction ignored, keeping them set.
+- `EmulateNoWrite` runs the instruction once but discards its memory writes, keeping
+  restrictions set.
 - `EmulateReadData { size, data }` does the same, the instruction's memory reads returning
   `data[..size]` (`size` 1 to 256).
 - `EmulateInsn { data }`, at a breakpoint event only, runs the 16 `data` bytes as the instruction

@@ -430,6 +430,7 @@ impl Introspectable for VBoxVmi {
                 view: *view,
             },
             EventReplyType::Emulate { view } => Reply::Emulate { view: *view },
+            EventReplyType::EmulateNoWrite { view } => Reply::EmulateNoWrite { view: *view },
             EventReplyType::EmulateReadData { size, data, view } => Reply::EmulateReadData {
                 data: data
                     .get(..*size as usize)

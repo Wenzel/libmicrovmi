@@ -109,6 +109,8 @@ pub enum EventReplyType {
     /// Emulate the faulting instruction once, ignoring every page access restriction (page-access
     /// event only, ADR-0007).
     Emulate { view: u16 },
+    /// Like `Emulate`, but memory writes are discarded (page-access event only).
+    EmulateNoWrite { view: u16 },
     /// Like `Emulate`, the instruction's memory reads returning `data[..size]` (page-access event
     /// only; `size` 1..=256).
     EmulateReadData {
