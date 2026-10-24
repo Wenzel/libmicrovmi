@@ -110,6 +110,11 @@ pub trait Introspectable {
         not_supported("get_max_physical_addr")
     }
 
+    /// The guest's RAM size in bytes, without the holes below the maximum physical address.
+    fn get_ram_size(&self) -> Result<u64, Box<dyn Error>> {
+        not_supported("get_ram_size")
+    }
+
     /// Read register values
     ///
     /// # Arguments

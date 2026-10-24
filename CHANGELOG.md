@@ -10,6 +10,10 @@
 - **Breaking:** VBoxVMI protocol v9 adds the hidden page pool size to `VMIHELLO` (16 bytes); use
   `hidden_page_pool_size()` (C: `microvmi_hidden_page_pool_size()`) to read it. VirtualBox-only.
 - VBoxVMI driver: `Event::regs` field exposes vCPU registers at event time (protocol v10+), eliminating a register read round trip per event. C API: `microvmi_event_get_registers()`.
+- `Introspectable::get_ram_size` (C: `microvmi_get_ram_size()`): the guest's RAM size without the
+  holes; VBoxVMI driver only, the other drivers return `NotSupported`.
+- C `microvmi_free_event()` frees an event the caller gives up replying to (after a failed
+  `microvmi_reply_event`).
 
 ### Changed
 

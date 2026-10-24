@@ -61,6 +61,8 @@ pub struct VBoxVmi {
     client: RefCell<Client>,
     /// End of the highest RAM range, fixed for the VM's lifetime.
     max_addr: u64,
+    /// Sum of the RAM ranges, fixed for the VM's lifetime.
+    ram_size: u64,
     /// Fixed for the VM's lifetime.
     vcpu_count: u16,
 }
@@ -69,15 +71,17 @@ impl VBoxVmi {
     /// Connects to the VM's VBoxVMI socket and performs the handshake.
     pub fn new(socket_path: &Path) -> Result<Self, Box<dyn Error>> {
         let mut client = Client::connect(socket_path)?;
-        let max_addr = client
-            .ram_ranges()?
+        let ranges = client.ram_ranges()?;
+        let max_addr = ranges
             .last()
             .expect("vboxvmi::Client::ram_ranges is never empty")
             .end;
+        let ram_size = ranges.iter().map(|r| r.end - r.start).sum();
         let vcpu_count = u16::try_from(client.vcpu_count()?)?;
         Ok(VBoxVmi {
             client: RefCell::new(client),
             max_addr,
+            ram_size,
             vcpu_count,
         })
     }
@@ -154,6 +158,10 @@ impl Introspectable for VBoxVmi {
 
     fn get_max_physical_addr(&self) -> Result<u64, Box<dyn Error>> {
         Ok(self.max_addr)
+    }
+
+    fn get_ram_size(&self) -> Result<u64, Box<dyn Error>> {
+        Ok(self.ram_size)
     }
 
     /// One request, served between two instructions of the vCPU: a consistent snapshot of it,

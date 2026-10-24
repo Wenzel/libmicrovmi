@@ -163,6 +163,25 @@ pub unsafe extern "C" fn microvmi_get_max_physical_addr(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
+pub unsafe extern "C" fn microvmi_get_ram_size(
+    context: *mut c_void,
+    size_ptr: *mut uint64_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_ram_size() {
+        Ok(size) => {
+            size_ptr.write(size);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
 pub unsafe extern "C" fn microvmi_get_vcpu_count(
     context: *mut c_void,
     count_ptr: *mut uint16_t,
@@ -506,6 +525,15 @@ pub unsafe extern "C" fn microvmi_reply_event(
             error!("microvmi_reply_event: {}", e);
             false
         }
+    }
+}
+
+/// Frees an event from `microvmi_listen` the caller gives up replying to (its vCPU stays parked).
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_free_event(event: *mut Event) {
+    if !event.is_null() {
+        drop(Box::from_raw(event));
     }
 }
 
