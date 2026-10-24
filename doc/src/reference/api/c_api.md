@@ -14,8 +14,9 @@ vCPU; VBoxVMI supports breakpoint, single step, CR, MSR and `InterceptType_Pagef
 `microvmi_listen(context, timeout_ms, &event)` returns `false` on error. On success, `event` is
 `NULL` at timeout, or points to an event owned by the caller. `microvmi_reply_event(context,
 event, reply)` frees the event **on success only**: on error the vCPU stays parked and the caller
-still owns the event, so it can reply again with it (for example a plain `Continue` after a
-failed emulation reply).
+still owns the event, so it can reply again with it (for example `EventReplyType_UnrestrictedStep`
+after a failed emulation reply, which executes the instruction natively with the vCPU's page
+access restrictions lifted).
 Use `EventReplyType_Continue` with `.continue_.reinject = true` only to deliver an intercepted
 breakpoint to the guest; use `false` for single step and to re-execute an int3 after restoring
 its original byte. `EventReplyType_Emulate` and `EventReplyType_EmulateReadData`

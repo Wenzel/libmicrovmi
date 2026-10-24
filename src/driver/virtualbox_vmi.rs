@@ -489,9 +489,11 @@ impl Introspectable for VBoxVmi {
     /// Releases the parked vCPU, also while the VM is paused (it continues on resume). `Continue`
     /// at a page-access event retries the access. `Emulate`/`EmulateReadData` (page-access event)
     /// and `EmulateInsn` (breakpoint event) return once the vCPU ran the instruction, every page
-    /// access restriction ignored. Fails, and the vCPU stays parked untouched, on reinjection for
-    /// any event but a breakpoint, a reply that does not fit the event, or an emulation the
-    /// hypervisor cannot perform; fails for a vCPU that is not parked, including a second reply.
+    /// access restriction ignored. `UnrestrictedStep` (page-access event) runs the instruction
+    /// natively with the restrictions lifted, the fallback for a refused emulation. Fails, and the
+    /// vCPU stays parked untouched, on reinjection for any event but a breakpoint, a reply that
+    /// does not fit the event, or an emulation the hypervisor cannot perform; fails for a vCPU
+    /// that is not parked, including a second reply.
     fn reply_event(
         &mut self,
         event: Event,
@@ -518,6 +520,7 @@ impl Introspectable for VBoxVmi {
                 data: *data,
                 view: *view,
             },
+            EventReplyType::UnrestrictedStep { view } => Reply::UnrestrictedStep { view: *view },
         };
         Ok(self
             .client

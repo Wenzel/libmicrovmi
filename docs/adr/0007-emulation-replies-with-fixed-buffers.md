@@ -23,3 +23,6 @@ is not offered.
   the vCPU has run it.
 - The emulated instruction runs once with every page access restriction ignored: it never raises a
   second event midway.
+- A refused emulation can be answered with `UnrestrictedStep` (VBoxVMI protocol v11): the
+  instruction executes natively once with the vCPU's page access restrictions lifted, so the guest
+  progresses instead of faulting again on a retried access.

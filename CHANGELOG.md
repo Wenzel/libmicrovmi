@@ -7,6 +7,12 @@
   immediate_view, next_view }`: switch to the immediate Memory view for exactly one instruction,
   then switch to the next view without a step event. The ordinary Singlestep intercept is
   independent; Xen and KVM reject this reply. Rebuild C callers against the generated header.
+- **Breaking:** VBoxVMI protocol v11 adds `EventReplyType::UnrestrictedStep { view }` (C:
+  `EventReplyType_UnrestrictedStep`, `.unrestricted_step.view`): at a page-access event, execute
+  the instruction natively once with the vCPU's page access restrictions lifted, the fallback for
+  an emulation reply VirtualBox refuses. `Emulate`, `EmulateNoWrite` and `EmulateReadData` now run
+  REP string instructions with all their iterations instead of refusing them. A v10 server is
+  refused at the handshake; Xen and KVM reject the new reply. Rebuild C callers.
 - **Breaking:** VBoxVMI protocol v9 adds the hidden page pool size to `VMIHELLO` (16 bytes); use
   `hidden_page_pool_size()` (C: `microvmi_hidden_page_pool_size()`) to read it. VirtualBox-only.
 - VBoxVMI driver: `Event::regs` field exposes vCPU registers at event time (protocol v10+), eliminating a register read round trip per event. C API: `microvmi_event_get_registers()`.

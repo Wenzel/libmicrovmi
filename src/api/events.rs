@@ -129,7 +129,7 @@ pub enum EventReplyType {
     /// without delivering a step event. Independent of the Singlestep intercept (VBoxVMI only).
     FastSingleStep { immediate_view: u16, next_view: u16 },
     /// Emulate the faulting instruction once, ignoring every page access restriction (page-access
-    /// event only, ADR-0007).
+    /// event only, ADR-0007); a REP string instruction runs all its iterations.
     Emulate { view: u16 },
     /// Like `Emulate`, but memory writes are discarded (page-access event only).
     EmulateNoWrite { view: u16 },
@@ -142,4 +142,8 @@ pub enum EventReplyType {
     },
     /// Execute `data` as the instruction at RIP instead of guest memory (breakpoint event only).
     EmulateInsn { data: [u8; 16], view: u16 },
+    /// Execute the faulting instruction natively once, this vCPU's page access restrictions
+    /// lifted for it, then restored without a step event (page-access event only, VBoxVMI only).
+    /// The fallback for an emulation reply the hypervisor refuses; writes and reads are real.
+    UnrestrictedStep { view: u16 },
 }

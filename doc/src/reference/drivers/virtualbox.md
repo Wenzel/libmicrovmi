@@ -113,16 +113,23 @@ restricted pages raises one event per retry. Replies (ADR-0007):
 
 - `Continue { reinject: false }` retries the access: it faults again unless the restriction was
   lifted (or the vCPU steps). `reinject: true` fails.
-- `Emulate` runs the instruction once with every restriction ignored, keeping them set.
+- `Emulate` runs the instruction once with every restriction ignored, keeping them set. A REP
+  string instruction runs all its remaining iterations (up to 65536 IEM steps; past that it stays
+  interrupted between iterations, as on hardware, and the guest resumes it).
 - `EmulateNoWrite` runs the instruction once but discards its memory writes, keeping
   restrictions set.
 - `EmulateReadData { size, data }` does the same, the instruction's memory reads returning
   `data[..size]` (`size` 1 to 256).
 - `EmulateInsn { data }`, at a breakpoint event only, runs the 16 `data` bytes as the instruction
   at RIP instead of guest memory (e.g. the instruction the int3 replaced, without restoring it).
+- `UnrestrictedStep`, at a page-access event only, executes the instruction natively once with
+  this vCPU's restrictions lifted (in the reply's view), then restores them; no step event. Its
+  reads and writes are real: it is the fallback for an emulation VirtualBox refuses (port I/O,
+  privileged and interrupt instructions, an RIP outside plain RAM).
 
 An emulation reply returns once the vCPU ran the instruction. A reply that does not fit the event,
-or an emulation VirtualBox cannot perform, fails with the vCPU parked and untouched.
+or an emulation VirtualBox cannot perform, fails with the vCPU parked and untouched. LibVMI's
+libmicrovmi driver then replies `UnrestrictedStep`, so the guest progresses.
 
 #### Memory views
 
