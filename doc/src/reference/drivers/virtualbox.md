@@ -150,6 +150,20 @@ byte.
 The client's own physical reads and writes always use the Default view, regardless of any vCPU's
 Active view.
 
+#### Hidden page pool sizing
+
+The Hidden page pool size is fixed at cold boot via `VBoxInternal/VMI/HiddenPages`. Changing it
+invalidates existing saved states and snapshots. DRAKVUF needs 1 sink page plus 1 page per hooked
+page. Measured counts (Linux 6.8 guest, Intel VT-x):
+
+- syscalls plugin: 169 pages (1 sink + 168 shadows)
+- ptracemon plugin: 2 pages (1 sink + 1 shadow)
+- procmon plugin: 5 pages (1 sink + 4 shadows)
+
+DRAKVUF reports the pool size and usage at startup ("X/Y used"). On pool exhaustion,
+`allocate_hidden_page()` fails and DRAKVUF aborts initialization with a sizing hint.
+
+
 ### Requirements
 
 - Platform: Linux
@@ -206,7 +220,7 @@ Volatility 3 ISF for its kernel (`linux-6.8.0-146-generic.json`).
    $ VBoxManage setextradata <vm> VBoxInternal/VMI/Enabled 1
    $ VBoxManage setextradata <vm> VBoxInternal/VMI/HiddenPages 64
    ~~~
-   DRAKVUF needs one Hidden page for its sink page plus one per hooked page.
+
 3. Run as the VM's user:
    ~~~
    $ drakvuf -r linux-6.8.0-146-generic.json -d vbox:<vm> -a ptracemon -o json -t 60 -v

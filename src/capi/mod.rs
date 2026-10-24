@@ -403,6 +403,16 @@ pub unsafe extern "C" fn microvmi_free_hidden_page(
     }
 }
 
+/// Returns the Hidden page pool size (VBoxInternal/VMI/HiddenPages), or 0 if not applicable or on error.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_hidden_page_pool_size(context: *mut c_void) -> uint32_t {
+    if context.is_null() {
+        return 0;
+    }
+    (*get_driver_mut_ptr(context)).hidden_page_pool_size()
+}
+
 /// Enables or disables an intercept on a vCPU. Returns false on error, which is logged.
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]

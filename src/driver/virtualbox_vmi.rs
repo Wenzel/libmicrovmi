@@ -334,6 +334,10 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.borrow_mut().free_hidden_page(page)?)
     }
 
+    fn hidden_page_pool_size(&self) -> u32 {
+        self.client.borrow().hidden_page_pool_size()
+    }
+
     /// Breakpoint, single step, CPUID, CR0/CR3/CR4 write, MSR write (one MSR index per
     /// Intercept) and page access (`Pagefault`). Idempotent, per vCPU, also while paused or
     /// from within an event before its reply. Fails while a VirtualBox debugger is attached;

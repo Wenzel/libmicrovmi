@@ -174,6 +174,11 @@ pub trait Introspectable {
         not_supported("free_hidden_page")
     }
 
+    /// Returns the Hidden page pool size (VBoxInternal/VMI/HiddenPages), or 0 if not applicable.
+    fn hidden_page_pool_size(&self) -> u32 {
+        0
+    }
+
     /// Write register values
     ///
     /// # Arguments
