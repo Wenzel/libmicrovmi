@@ -16,13 +16,13 @@ tree), and switch views the same way.
 ## Consequences
 
 - A view switch outside an event reply (all vCPUs) is an EMT rendezvous.
-- **Page access restrictions** no longer fit the 3 spare bits of `PGMPAGE`; they move to a per-view
-  table.
-- Instructions VirtualBox emulates (IEM) look memory up by guest-physical address, bypassing EPT:
-  they must apply the **Active view**'s **Remaps** and restrictions themselves.
+- **Page access restrictions** no longer fit the 3 spare bits of `PGMPAGE`; for non-Default views
+  they move to a per-view table.
 - The per-view table (`VmiPages`, sparse by guest-physical page) lives on the ring-3 process heap,
   unlike `PGMPAGE`'s bits: ring-0 and raw-mode cannot dereference it. A vCPU whose Active view is
-  not the Default view therefore never builds EPT entries in ring-0; the EPT fault handler returns
-  `VINF_EM_RAW_EMULATE_INSTR` immediately, and every instruction runs through IEM (ring-3 once
-  ring-0 IEM also finds the page's Remap/restriction unresolvable) instead of executing directly
-  in hardware. Slower, but correct and worth it: VBoxVMI Memory views are opt-in and not a hot path.
+  not the Default view therefore builds EPT entries on-demand in ring-3: the EPT fault handler
+  returns `VINF_EM_RAW_EMULATE_INSTR` to hand control to ring-3, which syncs the view's EPT page
+  table (Remaps and restrictions applied, 4K entries only). Allowed accesses then execute in
+  hardware; restricted accesses are emulated by IEM. VirtualBox commit `5656fb6` (2026-10) changed
+  this from running every non-Default view instruction through IEM to on-demand EPT sync with
+  hardware execution, making views fast enough for production use.

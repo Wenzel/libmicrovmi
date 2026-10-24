@@ -135,7 +135,7 @@ lifts every restriction.
 
 Each view has its own page-access restrictions and Remaps: `remap_memory_page(view, page, target)`
 makes `page` (a page number, not a byte address) show the contents of `target`'s page in `view`
-only; `target: RESTORE_PAGE`-equivalent (pass `page` itself) undoes it. A Remap is not available
+only; `target: RESTORE_PAGE` (the constant `u64::MAX`) undoes it. A Remap is not available
 in the Default view. Every `Event` carries the `view` its vCPU was running in; an event reply's
 `view` field switches that vCPU to another view (`KEEP_MEMORY_VIEW` keeps its Active view, the
 usual choice). A view that is some vCPU's Active view cannot be destroyed.
