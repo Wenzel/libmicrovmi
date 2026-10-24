@@ -29,8 +29,8 @@ With one method compiled in: `virtualbox-api` only uses MachineDebugger by defau
 ## VBoxVMI method
 
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
-It is the fast path for VM state access and VMI events. VBoxVMI protocol version 3 is required;
-an older client is refused at the handshake.
+It is the fast path for VM state access and VMI events. The client and patched server must agree
+on the VBoxVMI protocol version (9 in the measured builds); a mismatch is refused at the handshake.
 
 Supported: reading and writing guest physical memory, reading and writing the complete x86 register set,
 max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
@@ -162,6 +162,89 @@ page. Measured counts (Linux 6.8 guest, Intel VT-x):
 
 DRAKVUF reports the pool size and usage at startup ("X/Y used"). On pool exhaustion,
 `allocate_hidden_page()` fails and DRAKVUF aborts initialization with a sizing hint.
+
+#### Measured event latency (DRAKVUF #11, 2026-10-24)
+
+**Reproduction.** Host: Linux 6.8.0-146-generic, Intel Core i9-14900K (24 cores,
+32 hardware threads), VT-x/EPT; VirtualBox `2fc9912442b`, rs-vboxvmi `c0529e3`,
+libmicrovmi `047086a`, LibVMI `9d7355a`, DRAKVUF `95b514f`, VBoxVMI protocol 9.
+Guest: Ubuntu 24.04, Linux 6.8.0-146-generic, 2 GiB, NAT/SSH, base snapshot,
+one or two vCPUs, VMI enabled at cold boot. Xen was unavailable on this host.
+For each session, run
+`drakvuf -r ubuntu/linux-6.8.0-146-generic.json -d vbox:microvmi-ubuntu -a ptracemon [-F] -t 35`,
+wait 4 s for setup, and execute over SSH
+`for i in $(seq 25); do strace -f -qq /bin/true >/dev/null 2>&1 || exit 13; done`.
+Bracket the SSH command with host timestamps; stop DRAKVUF immediately after completion,
+then check SSH, guest `dmesg --level=err,warn`, and VBox.log. On two vCPUs,
+20 traced sessions ran in five `normal, -F, -F, normal` blocks across two fresh
+boots; on one vCPU, four traced sessions ran in one such block on a fresh boot.
+Every run completed 25 commands and delivered 3550 ptracemon INT3 callbacks:
+normal had another 3550 public single-step events, whereas `-F` had none.
+An unmonitored 25-command run took 0.061 s guest wall time on two vCPUs and
+0.035 s on one vCPU (shell `time`). The four-session, two-vCPU no-eBPF
+calibration also spanned 5.58–15.68 s under DRAKVUF: tracing alone does not
+explain the large run-to-run variation.
+
+**Probe boundaries.** Throwaway bpftrace uprobes on the deployed binaries
+timestamped `VMIR3DebugEvent` entry/return (park, keyed by EMT), entry to
+`vmiR3Send` (event dispatch/queue, matched by the event's vCPU), send return to
+`microvmi_listen` return (socket reception and libmicrovmi event translation),
+and `microvmi_reply_event` entry/return (reply plus server acknowledgment).
+`microvmi_listen` return to `microvmi_process_event` entry measures LibVMI's
+cache flush and routing; `microvmi_process_event` entry/return includes the
+DRAKVUF callback and reply. `_int3_cb` entry/return isolates the DRAKVUF
+INT3 callback, and `pgmVmiSwitchEptView` entry/return measures one view switch.
+The send syscall itself was measured by the server's `vmiR3Send` entry/return.
+Match events by vCPU, not alternating samples: normal's INT3/step sequence
+otherwise biases percentiles. The park span includes all downstream stages;
+LibVMI and callback spans overlap and **must not be added**. No guest
+instruction timing or VM-exit-to-`VMIR3DebugEvent` time is implied.
+The values below are approximate p50/p95/p99 **microseconds**, rounded to
+the containing eight-buckets-per-octave histogram bin; all spans include
+eBPF probe cost. Two-vCPU spans aggregate the last 12 sessions (six per mode,
+with all socket probes validated against event counts); one-vCPU spans
+aggregate all four sessions (two per mode).
+
+| Stage, µs p50 / p95 / p99 | 1 vCPU normal | 1 vCPU `-F` | 2 vCPU normal | 2 vCPU `-F` |
+| --- | ---: | ---: | ---: | ---: |
+| VBox EMT park to resume, INT3 | 736 / 3968 / 4352 | 672 / 736 / 864 | 928 / 4864 / 6400 | 864 / 4352 / 5376 |
+| VBox dispatch to event send, INT3 | 3 / 19 / 29 | 3 / 4 / 7 | 4 / 23 / 34 | 3 / 23 / 31 |
+| Socket event send to libmicrovmi receive/translate, INT3 | 1 / 10 / 19 | 1 / 2 / 4 | 2 / 13 / 31 | 1 / 11 / 21 |
+| Server event send syscall | 1 / 6 / 9 | 1 / 1 / 2 | 1 / 7 / 13 | 1 / 7 / 10 |
+| LibVMI pre-callback cache flush/routing | 5 / 27 / 38 | 5 / 6 / 9 | 5 / 38 / 62 | 6 / 38 / 58 |
+| LibVMI dispatch **including** callback/reply | 672 / 3456 / 3968 | 672 / 736 / 864 | 800 / 4352 / 5376 | 800 / 4352 / 5376 |
+| DRAKVUF INT3 callback | 672 / 3712 / 4352 | 672 / 736 / 864 | 928 / 4352 / 5888 | 800 / 4352 / 4864 |
+| Reply socket round trip, including acknowledgment | 10 / 58 / 84 | 11 / 12 / 17 | 12 / 68 / 108 | 11 / 68 / 152 |
+| One EPT view switch | 0 / 5 / 7 | 1 / 1 / 1 | 1 / 6 / 12 | 1 / 5 / 11 |
+
+**Throughput and guest slowdown.** On two vCPUs, normal host-bracketed
+25-command times were 5.119–17.993 s (median 11.018 s), or 197–693
+INT3/s; `-F` was 5.200–10.130 s (median 7.898 s), or 350–683 INT3/s.
+The ten ordered normal-minus-fast pairs ranged from **-0.799 to +8.915 s**
+(median +2.385 s; eight positive, two negative), so this does **not**
+demonstrate a repeatable guest speedup. Guest `CLOCK_MONOTONIC` measurements
+on the last ABBA block were normal 10.672 and 17.703 s, `-F` 7.285 and
+8.802 s, versus 0.071 s unmonitored with the same monotonic-clock wrapper;
+host-bracketed times for these four were 11.180, 17.993, 7.594 and 9.079 s
+respectively. Treat the 0.28–0.51 s host/guest clock discrepancy as a
+measurement limit rather than a claimed speedup. On one vCPU, host-bracketed
+normal times were 8.199 and 6.462 s (433–549 INT3/s), versus `-F` 4.370
+and 4.317 s (812–822 INT3/s); two runs are insufficient to extrapolate.
+The extra normal single-step events double its total event/reply rate, not
+its count of ptracemon hits.
+
+The INT3 callback/LibVMI dispatch dominates the parked interval (roughly
+0.7–1 ms median and 4–6 ms at p99 on two vCPUs); queueing, socket delivery,
+reply acknowledgment and individual view switches are one to two orders of
+magnitude smaller. `-F` removes the public step/reply but does not remove
+the measured multi-millisecond callback tail on two vCPUs. The conflicting
+no-probe controls and wide paired spread do not isolate a deterministic
+performance defect in `-F`; this benchmark provides no basis for changing
+the unrelated remap/page-access paths. SSH stayed responsive after every
+session, and dmesg/VBox.log showed no run-time soft lockups, RCU stalls, I/O
+errors, assertions or VMI failures. Boot-time APIC calibration and snapshot
+journal-recovery warnings were present before tracing; clocksource warning
+tracking remains in DRAKVUF #28. No raw trace files were committed.
 
 
 ### Requirements
