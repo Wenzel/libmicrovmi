@@ -39,11 +39,11 @@ and page-access intercepts per vCPU.
 Physical reads and writes are served inside the VM process without waiting for a vCPU, batching pages into requests of at most 64 KiB.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
 A physical write to a non-RAM page fails; other pages in the same batch may already have been written, so writes are not atomic. MMIO devices are never accessed.
-Pause is VirtualBox's own pause (the VM shows as Paused in the GUI and `VBoxManage`). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
+Pause first holds every vCPU out of guest code, in about 30 µs for a pause and resume (devices keep running, like Xen's domain pause), and becomes VirtualBox's own pause once it lasts 100 ms (the VM then shows as Paused in the GUI and `VBoxManage`, which can resume it). It is synchronous, all vCPUs are stopped when it returns, and idempotent: pausing a paused VM succeeds, and one resume resumes it.
 Pauses are not counted, also across clients: resume resumes the VM even if the GUI, `VBoxManage` or another tool paused it too.
 Pause and resume fail while VirtualBox controls the VM's run state: powering on or off, saving or restoring its state, live snapshot, teleport, or a configuration change (medium or network attachment). Resume also fails while the host's power management has the VM paused, and after a failed teleport of a paused VM until it is resumed through VirtualBox.
 A client disconnect leaves no session state behind: the server clears its intercepts, releases
-parked vCPUs without reinjection and synchronously resumes a pause the client created. A pause
+parked vCPUs without reinjection, ends a hold and synchronously resumes a pause the client created. A pause
 that already existed, or an external pause after the client's pause was externally resumed, remains paused.
 A register read or write is one request, served by the vCPU itself between two of its instructions: a read is a consistent snapshot of that vCPU and a write changes all its registers at once, also while the VM runs (pause first to read or write several vCPUs at the same point).
 The MSRs of `X86Registers` (EFER, STAR, LSTAR, SYSENTER_CS/ESP/EIP, APIC base) are included; an MSR the guest CPU doesn't have reads as 0.

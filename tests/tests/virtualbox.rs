@@ -312,11 +312,12 @@ inventory::submit!(IntegrationTest {
     test_fn: pause_stops_vcpus
 });
 
-/// Pause is VirtualBox's own, visible to `VBoxManage` as soon as it returns, and idempotent, also
-/// when another client paused or resumed the VM: one resume undoes any number of pauses.
+/// Pause becomes VirtualBox's own, visible to `VBoxManage` (at once through the Main API, once it
+/// lasted 100 ms through VBoxVMI, which holds the vCPUs first), and is idempotent, also when
+/// another client paused or resumed the VM: one resume undoes any number of pauses.
 fn pause_idempotent_and_visible(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
-    assert_eq!(vm_info("VMState"), "paused");
+    wait_for_vm_state("paused");
     drv.pause().unwrap();
     assert_eq!(vm_info("VMState"), "paused");
     drv.resume().unwrap();
@@ -351,7 +352,6 @@ fn connect_vboxvmi() -> vboxvmi::Client {
     }
 }
 
-#[cfg(feature = "virtualbox-vmi")]
 fn wait_for_vm_state(expected: &str) {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -361,7 +361,7 @@ fn wait_for_vm_state(expected: &str) {
         }
         assert!(
             Instant::now() < deadline,
-            "VM did not become {} after VBoxVMI disconnect; state is {}",
+            "VM did not become {}; state is {}",
             expected,
             state
         );
@@ -448,7 +448,7 @@ pub fn vboxvmi_parked_child() -> ! {
 #[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_normal_close_resumes(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
-    assert_eq!(vm_info("VMState"), "paused");
+    wait_for_vm_state("paused");
     drop(drv);
     wait_for_vm_state("running");
 }
@@ -512,7 +512,7 @@ fn vboxvmi_killed_client_resumes(drv: Box<dyn Introspectable>) {
         "paused",
         "VBoxVMI pause child did not become ready"
     );
-    assert_eq!(vm_info("VMState"), "paused");
+    wait_for_vm_state("paused");
     child
         .kill_and_wait()
         .expect("failed to kill and reap VBoxVMI pause child");
@@ -647,6 +647,7 @@ inventory::submit!(IntegrationTest {
 #[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_resume_generation_preserves_external_pause(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
+    wait_for_vm_state("paused"); // the hold became a suspend that others can resume
     vboxmanage(&["controlvm", &vm_name(), "resume"]);
     vboxmanage(&["controlvm", &vm_name(), "pause"]);
     drop(drv);
@@ -669,6 +670,7 @@ fn vboxvmi_disconnect_race_preserves_external_state(drv: Box<dyn Introspectable>
         }
         let mut client = connect_vboxvmi();
         client.pause().unwrap();
+        wait_for_vm_state("paused"); // the hold became a suspend that others can resume
 
         let (resumed_tx, resumed_rx) = mpsc::channel();
         let external = thread::spawn(move || {
@@ -1537,7 +1539,7 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
     drv.pause().unwrap();
     drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
-    assert_eq!(vm_info("VMState"), "paused");
+    wait_for_vm_state("paused");
     assert!(drv
         .reply_event(
             Event {
@@ -1821,7 +1823,7 @@ fn vboxvmi_cr_paused(mut drv: Box<dyn Introspectable>) {
     drv.reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
         .unwrap();
     drv.toggle_intercept(0, cr3, false).unwrap();
-    assert_eq!(vm_info("VMState"), "paused");
+    wait_for_vm_state("paused");
     drv.resume().unwrap();
     let resumed = vcpu_stats("cNsExecuting")[0];
     sleep(Duration::from_millis(500));

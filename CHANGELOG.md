@@ -23,6 +23,9 @@
 
 ### Changed
 
+- VBoxVMI driver: `pause` holds the vCPUs out of guest code (microseconds, devices keep running,
+  like Xen's domain pause) instead of VirtualBox's suspend (about 10 ms per pause); a pause that
+  lasts 100 ms becomes that suspend, which `VBoxManage` shows as paused and can resume.
 - **Breaking:** removed the legacy FDP VirtualBox access method and its icebox/libFDP dependency.
 - Omitting the VirtualBox access method selects the default one (ADR-0004): the VBoxVMI method at
   the VM's default socket, falling back to the MachineDebugger method only if that socket file does
