@@ -352,6 +352,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
                     vcpu,
                     view: DEFAULT_MEMORY_VIEW,
                     kind: microvmi_event_kind,
+                    regs: None,
                 }))
             }
         }

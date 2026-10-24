@@ -509,6 +509,26 @@ pub unsafe extern "C" fn microvmi_reply_event(
     }
 }
 
+/// Checks if the event has registers and writes them to `*registers` if present.
+/// Returns true if registers were available, false otherwise.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_event_get_registers(
+    event: *const Event,
+    registers: *mut Registers,
+) -> bool {
+    if event.is_null() || registers.is_null() {
+        return false;
+    }
+    match &(*event).regs {
+        Some(regs) => {
+            *registers = Registers::X86((**regs).clone());
+            true
+        }
+        None => false,
+    }
+}
+
 /// return the concrete DriverType for the given Microvmi driver
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]

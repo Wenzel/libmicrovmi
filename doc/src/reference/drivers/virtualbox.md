@@ -163,6 +163,29 @@ page. Measured counts (Linux 6.8 guest, Intel VT-x):
 DRAKVUF reports the pool size and usage at startup ("X/Y used"). On pool exhaustion,
 `allocate_hidden_page()` fails and DRAKVUF aborts initialization with a sizing hint.
 
+**Register round-trip elimination (DRAKVUF #12, 2026-10-24).** VBoxVMI protocol v10 events
+(VirtualBox `99b30a9aa0d`, rs-vboxvmi `1845439`, libmicrovmi `3fe13ce`, LibVMI `d1a240a`) carry
+the vCPU's full register snapshot (VMIX86REGS, 416 bytes) in the event message itself,
+eliminating the separate `microvmi_read_registers` socket round trip LibVMI used to perform
+per event. Baseline (protocol v9, eBPF uprobes): 2.0 `microvmi_read_registers` calls per INT3
+event on the ptracemon path (both from `microvmi_process_event` filling `event->x86_regs` and
+the per-vCPU register cache). Protocol v10 (same probe): 5 calls across 7100 INT3 events
+(0.00 per event); LibVMI seeds the cache directly from the event via `microvmi_event_get_registers()`.
+Four host-bracketed 25-command runs (same two-vCPU VM, strace workload as #11) initially measured
+36.39–36.86 s (median 36.495 s), 95.6–97.5 INT3/s, delivering 3525–3550 ptracemon events (median
+3537.5). Investigation revealed ~26 `microvmi_listen` calls per run timed out after 500 ms
+without receiving an event, totaling ~20 s of the measured time. Root cause: when multiple events
+arrived in quick succession, rs-vboxvmi's `wait_event` returned the first but left others on the
+socket; the next `wait_event` call would poll with a full timeout even though events were
+immediately available. Fixed by draining all immediately-available events into the internal queue
+before returning (rs-vboxvmi `17b4d02`). Post-fix measurements on the same build and host:
+6.8–17.5 s (median 10.3 s), ~340 INT3/s, delivering 3526–3550 ptracemon events. This is faster
+than the protocol v9 baseline (5.119–17.993 s, median 11.018 s, 197–693 INT3/s) measured on the
+same host. The register round-trip elimination is confirmed (2.0 → 0.00 `microvmi_read_registers`
+calls per event). The register cache invalidation paths (set_vcpureg(s), SET_REGISTERS reply,
+unpark, resume) remain unchanged. PIDs in ptracemon output were correct (seeded registers drive
+process lookup via shadow_gs/CR3, not affected by the optimization).
+
 #### Measured event latency (DRAKVUF #11, 2026-10-24)
 
 **Reproduction.** Host: Linux 6.8.0-146-generic, Intel Core i9-14900K (24 cores,

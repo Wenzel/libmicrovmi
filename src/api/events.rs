@@ -105,6 +105,9 @@ pub struct Event {
     pub view: u16,
     /// Type of event detected
     pub kind: EventType,
+    /// Registers at event time, if available (VBoxVMI protocol v10+); null if not available or not supported.
+    /// cbindgen:field-type=const X86Registers*
+    pub regs: Option<Box<crate::api::registers::X86Registers>>,
 }
 
 ///Reply provided to the hypervisor after detecting an event

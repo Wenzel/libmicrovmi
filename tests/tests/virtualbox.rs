@@ -1489,7 +1489,8 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
                 Event {
                     vcpu: 1,
                     view: DEFAULT_MEMORY_VIEW,
-                    kind: EventType::Singlestep { gpa: 0 }
+                    kind: EventType::Singlestep { gpa: 0 },
+                    regs: None,
                 },
                 EventReplyType::Continue {
                     reinject: false,
@@ -1506,7 +1507,8 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
             Event {
                 vcpu,
                 view: DEFAULT_MEMORY_VIEW,
-                kind: EventType::Singlestep { gpa: 0 }
+                kind: EventType::Singlestep { gpa: 0 },
+                regs: None,
             },
             EventReplyType::Continue {
                 reinject: false,
@@ -1519,7 +1521,8 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
             Event {
                 vcpu: 0,
                 view: DEFAULT_MEMORY_VIEW,
-                kind: EventType::Singlestep { gpa: 0 }
+                kind: EventType::Singlestep { gpa: 0 },
+                regs: None,
             },
             EventReplyType::Continue {
                 reinject: true,
@@ -1540,7 +1543,8 @@ fn vboxvmi_parked_vcpu(mut drv: Box<dyn Introspectable>) {
             Event {
                 vcpu: 0,
                 view: DEFAULT_MEMORY_VIEW,
-                kind: EventType::Singlestep { gpa: 0 }
+                kind: EventType::Singlestep { gpa: 0 },
+                regs: None,
             },
             EventReplyType::Continue {
                 reinject: false,
@@ -1674,7 +1678,7 @@ fn cr_write_events(
                 cr_type: cr,
                 new,
                 old,
-            } },
+            }, regs: None },
             EventReplyType::Continue { reinject: true, view: KEEP_MEMORY_VIEW },
         );
         assert!(reinjected.is_err(), "CR event reinjected");
@@ -2616,7 +2620,7 @@ fn vboxvmi_msr_write(mut drv: Box<dyn Introspectable>) {
                 msr_type: TEST_MSR,
                 value: new,
                 old,
-            } },
+            }, regs: None },
             EventReplyType::Continue { reinject: true, view: KEEP_MEMORY_VIEW },
         );
         assert!(reinjected.is_err(), "MSR event reinjected");

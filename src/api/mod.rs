@@ -303,6 +303,7 @@ mod tests {
             vcpu: 0,
             view: DEFAULT_MEMORY_VIEW,
             kind: EventType::Singlestep { gpa: 0 },
+            regs: None,
         };
         assert!(d
             .reply_event(

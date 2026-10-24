@@ -9,6 +9,7 @@
   independent; Xen and KVM reject this reply. Rebuild C callers against the generated header.
 - **Breaking:** VBoxVMI protocol v9 adds the hidden page pool size to `VMIHELLO` (16 bytes); use
   `hidden_page_pool_size()` (C: `microvmi_hidden_page_pool_size()`) to read it. VirtualBox-only.
+- VBoxVMI driver: `Event::regs` field exposes vCPU registers at event time (protocol v10+), eliminating a register read round trip per event. C API: `microvmi_event_get_registers()`.
 
 ### Changed
 

@@ -443,6 +443,7 @@ impl Introspectable for Xen {
                 vcpu,
                 view: 0,  // Xen doesn't have memory views, always use default view
                 kind: event_type,
+                regs: None,  // Xen doesn't provide registers in events
             }))
         } else {
             Ok(None)
