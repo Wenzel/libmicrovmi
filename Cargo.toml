@@ -122,3 +122,7 @@ members = ["python"]
 [patch.crates-io]
 # kvmi 0.5.0 fails on newer kernel headers (kvm_msrs.entries union), Wenzel/drakvuf#29
 kvmi = { path = "../kvmi" }
+
+[patch."https://github.com/Wenzel/rs-vboxapi"]
+# Hidden page pool counted as guest RAM, Wenzel/drakvuf#32
+vboxapi = { path = "../vboxapi" }

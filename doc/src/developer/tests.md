@@ -99,9 +99,7 @@ MICROVMI_TEST_FILTER=vboxvmi_ssh_events_ VBOX_TEST_VM=microvmi-ubuntu VBOX_TEST_
 
 Under `machinedebugger` the method has no events: the VBoxVMI-only tests (`vboxvmi_*`) and the
 generic `intercept_cr3_*` tests fail, so filter that run with `MICROVMI_TEST_FILTER=virtualbox_` and
-the generic test names. `virtualbox_read_physical_matches_core` also fails there while
-`HiddenPages` is set: the MachineDebugger method counts the Hidden page pool as RAM
-([Wenzel/drakvuf#32](https://github.com/Wenzel/drakvuf/issues/32)). Every test
+the generic test names. Every test
 leaves the VM as the snapshot was, so a failed run can be resumed with a filter.
 
 `virtualbox_write_physical_` checks random patterns against a fresh core dump, after
