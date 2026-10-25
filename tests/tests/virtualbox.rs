@@ -2484,6 +2484,41 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_restore_remap
 });
 
+/// Applying or restoring a Remap lifts the page's restriction in that view, as Xen's change_gfn
+/// does. Remaps in the Default view and to a Hidden page the client has not allocated are refused.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_remap_resets_access(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let (gpa, hidden) = hidden_copy_of_rip_page(drv.as_mut(), false);
+    let freed = drv.allocate_hidden_page().unwrap();
+    drv.free_hidden_page(freed).unwrap();
+    assert!(drv.remap_memory_page(DEFAULT_MEMORY_VIEW, gpa / PAGE, hidden).is_err(), "Default-view Remap");
+    assert!(drv.remap_memory_page(view, gpa / PAGE, freed).is_err(), "Remap to an unallocated Hidden page");
+
+    drv.set_page_access(view, gpa, Access::RW).unwrap();
+    drv.remap_memory_page(view, gpa / PAGE, hidden).unwrap();
+    assert_eq!(drv.get_page_access(view, gpa).unwrap(), Access::RWX, "restriction kept by a Remap");
+    drv.set_page_access(view, gpa, Access::RW).unwrap();
+    drv.remap_memory_page(view, gpa / PAGE, RESTORE_PAGE).unwrap();
+    assert_eq!(drv.get_page_access(view, gpa).unwrap(), Access::RWX, "restriction kept by a restore");
+    // No execute event left behind in the view.
+    toggle_all(drv.as_mut(), InterceptType::Pagefault, true);
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(drv.as_mut(), &mut start_guest_process, "page access after a restore");
+    drv.pause().unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Pagefault, false);
+    end_views_test(drv.as_mut(), &mut Vec::new(), &[view], &[hidden]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_remap_resets_access",
+    test_fn: vboxvmi_memory_view_remap_resets_access
+});
+
 /// With every vCPU in a view, 200 Remap changes of the idle loop's page to an identical copy and
 /// back while they run; then, remapped to a copy with an int3, every vCPU stops at it (each idles
 /// there) in that view and continues in the Default view.
