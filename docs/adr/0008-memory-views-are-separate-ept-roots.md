@@ -26,7 +26,7 @@ tree), and switch views the same way.
   hardware; restricted accesses are emulated by IEM. VirtualBox commit `5656fb6` (2026-10) changed
   this from running every non-Default view instruction through IEM to on-demand EPT sync with
   hardware execution, making views fast enough for production use.
-- Since VirtualBox commit `c9d65d7497b` (2026-10, DRAKVUF #14) `VmiPages` is mirrored into a
+- Since VirtualBox commit `80195ce90fd` (2026-10, DRAKVUF #14) `VmiPages` is mirrored into a
   fixed-size hash table mapped in both ring-3 and ring-0 (`SUPR3PageAllocEx`), written only in EMT
   rendezvous. Ring-0 syncs allowed misses itself; ring-3 still handles restricted accesses,
   repeated misses at the same RIP, and every miss once the table is full (3/4 load). A DRAKVUF

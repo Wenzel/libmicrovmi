@@ -171,7 +171,7 @@ DRAKVUF reports the pool size and usage at startup ("X/Y used"). On pool exhaust
 `allocate_hidden_page()` fails and DRAKVUF aborts initialization with a sizing hint.
 
 **Register round-trip elimination (DRAKVUF #12, 2026-10-24).** VBoxVMI protocol v10 events
-(VirtualBox `99b30a9aa0d`, rs-vboxvmi `1845439`, libmicrovmi `3fe13ce`, LibVMI `d1a240a`) carry
+(VirtualBox `c6da8361159`, rs-vboxvmi `75925ea`, libmicrovmi `8128a66`, LibVMI `d1a240a`) carry
 the vCPU's full register snapshot (VMIX86REGS, 416 bytes) in the event message itself,
 eliminating the separate `microvmi_read_registers` socket round trip LibVMI used to perform
 per event. Baseline (protocol v9, eBPF uprobes): 2.0 `microvmi_read_registers` calls per INT3
@@ -185,7 +185,7 @@ without receiving an event, totaling ~20 s of the measured time. Root cause: whe
 arrived in quick succession, rs-vboxvmi's `wait_event` returned the first but left others on the
 socket; the next `wait_event` call would poll with a full timeout even though events were
 immediately available. Fixed by draining all immediately-available events into the internal queue
-before returning (rs-vboxvmi `17b4d02`). Post-fix measurements on the same build and host:
+before returning (rs-vboxvmi `4f63b63`). Post-fix measurements on the same build and host:
 6.8–17.5 s (median 10.3 s), ~340 INT3/s, delivering 3526–3550 ptracemon events. This is faster
 than the protocol v9 baseline (5.119–17.993 s, median 11.018 s, 197–693 INT3/s) measured on the
 same host. The register round-trip elimination is confirmed (2.0 → 0.00 `microvmi_read_registers`
@@ -196,8 +196,8 @@ process lookup via shadow_gs/CR3, not affected by the optimization).
 #### Measured event latency (DRAKVUF #11, 2026-10-24)
 
 **Reproduction.** Host: Linux 6.8.0-146-generic, Intel Core i9-14900K (24 cores,
-32 hardware threads), VT-x/EPT; VirtualBox `2fc9912442b`, rs-vboxvmi `c0529e3`,
-libmicrovmi `047086a`, LibVMI `9d7355a`, DRAKVUF `95b514f`, VBoxVMI protocol 9.
+32 hardware threads), VT-x/EPT; VirtualBox `0b22cc93aea`, rs-vboxvmi `c8bbc15`,
+libmicrovmi `ed0f380`, LibVMI `9d7355a`, DRAKVUF `95b514f`, VBoxVMI protocol 9.
 Guest: Ubuntu 24.04, Linux 6.8.0-146-generic, 2 GiB, NAT/SSH, base snapshot,
 one or two vCPUs, VMI enabled at cold boot. Xen was unavailable on this host.
 For each session, run
