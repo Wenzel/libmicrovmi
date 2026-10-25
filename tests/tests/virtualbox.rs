@@ -703,6 +703,47 @@ inventory::submit!(IntegrationTest {
 });
 
 #[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_reset_ends_session(mut drv: Box<dyn Introspectable>) {
+    drv.toggle_intercept(0, InterceptType::Breakpoint, true)
+        .unwrap();
+    vboxmanage(&["controlvm", &vm_name(), "reset"]);
+    let error = match drv.listen(10_000) {
+        Err(error) => error.to_string(),
+        Ok(_) => panic!("listen succeeded after the VM reset"),
+    };
+    assert!(error.contains("the VM was reset"), "listen: {}", error);
+    assert!(drv.pause().is_err(), "the session survived the reset");
+    drop(drv);
+    drop(connect_vboxvmi()); // the rebooting VM takes a new client
+    assert_eq!(vm_info("VMState"), "running");
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_reset_ends_session",
+    test_fn: vboxvmi_reset_ends_session
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_save_state_refused_while_connected(drv: Box<dyn Introspectable>) {
+    let vm = vm_name();
+    let error = try_vboxmanage(&["controlvm", &vm, "savestate"]).unwrap_err();
+    assert!(error.contains("VBoxVMI"), "savestate: {}", error);
+    let error =
+        try_vboxmanage(&["snapshot", &vm, "take", "vboxvmi-refused", "--live"]).unwrap_err();
+    assert!(error.contains("VBoxVMI"), "live snapshot: {}", error);
+    assert!(!vboxmanage(&["snapshot", &vm, "list"]).contains("vboxvmi-refused"));
+    assert_eq!(vm_info("VMState"), "running");
+    drop(drv);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_save_state_refused_while_connected",
+    test_fn: vboxvmi_save_state_refused_while_connected
+});
+
+#[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_second_client_is_busy(drv: Box<dyn Introspectable>) {
     match vboxvmi::Client::connect(vboxvmi_socket()) {
         Err(vboxvmi::Error::Busy) => {}

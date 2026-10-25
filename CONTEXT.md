@@ -80,6 +80,7 @@ _Avoid_: DBGF (the internal component name)
 - Both methods provide **VM state access**; only the **VBoxVMI method** provides **VMI events**
 - Pausing through either method is the ordinary VirtualBox pause, visible to (and undoable by) the VM's user
 1: - A **VBoxVMI** client that disconnects leaves no session state behind: intercepts, **Page access restrictions**, **Remaps**, **Memory views** and **Hidden pages** are removed, every vCPU returns to the **Default view**, parked vCPUs are released, and anything it paused is resumed
+- A VM reset ends the **VBoxVMI** session like a disconnect, and the client's calls fail until it connects again; while a client is connected, the VM state cannot be saved
 - **Intercepts** are set per vCPU; a **VBoxVMI** client can set no **Intercept** or **Page access restriction**, nor enable **Memory views**, while a **VirtualBox debugger** is attached, and a **VirtualBox debugger** cannot attach while any are set or enabled
 - **Page access restrictions** belong to a **Memory view**, the page-access **Intercept** to a vCPU: a vCPU without the **Intercept** performs an access its **Active view** restricts unreported
 - A **Remap** is possible in any **Memory view** but the **Default view**, from and to RAM pages and **Hidden pages** only; remapping a page clears its **Page access restriction** in that view

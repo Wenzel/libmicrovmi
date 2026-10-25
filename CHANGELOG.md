@@ -13,6 +13,11 @@
   an emulation reply VirtualBox refuses. `Emulate`, `EmulateNoWrite` and `EmulateReadData` now run
   REP string instructions with all their iterations instead of refusing them. A v10 server is
   refused at the handshake; Xen and KVM reject the new reply. Rebuild C callers.
+- **Breaking:** VBoxVMI protocol v12: a VM reset ends the session (ADR-0010). VirtualBox removes
+  the session's intercepts, memory views, page access restrictions and Hidden pages, and the
+  VirtualBox driver fails `listen` and every later call with an error saying the VM was reset;
+  connect again to introspect the new boot. Saving the VM state is refused while connected. A v11
+  server is refused at the handshake.
 - **Breaking:** VBoxVMI protocol v9 adds the hidden page pool size to `VMIHELLO` (16 bytes); use
   `hidden_page_pool_size()` (C: `microvmi_hidden_page_pool_size()`) to read it. VirtualBox-only.
 - VBoxVMI driver: `Event::regs` field exposes vCPU registers at event time (protocol v10+), eliminating a register read round trip per event. C API: `microvmi_event_get_registers()`.
