@@ -68,6 +68,10 @@ configured `cpus`.
 - `VBOX_TEST_CPUS`: same, with this many vCPUs (the guest is still booting while the test runs: use
   it for the memory and register tests, the `smp2`/`smp4` snapshots for the others). Both variables
   can be combined.
+- `VBOX_TEST_IEM`: set `VBoxInternal/EM/IemExecutesAll`, so VirtualBox's instruction emulator (IEM)
+  runs all guest code instead of VT-x, and the VBoxVMI checks on IEM's memory paths are what the
+  tests exercise (e.g. `MICROVMI_TEST_FILTER=vboxvmi_memory_view_restricted_stack`). Single-step and
+  the fast step need VT-x's monitor trap flag, so the tests that use them fail in this mode.
 - `VBOX_TEST_SEED`: replay the write test's random pattern with the seed it printed
 - `VBOX_TEST_CORE_DIR` (default: the temp dir): where core dumps go. A core is as large as the guest's RAM
   (over 5 GiB for a 5 GiB guest): avoid a RAM-backed tmpfs `/tmp` for big guests. Deleted at teardown.

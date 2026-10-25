@@ -17,6 +17,9 @@
 //! - `VBOX_TEST_HIDDEN_PAGES` (default 16): `VBoxInternal/VMI/HiddenPages`, set for every method
 //!   (it moves the RAM layout, so it must be the value the snapshot was saved with) and restored
 //!   at teardown
+//! - `VBOX_TEST_IEM`: if set, `VBoxInternal/EM/IemExecutesAll` runs all guest code in VirtualBox's
+//!   instruction emulator (IEM) instead of VT-x, to test the VBoxVMI paths IEM takes; restored at
+//!   teardown
 use parking_lot::Mutex;
 use std::env;
 use std::fs;
@@ -138,6 +141,7 @@ const VMI_SOCKET: &str = "VBoxInternal/VMI/SocketPath";
 /// Set to 1 while VBoxVMI is enabled.
 const VMI_EXTRADATA: [&str; 2] = ["VBoxInternal/VMI/Enabled", "VBoxInternal/DBGC/Enabled"];
 const VMI_HIDDEN_PAGES: &str = "VBoxInternal/VMI/HiddenPages";
+const IEM_EXECUTES_ALL: &str = "VBoxInternal/EM/IemExecutesAll";
 
 pub fn vm_name() -> String {
     env::var("VBOX_TEST_VM").unwrap_or_else(|_| String::from("microvmi-alpine"))
@@ -274,6 +278,7 @@ impl Context for VirtualBox {
         }
         let hidden_pages = env::var("VBOX_TEST_HIDDEN_PAGES").unwrap_or_else(|_| String::from("16"));
         let mut settings = vec![(VMI_HIDDEN_PAGES, Some(hidden_pages.as_str()))];
+        settings.push((IEM_EXECUTES_ALL, env::var_os("VBOX_TEST_IEM").map(|_| "1")));
         // unset, not left as the VM has it: the default method then falls back, and no VBoxVMI
         // session runs beside the MachineDebugger method
         settings.extend(VMI_EXTRADATA.map(|key| (key, self.vmi_enabled.then_some("1"))));

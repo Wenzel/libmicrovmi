@@ -2519,6 +2519,43 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_remap_resets_access
 });
 
+/// A write restriction in a non-default view only: an interrupt (the guest idles tickless; typing
+/// wakes it) pushes its frame onto vCPU 0's idle stack and reports a write in that view. With
+/// `VBOX_TEST_IEM` the push is VirtualBox's emulator's data access, which must honor the view as the
+/// EPT does.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_restricted_stack(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let regs = x86_registers(drv.as_mut(), 0);
+    let gpa = translate(drv.as_mut(), regs.cr3, regs.rsp - 8).expect("stack is not mapped");
+    drv.set_page_access(view, gpa, Access::RX).unwrap();
+    assert_eq!(drv.get_page_access(DEFAULT_MEMORY_VIEW, gpa).unwrap(), Access::RWX);
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+    start_guest_process();
+
+    let mut parked = Vec::new();
+    let event = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    let (_, event_gpa, access) = page_access_event(&event);
+    assert_eq!((event.view, access), (view, Access::W));
+    assert_eq!(event_gpa / PAGE, gpa / PAGE, "write outside the restricted stack page");
+    // The Default view has no restriction: the push proceeds there.
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: DEFAULT_MEMORY_VIEW })
+        .unwrap();
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    end_views_test(drv.as_mut(), &mut parked, &[view], &[]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_restricted_stack",
+    test_fn: vboxvmi_memory_view_restricted_stack
+});
+
 /// With every vCPU in a view, 200 Remap changes of the idle loop's page to an identical copy and
 /// back while they run; then, remapped to a copy with an int3, every vCPU stops at it (each idles
 /// there) in that view and continues in the Default view.
