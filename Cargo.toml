@@ -118,3 +118,7 @@ publish = false
 
 [workspace]
 members = ["python"]
+
+[patch.crates-io]
+# kvmi 0.5.0 fails on newer kernel headers (kvm_msrs.entries union), Wenzel/drakvuf#29
+kvmi = { path = "../kvmi" }
