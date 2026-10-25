@@ -273,8 +273,9 @@ performance defect in `-F`; this benchmark provides no basis for changing
 the unrelated remap/page-access paths. SSH stayed responsive after every
 session, and dmesg/VBox.log showed no run-time soft lockups, RCU stalls, I/O
 errors, assertions or VMI failures. Boot-time APIC calibration and snapshot
-journal-recovery warnings were present before tracing; clocksource warning
-tracking remains in DRAKVUF #28. No raw trace files were committed.
+journal-recovery warnings were present before tracing; the boot-time clocksource
+warning is upstream VirtualBox (see [Known VirtualBox issues](#known-virtualbox-issues)).
+No raw trace files were committed.
 
 
 ### Requirements
@@ -398,6 +399,22 @@ $ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger
 
 The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:
 `cargo build --features virtualbox-api --config 'patch."https://github.com/Wenzel/rs-vboxapi".vboxapi.path="../rs-vboxapi"'`
+
+## Known VirtualBox issues
+
+These two reproduce on an unpatched build of the VirtualBox revision the VBoxVMI branch is based on,
+at the same rates as with the VBoxVMI patches. VBoxVMI was disabled in both builds. Measured on an
+Ubuntu 24.04 guest with 2 vCPUs over 10 cold boots and 30 guest reboots per build (DRAKVUF #31 and #28).
+
+- **A guest reboot sometimes hangs in the BIOS** (7 of 30 reboots unpatched, 6 of 30 patched). The
+  screen stays black, and VBox.log stops after `BIOS: No PCI IDE controller, not probing IDE` without
+  `Booting from Hard Disk...`. `VBoxManage controlvm <vm> reset` recovers it. Reset within a few
+  seconds: one hang ended in a triple fault and a Guru Meditation after 16 s. A VM in Guru Meditation
+  refuses a reset and needs a power off.
+- **The guest's clocksource watchdog logs `Long readout interval, skipping watchdog check`
+  during boot** (2 of 36 boots unpatched, 1 of 40 patched). Its timer fired late, so it skipped one
+  check. The TSC and the watchdog clock agreed and the TSC stayed the clocksource. It is harmless and
+  needs no kernel argument.
 
 ## Test suite
 
