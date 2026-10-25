@@ -398,3 +398,12 @@ $ python3 python/examples/mem-dump.py -d <vm_name> --vbox-machinedebugger
 
 The binding comes from the [vboxapi](https://github.com/Wenzel/rs-vboxapi) crate. To build against a local checkout of it, override the git dependency:
 `cargo build --features virtualbox-api --config 'patch."https://github.com/Wenzel/rs-vboxapi".vboxapi.path="../rs-vboxapi"'`
+
+## Test suite
+
+The integration tests (`cargo test --features virtualbox --test integration`) restore a snapshot of
+a test VM before each test and check both access methods against `VBoxManage` (memory against a
+core dump, registers, pause, vCPU count). The VBoxVMI method also gets its events, page access,
+memory views, Hidden page pool, session reset and disconnect cases, on 1, 2 and 4 vCPUs. See
+[Tests](../../developer/tests.md#virtualbox) for the requirements, the environment variables and
+the runs to make.

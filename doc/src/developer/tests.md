@@ -43,23 +43,31 @@ configured `cpus`.
 - a VirtualBox build with the MachineDebugger patches (MachineDebugger method), VBoxVMI
   (VBoxVMI method), or both patch series on a test-only combined branch (cross-method test), with
   that build's kernel modules loaded
-- a VM with an online snapshot (saved state), e.g. a live Alpine ISO guest at its login prompt
+- a VM with an online snapshot (saved state), e.g. a live Alpine ISO guest at its login prompt. The
+  harness VM `microvmi-alpine` has three: `base` (1 vCPU, the default), `smp2` (2 vCPUs) and
+  `smp4` (4 vCPUs), all children of `base`, saved with `VBoxInternal/VMI/HiddenPages` 16.
+  To make one: restore `base`, `discardstate`, `modifyvm --cpus <n>`, start it, wait for the login
+  prompt, `controlvm savestate`, `snapshot take <name>`, restore `base`.
 
 **Configuration** (environment variables)
 - `VBOX_APP_HOME`: VirtualBox bin directory (`VBoxManage`, `VBoxHeadless`, C API library)
 - `VBOX_USER_HOME`: VirtualBox configuration directory holding the VM, if not the default one
-- `VBOX_TEST_VM` (default `microvmi-alpine`), `VBOX_TEST_SNAPSHOT` (default `base`)
+- `VBOX_TEST_VM` (default `microvmi-alpine`), `VBOX_TEST_SNAPSHOT` (default `base`; `smp2`/`smp4`
+  for the multi-vCPU runs)
 - `VBOX_TEST_METHOD`: `machinedebugger` or `vboxvmi`, or the driver's default access method with
   VBoxVMI enabled (`default`) or not (`default-fallback`); unset selects an access method compiled
-  into the test binary. With `vboxvmi` and `default`, setup enables VBoxVMI on the VM and teardown
-  restores the prior `VBoxInternal/VMI/Enabled` value. The driver honors
+  into the test binary. With `vboxvmi` and `default`, setup enables VBoxVMI on the VM, with the
+  others it unsets it; teardown restores the prior `VBoxInternal/VMI/Enabled` value. The driver honors
   `VBoxInternal/VMI/SocketPath`; otherwise it derives the socket from VirtualBox's user home
   (`VBOX_USER_HOME`, legacy `~/.VirtualBox`, or `$XDG_CONFIG_HOME/VirtualBox` / `~/.config/VirtualBox`).
+- `VBOX_TEST_HIDDEN_PAGES` (default 16): `VBoxInternal/VMI/HiddenPages`, set by setup for every
+  method and restored by teardown. It moves the RAM layout (the pool sits right above RAM), so it
+  must be the value the snapshot was saved with.
 - `VBOX_TEST_MEMORY_MB`: discard the snapshot's saved state and cold boot the guest with this much RAM
   (e.g. `5120`, to test above 4 GiB). Teardown restores the snapshot, which restores the VM's RAM size.
-- `VBOX_TEST_CPUS`: same, with this many vCPUs. The multi-vCPU checks (vCPU count, pause stopping
-  every vCPU) need `VBOX_TEST_CPUS=2` or more; the snapshot's guest has one vCPU. Both variables can be
-  combined.
+- `VBOX_TEST_CPUS`: same, with this many vCPUs (the guest is still booting while the test runs: use
+  it for the memory and register tests, the `smp2`/`smp4` snapshots for the others). Both variables
+  can be combined.
 - `VBOX_TEST_SEED`: replay the write test's random pattern with the seed it printed
 - `VBOX_TEST_CORE_DIR` (default: the temp dir): where core dumps go. A core is as large as the guest's RAM
   (over 5 GiB for a 5 GiB guest): avoid a RAM-backed tmpfs `/tmp` for big guests. Deleted at teardown.
@@ -70,38 +78,54 @@ configured `cpus`.
   `MICROVMI_TEST_FILTER=vboxvmi_ssh_events_` and the Ubuntu settings below.
 
 The VM state between each test is handled by the following commands:
-- setup: `controlvm <vm> poweroff` (if running, paused or stuck), `snapshot <vm> restore <snapshot>`
-  (retried while the VM settles), (VBoxVMI) `setextradata`, `VBoxHeadless --startvm <vm>`
-- teardown: `controlvm <vm> poweroff`, `snapshot <vm> restore <snapshot>`, (VBoxVMI) `setextradata`
+- setup: `controlvm <vm> poweroff` (if running, paused, stuck or in a guru meditation),
+  `snapshot <vm> restore <snapshot>` (retried while the VM settles), `setextradata`,
+  `VBoxHeadless --startvm <vm>`
+- teardown: `controlvm <vm> poweroff`, `snapshot <vm> restore <snapshot>`, `setextradata`
 
 **Execution**
 
-Run the generic tests the method supports, or the VirtualBox ones:
+The per-test time limit is 60 s plus 10 s per GiB of guest RAM; an unfiltered run takes about 25
+minutes. Run the whole suite under each access method, then the VBoxVMI suite on the 2- and
+4-vCPU snapshots, then the tests that need another guest or VM size:
 
 ~~~
-MICROVMI_TEST_FILTER=virtualbox_ cargo test --features virtualbox-api --test integration
+export VBOX_APP_HOME=/path/to/VirtualBox/bin VBOX_USER_HOME=/path/to/vbox-home
+VBOX_TEST_METHOD=machinedebugger cargo test --features virtualbox --test integration
+for s in base smp2 smp4; do VBOX_TEST_SNAPSHOT=$s VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox --test integration; done
 MICROVMI_TEST_FILTER=virtualbox_ VBOX_TEST_MEMORY_MB=5120 cargo test --features virtualbox-api --test integration
-MICROVMI_TEST_FILTER=vcpu VBOX_TEST_CPUS=2 cargo test --features virtualbox-api --test integration
-for f in init vcpu_count pause double_resume virtualbox_read_ virtualbox_write_physical_ registers_match write_registers intercept_cr3 vboxvmi_disconnect_ vboxvmi_events_; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
-for f in vcpu pause registers_match write_registers intercept_cr3 vboxvmi_events_cr vboxvmi_events_msr vboxvmi_events_page_access_execute; do MICROVMI_TEST_FILTER=$f MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_CPUS=2 VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration; done
-MICROVMI_TEST_FILTER=vboxvmi_ssh_events_ MICROVMI_TEST_TIMEOUT=120 VBOX_TEST_VM=microvmi-ubuntu VBOX_TEST_GUEST_SSH='ssh -i /path/to/id_ed25519 -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes vmi@127.0.0.1' VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
+MICROVMI_TEST_FILTER=vboxvmi_ssh_events_ VBOX_TEST_VM=microvmi-ubuntu VBOX_TEST_HIDDEN_PAGES=256 VBOX_TEST_GUEST_SSH='ssh -i /path/to/id_ed25519 -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes vmi@127.0.0.1' VBOX_TEST_METHOD=vboxvmi cargo test --features virtualbox-vmi --test integration
 ~~~
 
-The VBoxVMI filters above run every test, each once; `virtualbox_write_physical_` checks random
-patterns against a fresh core dump, after resume/re-pause and after restoring the original pages.
-`vboxvmi_disconnect_` covers normal close, a killed client process, a killed client with a vCPU
-parked at a single-step, CR3 write, MSR write or page-access event (and no page access
-restriction left for the next client), both external-pause ownership cases, a
-repeated external resume/pause versus disconnect race, and immediate `Busy` refusal of a second
-client. `vboxvmi_events_` checks the int3 at RIP (translated via the guest's page tables),
+Under `machinedebugger` the method has no events: the VBoxVMI-only tests (`vboxvmi_*`) and the
+generic `intercept_cr3_*` tests fail, so filter that run with `MICROVMI_TEST_FILTER=virtualbox_` and
+the generic test names. `virtualbox_read_physical_matches_core` also fails there while
+`HiddenPages` is set: the MachineDebugger method counts the Hidden page pool as RAM
+([Wenzel/drakvuf#32](https://github.com/Wenzel/drakvuf/issues/32)). Every test
+leaves the VM as the snapshot was, so a failed run can be resumed with a filter.
+
+`virtualbox_write_physical_` checks random patterns against a fresh core dump, after
+resume/re-pause and after restoring the original pages. `vboxvmi_disconnect_` covers normal close,
+a killed client process, a killed client with a vCPU parked at a single-step, CR3 write, MSR write
+or page-access event (and no page access restriction left for the next client), both
+external-pause ownership cases, a repeated external resume/pause versus disconnect race, and
+immediate `Busy` refusal of a second client. `vboxvmi_reset_ends_session` and
+`vboxvmi_save_state_refused_while_connected` start from a session holding every kind of state (a
+view with a Remap that every vCPU runs in, the whole Hidden page pool, a restriction, Intercepts on
+every vCPU and vCPU 0 parked at a single step): a reset ends it and the next client finds none of
+it; saving the state and a live snapshot are refused and the session goes on.
+
+`vboxvmi_events_` checks the int3 at RIP (translated via the guest's page tables),
 single-step (never into an interrupt handler), parked-vCPU register access, pause/resume, invalid
 replies, and the VirtualBox debugger exclusion both ways with a breakpoint and a CR3 Intercept
 through the debugger console (the VBoxVMI context enables it on TCP port 5000, which must be
 free). Its CR and MSR write tests (VT-x hosts) check events against the parked vCPU's registers
 and the `MOV CRx`/`WRMSR` bytes at RIP, refused reinjection, no events after clearing, Intercepts
 set and cleared while paused, a reply while paused, and the CR event before the single-step event;
-with `VBOX_TEST_CPUS=2` also that the vCPU without the Intercept gives no event. The CR3 tests
-type `ls /` at the guest console to start processes; `vboxvmi_ssh_events_` gets CR4 writes
+on several vCPUs the CR0/CR4 tests also check that the vCPU without the Intercept gives no event.
+The CR3 test sets its Intercept on every vCPU (the guest's scheduler picks the vCPU) and types
+`ls /` at the guest console to start processes; the CPUID test logs in as root and reads
+`/dev/cpu/0/cpuid` (Alpine's musl runs no CPUID); `vboxvmi_ssh_events_` gets CR4 writes
 (including CR4.TSD-only flips, a bit VirtualBox leaves to the guest) and CR0.CD writes from
 commands run over `VBOX_TEST_GUEST_SSH`. The page-access tests (VT-x hosts) restrict pages the
 idle guest touches, found while paused: vCPU 0's RIP page (the idle loop, executed at every timer
@@ -111,14 +135,29 @@ without read, the local APIC MMIO page, reinjection, an emulation reply that doe
 event), retry faulting again, `Emulate` stepping past the instruction with the restriction kept,
 `EmulateReadData` landing in the register of a `POP` from the stack (then restored),
 `EmulateInsn` at an int3 running the original bytes, the page-access event before the
-single-step event, and the debugger exclusion for a restriction. Run
-`vboxvmi_events_breakpoint_at_rip` and `vboxvmi_events_emulate_insn` on the one-vCPU Alpine
-snapshot only:
-on a multi-vCPU guest another CPU could execute the patched instruction. The other filters cover `pause`,
-`double_pause`, `pause_resume`, `multiple_pause_resume`, `virtualbox_pause_*` and
-`virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers `get_vcpu_count` and
-`virtualbox_vcpu_count_matches_vmm`. With `VBOX_TEST_CPUS=2`, the register tests read every vCPU
-and write the last one.
+single-step event, the debugger exclusion for a restriction, and 3 s of restricting and lifting
+both pages in the Default view and in a view every vCPU runs in, with the Intercept on every vCPU
+(`vboxvmi_events_page_access_high_rate`).
+
+An int3 written at vCPU 0's RIP (the idle loop) runs on every vCPU: the breakpoint tests set the
+Breakpoint Intercept on every vCPU, take the first vCPU that stops at it, and release the others
+once the original byte is back. The emulated int3 test restricts that page on every vCPU, has the
+int3 emulated for the first vCPU that faults at it and passes the others' instructions on the page
+(`Emulate`, or `UnrestrictedStep` where emulation is refused). A vCPU counts as running again when
+it executes within 5 s (an idle vCPU may halt for over a second). `vboxvmi_memory_view_` remaps the
+idle loop's page to Hidden page copies: an int3 reported in the view and retried in the Default
+view, view numbering and the 15-view limit, no destroying the Default view or a view some vCPU
+runs in (after a switch, or after
+an event reply moved one vCPU), two views with different copies, a restored Remap (also while a vCPU
+is parked at it), and every vCPU stopping at the int3 after 200 Remap changes while they run.
+`vboxvmi_hidden_pool_exhaustion` allocates the whole pool (distinct pages above the guest's memory,
+each read back with its own pattern), checks the next allocation, double and RAM-page frees fail and
+that a freed page is handed out again.
+
+The other generic filters cover `pause`, `double_pause`, `pause_resume`, `multiple_pause_resume`,
+`virtualbox_pause_*` and `virtualbox_registers_unchanged_while_paused`; `vcpu_count` covers
+`get_vcpu_count` and `virtualbox_vcpu_count_matches_vmm`. On several vCPUs, the register tests read
+every vCPU and write the last one.
 
 `virtualbox_default_method_selection` (`virtualbox` feature) checks the default access method under
 any `VBOX_TEST_METHOD`: with VBoxVMI enabled, the context's driver holds the socket and a second
