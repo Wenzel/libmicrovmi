@@ -932,6 +932,7 @@ dependencies = [
 [[package]]
 name = "kvmi"
 version = "0.5.0"
+source = "git+https://github.com/Wenzel/kvmi?rev=84a0bda3722b749f81cd8d990ea11c7009d06ef0#84a0bda3722b749f81cd8d990ea11c7009d06ef0"
 dependencies = [
  "enum-primitive-derive 0.3.0",
  "kvmi-sys",
@@ -2013,6 +2014,7 @@ dependencies = [
 [[package]]
 name = "vboxapi"
 version = "0.1.0"
+source = "git+https://github.com/Wenzel/rs-vboxapi?rev=1f5b3de3e43e059c13cb4367356e42342f19d9d5#1f5b3de3e43e059c13cb4367356e42342f19d9d5"
 dependencies = [
  "libloading 0.8.6",
  "log",
@@ -2022,6 +2024,7 @@ dependencies = [
 [[package]]
 name = "vboxvmi"
 version = "0.1.0"
+source = "git+https://github.com/Wenzel/rs-vboxvmi?rev=c4cfd5b05c8699496d1b7f51d826f560c0c2887a#c4cfd5b05c8699496d1b7f51d826f560c0c2887a"
 dependencies = [
  "libc",
  "thiserror 1.0.69",

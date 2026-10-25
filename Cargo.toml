@@ -50,9 +50,10 @@ xenstore-rs = { version = "=0.3.2", optional = true }
 xenforeignmemory = { version = "=0.3.0", optional = true }
 xenevtchn = { version = "=0.2.0", optional = true }
 xenvmevent-sys = { version = "=0.2.0", optional = true }
-kvmi = { version = "=0.5.0", optional = true }
-vboxapi = { git = "https://github.com/Wenzel/rs-vboxapi", rev = "fcd2e49a8fdf7802a0fca9b58ec97e72db98e811", optional = true }
-vboxvmi = { git = "https://github.com/Wenzel/rs-vboxvmi", rev = "6a076b8fc1c44464a0cdd23ba1baf8363f71becc", optional = true }
+# kvmi 0.5.0 fails on newer kernel headers (kvm_msrs.entries union), Wenzel/drakvuf#29
+kvmi = { git = "https://github.com/Wenzel/kvmi", rev = "84a0bda3722b749f81cd8d990ea11c7009d06ef0", optional = true }
+vboxapi = { git = "https://github.com/Wenzel/rs-vboxapi", rev = "1f5b3de3e43e059c13cb4367356e42342f19d9d5", optional = true }
+vboxvmi = { git = "https://github.com/Wenzel/rs-vboxvmi", rev = "c4cfd5b05c8699496d1b7f51d826f560c0c2887a", optional = true }
 winapi = { version = "0.3", features = [
     "tlhelp32",
     "winnt",
@@ -118,11 +119,3 @@ publish = false
 
 [workspace]
 members = ["python"]
-
-[patch.crates-io]
-# kvmi 0.5.0 fails on newer kernel headers (kvm_msrs.entries union), Wenzel/drakvuf#29
-kvmi = { path = "../kvmi" }
-
-[patch."https://github.com/Wenzel/rs-vboxapi"]
-# Hidden page pool counted as guest RAM, Wenzel/drakvuf#32
-vboxapi = { path = "../vboxapi" }
