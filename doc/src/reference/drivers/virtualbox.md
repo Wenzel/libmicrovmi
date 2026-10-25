@@ -63,7 +63,7 @@ pause/resume keeps it parked.
 
 At a breakpoint event `gpa` is the physical address of the int3, `insn_len` is its length and RIP
 points at the int3. Restore the original byte before
-`reply_event(event, EventReplyType::Continue { reinject: false })` to execute the original
+`reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })` to execute the original
 instruction, or choose `reinject: true` to deliver the guest's own #BP. A single-step event's
 `gpa` points at the next instruction (at RIP); reply with `reinject: false`. As on Xen, a stepping
 vCPU gets no external interrupt until stepping stops, so a step never lands in an interrupt
@@ -79,7 +79,7 @@ before they take effect: every `MOV CR3` and `WRMSR` (also unchanged values and 
 does not implement), and every `MOV CR0`/`MOV CR4` that changes the register, including bits
 VirtualBox normally leaves to the guest (VT-x does not exit on an unchanged CR0/CR4 write;
 `CLTS` and `LMSW` are not reported). RIP points at the `MOV CRx` or `WRMSR`, the register still
-holds `old`, and after `reply_event(event, EventReplyType::Continue { reinject: false })` the
+holds `old`, and after `reply_event(event, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })` the
 instruction executes unchanged (change the source register first to write another value). A CR
 event's `new` is the value the register will hold (CR3: bit 63, the PCID no-flush bit,
 cleared); an MSR event's `value` is EDX:EAX and `old` is the MSR's current value, 0 for an MSR
@@ -111,7 +111,7 @@ reported none), `access` the single access attempted (`R`, `W` or `X`). It comes
 breakpoint and single-step events of the same instruction; an instruction touching several
 restricted pages raises one event per retry. Replies (ADR-0007):
 
-- `Continue { reinject: false }` retries the access: it faults again unless the restriction was
+- `Continue { reinject: false, .. }` retries the access: it faults again unless the restriction was
   lifted (or the vCPU steps). `reinject: true` fails.
 - `Emulate` runs the instruction once with every restriction ignored, keeping them set. A REP
   string instruction runs all its remaining iterations (up to 65536 IEM steps; past that it stays
