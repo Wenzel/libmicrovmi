@@ -1558,6 +1558,60 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_singlestep_skips_interrupt_handlers
 });
 
+/// The recoil pattern DRAKVUF uses for a breakpoint, five times on one int3 in the idle loop:
+/// restore the byte, enable single step, reply; the step event comes on that vCPU; re-arm the int3,
+/// disable single step, reply. Stepping onto an int3 that is still there reports the breakpoint
+/// first, not the step.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_singlestep_breakpoint_recoil(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    let regs = x86_registers(drv.as_mut(), 0);
+    let gpa = translate(drv.as_mut(), regs.cr3, regs.rip).expect("RIP is not mapped");
+    let mut original = [0];
+    drv.read_physical(gpa, &mut original, &mut 0).unwrap();
+    assert_ne!(original[0], 0xcc, "RIP was already an int3");
+    drv.write_physical(gpa, &[0xcc]).unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    drv.resume().unwrap();
+
+    let mut parked = Vec::new();
+    let mut breakpoint = listen_vcpu(drv.as_mut(), None, &mut parked);
+    let vcpu = breakpoint.vcpu;
+    assert!(matches!(breakpoint.kind, EventType::Breakpoint { gpa: address, .. } if address == gpa));
+    // int3 left in place, step on: the retried int3 is reported as a breakpoint, not a step
+    drv.toggle_intercept(vcpu, InterceptType::Singlestep, true).unwrap();
+    drv.reply_event(breakpoint, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW }).unwrap();
+    breakpoint = listen_vcpu(drv.as_mut(), Some(vcpu), &mut parked);
+    assert!(matches!(breakpoint.kind, EventType::Breakpoint { .. }), "{:?} before the breakpoint", breakpoint.kind);
+    for round in 0..5 {
+        drv.write_physical(gpa, &original).unwrap();
+        drv.reply_event(breakpoint, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW }).unwrap();
+        let step = listen_vcpu(drv.as_mut(), Some(vcpu), &mut parked);
+        assert!(matches!(step.kind, EventType::Singlestep { .. }), "round {}: {:?}", round, step.kind);
+        drv.write_physical(gpa, &[0xcc]).unwrap();
+        drv.toggle_intercept(vcpu, InterceptType::Singlestep, false).unwrap();
+        drv.reply_event(step, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW }).unwrap();
+        start_guest_process(); // the idle loop runs again at the next interrupt
+        breakpoint = listen_vcpu(drv.as_mut(), Some(vcpu), &mut parked);
+        assert!(matches!(breakpoint.kind, EventType::Breakpoint { gpa: address, .. } if address == gpa),
+            "round {}: {:?}", round, breakpoint.kind);
+        drv.toggle_intercept(vcpu, InterceptType::Singlestep, true).unwrap();
+    }
+    drv.toggle_intercept(vcpu, InterceptType::Singlestep, false).unwrap();
+    drv.pause().unwrap();
+    drv.write_physical(gpa, &original).unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, false);
+    parked.push(breakpoint);
+    release_parked(drv.as_mut(), &mut parked).unwrap();
+    drv.resume().unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_events_singlestep_breakpoint_recoil",
+    test_fn: vboxvmi_singlestep_breakpoint_recoil
+});
+
 /// Connects to the VM's debugger console (enabled by the VBoxVMI context, default port 5000),
 /// which attaches the VirtualBox debugger, and returns it with its output up to the prompt (attached)
 /// or the attach error.

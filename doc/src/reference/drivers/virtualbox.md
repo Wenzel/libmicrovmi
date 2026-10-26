@@ -67,7 +67,8 @@ points at the int3. Restore the original byte before
 instruction, or choose `reinject: true` to deliver the guest's own #BP. A single-step event's
 `gpa` points at the next instruction (at RIP); reply with `reinject: false`. As on Xen, a stepping
 vCPU gets no external interrupt until stepping stops, so a step never lands in an interrupt
-handler. Reinjection on a
+handler (ADR 0011). Single step needs VT-x with the monitor trap flag; on AMD-V and NEM setting the
+Intercept fails with `VERR_NOT_SUPPORTED`. Reinjection on a
 non-breakpoint event fails without releasing the vCPU. A reply for an unparked vCPU or a second
 reply fails. Reply while the VM is paused succeeds; execution resumes when the VM does. A reply
 that fails leaves the vCPU parked and untouched, so the client can reply again.
