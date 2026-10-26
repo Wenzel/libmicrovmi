@@ -2556,6 +2556,99 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_restricted_stack
 });
 
+/// One page restricted differently in two views: each view keeps its own restriction, a change in
+/// one leaves the other, the usual refusals apply in a non-default view, and a vCPU only reports
+/// accesses its Active view restricts.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_restrictions_per_view(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let (v1, v2) = (drv.create_memory_view().unwrap(), drv.create_memory_view().unwrap());
+    let regs = x86_registers(drv.as_mut(), 0);
+    let gpa = translate(drv.as_mut(), regs.cr3, regs.rsp - 8).expect("stack is not mapped");
+    for denied in [Access::W, Access::WX] {
+        assert!(drv.set_page_access(v1, gpa, denied).is_err(), "write without read in a view");
+    }
+    assert!(drv.set_page_access(v1, 0xfee0_0000, Access::R).is_err(), "local APIC page in a view");
+    drv.set_page_access(v1, gpa, Access::RX).unwrap();
+    drv.set_page_access(v2, gpa, Access::RW).unwrap();
+    let access = |drv: &mut Box<dyn Introspectable>, view| drv.get_page_access(view, gpa).unwrap();
+    assert_eq!((access(&mut drv, DEFAULT_MEMORY_VIEW), access(&mut drv, v1), access(&mut drv, v2)),
+        (Access::RWX, Access::RX, Access::RW));
+    drv.set_page_access(v1, gpa, Access::RWX).unwrap();
+    assert_eq!((access(&mut drv, v1), access(&mut drv, v2)), (Access::RWX, Access::RW), "v2 followed v1");
+    drv.set_page_access(v1, gpa, Access::RX).unwrap();
+
+    // v2 allows writes: the interrupt frame push on the idle stack is not reported there.
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(v2).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(drv.as_mut(), &mut start_guest_process, "write in a view that allows it");
+    drv.pause().unwrap();
+    drv.switch_memory_view(v1).unwrap();
+    drv.resume().unwrap();
+    start_guest_process();
+    let mut parked = Vec::new();
+    let event = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    let (_, event_gpa, kind) = page_access_event(&event);
+    assert_eq!((event.view, kind, event_gpa / PAGE), (v1, Access::W, gpa / PAGE));
+    drv.reply_event(event, EventReplyType::Continue { reinject: false, view: DEFAULT_MEMORY_VIEW })
+        .unwrap();
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    end_views_test(drv.as_mut(), &mut parked, &[v1, v2], &[]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_restrictions_per_view",
+    test_fn: vboxvmi_memory_view_restrictions_per_view
+});
+
+/// Closing the session clears the restrictions of non-default views: the next client's new view
+/// starts unrestricted on the page, with no event for an access the old view denied.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_disconnect_clears_restrictions(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let regs = x86_registers(drv.as_mut(), 0);
+    let gpa = translate(drv.as_mut(), regs.cr3, regs.rsp - 8).expect("stack is not mapped");
+    drv.set_page_access(view, gpa, Access::RX).unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drop(drv); // normal close, the vCPUs still in the view
+
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let fresh = drv.create_memory_view().unwrap();
+    assert_eq!(drv.get_page_access(fresh, gpa).unwrap(), Access::RWX, "restriction left in a view");
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(fresh).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(drv.as_mut(), &mut start_guest_process, "stale view restriction after disconnect");
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    end_views_test(drv.as_mut(), &mut Vec::new(), &[fresh], &[]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_disconnect_clears_restrictions",
+    test_fn: vboxvmi_memory_view_disconnect_clears_restrictions
+});
+
 /// With every vCPU in a view, 200 Remap changes of the idle loop's page to an identical copy and
 /// back while they run; then, remapped to a copy with an int3, every vCPU stops at it (each idles
 /// there) in that view and continues in the Default view.
