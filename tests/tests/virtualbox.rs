@@ -2798,6 +2798,52 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_reply_switch
 });
 
+/// An emulation reply fetches through the view's Remap: RIP's page is execute-restricted in a view
+/// that remaps it to an identical copy. At the execute event (source gpa, that view) the copy, and
+/// only the copy, gets an int3 at the faulting instruction; `Emulate` must run that int3, a
+/// breakpoint event at the same gpa and view, not the source's instruction.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_emulate_through_remap(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let (gpa, hidden) = hidden_copy_of_rip_page(drv.as_mut(), false);
+    drv.remap_memory_page(view, gpa / PAGE, hidden).unwrap();
+    drv.set_page_access(view, gpa, Access::RW).unwrap(); // after the Remap, which resets it
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+    start_guest_process();
+
+    let mut parked = Vec::new();
+    let fetch = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    let (_, fetch_gpa, access) = page_access_event(&fetch);
+    assert_eq!((fetch.view, access, fetch_gpa / PAGE), (view, Access::X, gpa / PAGE));
+    let mut source = [0];
+    drv.read_physical(fetch_gpa, &mut source, &mut 0).unwrap();
+    assert_ne!(source[0], 0xcc);
+    drv.write_physical(hidden * PAGE + fetch_gpa % PAGE, &[0xcc]).unwrap();
+    drv.reply_event(fetch, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).unwrap();
+    let breakpoint = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    assert!(
+        matches!(breakpoint.kind, EventType::Breakpoint { gpa: address, .. } if address == fetch_gpa),
+        "emulation ran the source's instruction, not the Remap target's int3: {:?}",
+        breakpoint.kind
+    );
+    assert_eq!(breakpoint.view, view);
+    drv.pause().unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    parked.push(breakpoint);
+    end_views_test(drv.as_mut(), &mut parked, &[view], &[hidden]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_emulate_through_remap",
+    test_fn: vboxvmi_memory_view_emulate_through_remap
+});
+
 /// With every vCPU in a view, 200 Remap changes of the idle loop's page to an identical copy and
 /// back while they run; then, remapped to a copy with an int3, every vCPU stops at it (each idles
 /// there) in that view and continues in the Default view.
