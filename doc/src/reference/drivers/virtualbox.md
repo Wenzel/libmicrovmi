@@ -30,12 +30,12 @@ With one method compiled in: `virtualbox-api` only uses MachineDebugger by defau
 
 Speaks VBoxVMI, a protocol served from inside the VM process of a patched VirtualBox over a per-VM Unix socket.
 It is the fast path for VM state access and VMI events. The client and patched server must agree
-on the VBoxVMI protocol version (9 in the measured builds); a mismatch is refused at the handshake.
+on the VBoxVMI protocol version (12 at the time of writing); a mismatch is refused at the handshake.
 
 Supported: reading and writing guest physical memory, reading and writing the complete x86 register set,
 max physical address (end of the highest guest RAM range, so RAM above 4 GiB is included),
-pause/resume, vCPU count, page access restrictions, and breakpoint (int3), single-step, CR, MSR
-and page-access intercepts per vCPU.
+pause/resume, vCPU count, page access restrictions, and breakpoint (int3), single-step, CR, MSR,
+CPUID, debug exception (#DB) and page-access intercepts per vCPU.
 Physical reads and writes are served inside the VM process without waiting for a vCPU, batching pages into requests of at most 64 KiB.
 A read that hits an unreadable page (MMIO, including the local APIC page, or no memory) fails, with `bytes_read` set to the bytes read before that page; devices are never accessed.
 A physical write to a non-RAM page fails; other pages in the same batch may already have been written, so writes are not atomic. MMIO devices are never accessed.
@@ -46,7 +46,7 @@ A client disconnect leaves no session state behind: the server clears its interc
 parked vCPUs without reinjection, ends a hold and synchronously resumes a pause the client created. A pause
 that already existed, or an external pause after the client's pause was externally resumed, remains paused.
 A register read or write is one request, served by the vCPU itself between two of its instructions: a read is a consistent snapshot of that vCPU and a write changes all its registers at once, also while the VM runs (pause first to read or write several vCPUs at the same point).
-The MSRs of `X86Registers` (EFER, STAR, LSTAR, SYSENTER_CS/ESP/EIP, APIC base) are included; an MSR the guest CPU doesn't have reads as 0.
+The MSRs of `X86Registers` (EFER, STAR, LSTAR, CSTAR, SFMASK, KERNEL_GS_BASE, SYSENTER_CS/ESP/EIP, APIC base) are included; an MSR the guest CPU doesn't have reads as 0.
 A write is all or nothing: a value the CPU itself would not load (RFLAGS with bit 1 clear or a reserved bit set, reserved bits in CR0, CR3, CR4 or EFER, an inconsistent long mode state, an MSR value `WRMSR` refuses) fails the whole write, and nothing is written. Registers keeping their value are not touched, so writing back registers read earlier always succeeds and has no side effects.
 Segment selectors, bases and limits are written as raw state: no descriptor table load, the segment attributes are kept, and keeping them consistent is up to the caller. Writes fail while the VM is neither running nor paused (powering on or off, saving or restoring its state, live snapshot, teleport).
 
@@ -55,8 +55,8 @@ Segment selectors, bases and limits are written as raw state: no descriptor tabl
 `toggle_intercept(vcpu, intercept, enabled)` sets or clears an intercept, also while paused or
 while handling an event on that vCPU: `InterceptType::Breakpoint`, `InterceptType::Singlestep`,
 `InterceptType::Cr(CrType::Cr0 | Cr3 | Cr4)` (writes to that control register),
-`InterceptType::Msr(index)` (writes to that MSR) and `InterceptType::Pagefault` (page-access
-events). `listen(timeout_ms)` returns the oldest pending
+`InterceptType::Msr(index)` (writes to that MSR), `InterceptType::Cpuid`, `InterceptType::Debug`
+(#DB exceptions) and `InterceptType::Pagefault` (page-access events). `listen(timeout_ms)` returns the oldest pending
 event across vCPUs or `None` after the timeout. Each reported event parks only its vCPU; other
 vCPUs continue. The client can read and write the parked vCPU's registers and guest memory, and
 pause/resume keeps it parked.
@@ -348,7 +348,8 @@ Volatility 3 ISF for its kernel (`linux-6.8.0-146-generic.json`).
    SIGINT or timeout, and the VM keeps running and answering afterwards.
 
 With too few Hidden pages DRAKVUF prints "Failed to allocate a Hidden page", ptracemon fails to
-start and DRAKVUF exits non-zero after removing its views. `-F` and `-p` are Xen-only.
+start and DRAKVUF exits non-zero after removing its views. `-F` works (fast next-view step); `-p`,
+`ipt`, `hidsim` and `dirwatch` are Xen-only and refused at startup.
 
 ## MachineDebugger method
 
