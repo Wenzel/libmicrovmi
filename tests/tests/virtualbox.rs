@@ -3013,7 +3013,7 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
     const DATA: u64 = 0x1122_3344_5566_7788;
     let page = restrict_stack_page(drv.as_mut(), Access::NIL);
     let deadline = Instant::now() + Duration::from_secs(10);
-    let (event, real, regs) = loop {
+    let (event, real, gpa, regs) = loop {
         assert!(
             Instant::now() < deadline,
             "no POP reading the restricted stack"
@@ -3023,7 +3023,7 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
         if access == Access::R && pop_register(&code, &mut regs).is_some() {
             let mut real = [0; 8];
             drv.read_physical(gpa, &mut real, &mut 0).unwrap();
-            break (event, u64::from_le_bytes(real), regs);
+            break (event, u64::from_le_bytes(real), gpa, regs);
         }
         if drv
             .reply_event(event.clone(), EventReplyType::Emulate { view: KEEP_MEMORY_VIEW })
@@ -3055,6 +3055,11 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
         .is_err());
     let mut data = [0; 256];
     data[..8].copy_from_slice(&DATA.to_le_bytes());
+    assert!(
+        drv.reply_event(event.clone(), EventReplyType::EmulateReadData { size: 257, data, view: KEEP_MEMORY_VIEW })
+            .is_err(),
+        "read data over 256 bytes"
+    ); // refused before anything is sent: the vCPU stays parked for the reply below
     drv.toggle_intercept(0, InterceptType::Singlestep, true)
         .unwrap();
     drv.reply_event(
@@ -3079,6 +3084,9 @@ fn vboxvmi_page_access_emulate_read_data(mut drv: Box<dyn Introspectable>) {
     let mut after = x86_registers(drv.as_ref(), 0);
     let register = pop_register(&code, &mut after).unwrap();
     assert_eq!(*register, DATA, "POP did not read the supplied data");
+    let mut memory = [0; 8];
+    drv.read_physical(gpa, &mut memory, &mut 0).unwrap();
+    assert_eq!(u64::from_le_bytes(memory), real, "EmulateReadData changed the page");
     *register = real;
     drv.write_registers(0, Registers::X86(after)).unwrap();
     drv.toggle_intercept(0, InterceptType::Singlestep, false)
