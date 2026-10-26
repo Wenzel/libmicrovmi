@@ -2573,7 +2573,7 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_remap_resets_access
 });
 
-/// Remaps from or to MMIO (the local APIC page) or beyond guest RAM are refused, and a Remap does
+/// Remaps from or to MMIO (the local APIC page), ROM (the system BIOS) or beyond guest RAM are refused, and a Remap does
 /// not outlive its session: after a normal close, the next client's view runs the page's own code.
 #[cfg(feature = "virtualbox-vmi")]
 fn vboxvmi_memory_view_remap_refusals_and_disconnect(mut drv: Box<dyn Introspectable>) {
@@ -2588,6 +2588,8 @@ fn vboxvmi_memory_view_remap_refusals_and_disconnect(mut drv: Box<dyn Introspect
         (gpa / PAGE, apic, "MMIO target"),
         (beyond, hidden, "source beyond RAM"),
         (gpa / PAGE, beyond, "target beyond RAM"),
+        (0xf_0000 / PAGE, hidden, "ROM source (system BIOS)"),
+        (gpa / PAGE, 0xf_0000 / PAGE, "ROM target (system BIOS)"),
     ] {
         assert!(drv.remap_memory_page(view, source, target).is_err(), "{}", what);
     }
