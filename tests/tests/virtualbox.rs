@@ -2519,6 +2519,54 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_remap_resets_access
 });
 
+/// Remaps from or to MMIO (the local APIC page) or beyond guest RAM are refused, and a Remap does
+/// not outlive its session: after a normal close, the next client's view runs the page's own code.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_remap_refusals_and_disconnect(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let (gpa, hidden) = hidden_copy_of_rip_page(drv.as_mut(), true);
+    let apic = 0xfee0_0000 / PAGE;
+    let beyond = (drv.get_max_physical_addr().unwrap() + 0x1000_0000) / PAGE;
+    for (source, target, what) in [
+        (apic, hidden, "MMIO source"),
+        (gpa / PAGE, apic, "MMIO target"),
+        (beyond, hidden, "source beyond RAM"),
+        (gpa / PAGE, beyond, "target beyond RAM"),
+    ] {
+        assert!(drv.remap_memory_page(view, source, target).is_err(), "{}", what);
+    }
+    drv.remap_memory_page(view, gpa / PAGE, hidden).unwrap();
+    drop(drv); // normal close with the int3 Remap in place
+
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let fresh = drv.create_memory_view().unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    drv.switch_memory_view(fresh).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(drv.as_mut(), &mut start_guest_process, "int3 of a Remap from a closed session");
+    end_views_test(drv.as_mut(), &mut Vec::new(), &[fresh], &[]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_remap_refusals_and_disconnect",
+    test_fn: vboxvmi_memory_view_remap_refusals_and_disconnect
+});
+
 /// A write restriction in a non-default view only: an interrupt (the guest idles tickless; typing
 /// wakes it) pushes its frame onto vCPU 0's idle stack and reports a write in that view. With
 /// `VBOX_TEST_IEM` the push is VirtualBox's emulator's data access, which must honor the view as the
