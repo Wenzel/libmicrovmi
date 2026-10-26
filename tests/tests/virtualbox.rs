@@ -2838,6 +2838,74 @@ fn vboxvmi_memory_view_emulate_through_remap(mut drv: Box<dyn Introspectable>) {
     end_views_test(drv.as_mut(), &mut parked, &[view], &[hidden]);
 }
 
+/// An emulated write goes through the view's Remap: vCPU 0's idle stack page is remapped in a view
+/// to a copy and write-restricted there; the interrupt frame push reports a write (source gpa, that
+/// view), and `Emulate` stores it in the copy, the source page keeps its bytes.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_emulate_write_through_remap(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let regs = x86_registers(drv.as_mut(), 0);
+    let stack = translate(drv.as_mut(), regs.cr3, regs.rsp - 8).expect("stack is not mapped") & !(PAGE - 1);
+    let mut page = vec![0; PAGE as usize];
+    drv.read_physical(stack, &mut page, &mut 0).unwrap();
+    let copy = drv.allocate_hidden_page().unwrap();
+    drv.write_physical(copy * PAGE, &page).unwrap();
+    drv.remap_memory_page(view, stack / PAGE, copy).unwrap();
+    drv.set_page_access(view, stack, Access::RX).unwrap(); // after the Remap, which resets it
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+    start_guest_process();
+
+    let mut parked = Vec::new();
+    let mut write = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    const MARKER: [u8; 8] = [0xaa; 8];
+    // an instruction VBoxVMI won't emulate (interrupt delivery, IRET, ...) steps unrestricted
+    let mut refused = 0;
+    let (next, offset, source) = loop {
+        let (_, gpa, access) = page_access_event(&write);
+        assert_eq!((write.view, access, gpa / PAGE), (view, Access::W, stack / PAGE));
+        let offset = (gpa % PAGE) & !7;
+        drv.write_physical(copy * PAGE + offset, &MARKER).unwrap();
+        let mut source = [0; 8];
+        drv.read_physical(stack + offset, &mut source, &mut 0).unwrap();
+        let emulated = drv.reply_event(write.clone(), EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).is_ok();
+        if !emulated {
+            refused += 1;
+            assert!(refused < 20, "no emulable write to the stack in 20 tries");
+            drv.reply_event(write, EventReplyType::UnrestrictedStep { view: KEEP_MEMORY_VIEW }).unwrap();
+        }
+        // the next push on the page faults again: vCPU 0 parks there, the previous write done
+        let next = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+        if emulated {
+            break (next, offset, source);
+        }
+        write = next;
+    };
+    drv.pause().unwrap();
+    let (mut in_copy, mut in_source) = ([0; 8], [0; 8]);
+    drv.read_physical(copy * PAGE + offset, &mut in_copy, &mut 0).unwrap();
+    drv.read_physical(stack + offset, &mut in_source, &mut 0).unwrap();
+    assert_ne!(in_copy, MARKER, "the emulated write missed the Remap target");
+    assert_eq!(in_source, source, "the emulated write went to the source page");
+
+    // hand the guest its stack back: the copy holds the frames pushed so far
+    drv.read_physical(copy * PAGE, &mut page, &mut 0).unwrap();
+    drv.write_physical(stack, &page).unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    drv.switch_memory_view(DEFAULT_MEMORY_VIEW).unwrap();
+    drv.reply_event(next, EventReplyType::Continue { reinject: false, view: DEFAULT_MEMORY_VIEW }).unwrap();
+    end_views_test(drv.as_mut(), &mut parked, &[view], &[copy]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_emulate_write_through_remap",
+    test_fn: vboxvmi_memory_view_emulate_write_through_remap
+});
+
 #[cfg(feature = "virtualbox-vmi")]
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_memory_view_emulate_through_remap",
