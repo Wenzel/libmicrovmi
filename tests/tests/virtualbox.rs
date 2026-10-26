@@ -2900,6 +2900,79 @@ fn vboxvmi_memory_view_emulate_write_through_remap(mut drv: Box<dyn Introspectab
     end_views_test(drv.as_mut(), &mut parked, &[view], &[copy]);
 }
 
+/// An emulated read comes from the view's Remap target: vCPU 0's idle stack page is remapped in a
+/// view to a copy and denied read and write there; at a `POP` from it, the copy (not the source)
+/// gets a marker at the read address, and `Emulate` must load the marker into the register.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_emulate_read_through_remap(mut drv: Box<dyn Introspectable>) {
+    const MARKER: u64 = 0x5a5a_1234_8765_a5a5;
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let regs = x86_registers(drv.as_mut(), 0);
+    let stack = translate(drv.as_mut(), regs.cr3, regs.rsp).expect("stack is not mapped") & !(PAGE - 1);
+    let mut page = vec![0; PAGE as usize];
+    drv.read_physical(stack, &mut page, &mut 0).unwrap();
+    let copy = drv.allocate_hidden_page().unwrap();
+    drv.write_physical(copy * PAGE, &page).unwrap();
+    drv.remap_memory_page(view, stack / PAGE, copy).unwrap();
+    drv.set_page_access(view, stack, Access::X).unwrap(); // after the Remap, which resets it
+    drv.toggle_intercept(0, InterceptType::Pagefault, true).unwrap();
+    drv.switch_memory_view(view).unwrap();
+    drv.resume().unwrap();
+    start_guest_process();
+
+    let mut parked = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let (pop, offset, real, regs) = loop {
+        assert!(Instant::now() < deadline, "no POP from the restricted stack");
+        let event = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+        let (_, gpa, access) = page_access_event(&event);
+        assert_eq!((event.view, gpa / PAGE), (view, stack / PAGE));
+        let mut regs = x86_registers(drv.as_ref(), 0);
+        let code = code_at_rip(drv.as_ref(), &regs, 2);
+        if access == Access::R && gpa % 8 == 0 && pop_register(&code, &mut regs).is_some() {
+            let mut real = [0; 8];
+            drv.read_physical(copy * PAGE + gpa % PAGE, &mut real, &mut 0).unwrap();
+            break (event, gpa % PAGE, u64::from_le_bytes(real), regs);
+        }
+        // other accesses (writes, interrupt delivery) go to the copy unrestricted
+        if drv.reply_event(event.clone(), EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).is_err() {
+            drv.reply_event(event, EventReplyType::UnrestrictedStep { view: KEEP_MEMORY_VIEW }).unwrap();
+        }
+    };
+    drv.write_physical(copy * PAGE + offset, &MARKER.to_le_bytes()).unwrap();
+    let mut source = [0; 8];
+    drv.read_physical(stack + offset, &mut source, &mut 0).unwrap();
+    assert_ne!(u64::from_le_bytes(source), MARKER);
+    drv.toggle_intercept(0, InterceptType::Singlestep, true).unwrap();
+    drv.reply_event(pop, EventReplyType::Emulate { view: KEEP_MEMORY_VIEW }).unwrap();
+    let step = listen_vcpu(drv.as_mut(), Some(0), &mut parked);
+    assert!(matches!(step.kind, EventType::Singlestep { .. }), "{:?}", step.kind);
+    drv.pause().unwrap();
+    let code = code_at_rip(drv.as_ref(), &regs, 2);
+    let mut after = x86_registers(drv.as_ref(), 0);
+    let register = pop_register(&code, &mut after).unwrap();
+    assert_eq!(*register, MARKER, "the emulated POP did not read the Remap target");
+    // undo: the real value in the register and in the copy, the copy back on the source page
+    *register = real;
+    drv.write_registers(0, Registers::X86(after)).unwrap();
+    drv.write_physical(copy * PAGE + offset, &real.to_le_bytes()).unwrap();
+    drv.read_physical(copy * PAGE, &mut page, &mut 0).unwrap();
+    drv.write_physical(stack, &page).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, false).unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false).unwrap();
+    drv.switch_memory_view(DEFAULT_MEMORY_VIEW).unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view: DEFAULT_MEMORY_VIEW }).unwrap();
+    end_views_test(drv.as_mut(), &mut parked, &[view], &[copy]);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_emulate_read_through_remap",
+    test_fn: vboxvmi_memory_view_emulate_read_through_remap
+});
+
 #[cfg(feature = "virtualbox-vmi")]
 inventory::submit!(IntegrationTest {
     name: "vboxvmi_memory_view_emulate_write_through_remap",
