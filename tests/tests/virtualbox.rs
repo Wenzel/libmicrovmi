@@ -2738,6 +2738,62 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_hidden_pool_exhaustion
 });
 
+/// Entry point for the subprocess killed by `vboxvmi_hidden_pool_disconnect`: holds the whole pool.
+#[cfg(feature = "virtualbox-vmi")]
+pub fn vboxvmi_hidden_child() -> ! {
+    let mut client = connect_vboxvmi();
+    let mut count = 0;
+    while client.allocate_hidden_page().is_ok() {
+        count += 1;
+    }
+    println!("allocated {}", count);
+    std::io::stdout().flush().expect("child failed to flush readiness");
+    loop {
+        sleep(Duration::from_secs(60));
+    }
+}
+
+/// Every Hidden page a client held is free again for the next client, after a normal close and
+/// after the client is killed.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_hidden_pool_disconnect(drv: Box<dyn Introspectable>) {
+    let size = drv.hidden_page_pool_size();
+    assert!(size > 0, "no Hidden pages: VBoxInternal/VMI/HiddenPages is 0");
+    for _ in 0..size {
+        drv.allocate_hidden_page().unwrap();
+    }
+    drop(drv); // normal close
+    let mut client = connect_vboxvmi();
+    for _ in 0..size {
+        client.allocate_hidden_page().expect("Hidden page kept after a normal close");
+    }
+    drop(client);
+
+    let child = Command::new(std::env::current_exe().unwrap())
+        .env("MICROVMI_VBOXVMI_HIDDEN_CHILD", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("failed to start Hidden page child");
+    let mut child = ChildGuard::new(child);
+    let mut ready = String::new();
+    BufReader::new(child.child_mut().stdout.take().unwrap())
+        .read_line(&mut ready)
+        .expect("failed to read child readiness");
+    assert_eq!(ready.trim_end(), format!("allocated {}", size), "child did not take the pool");
+    child.kill_and_wait().expect("failed to kill Hidden page child");
+    let mut client = connect_vboxvmi();
+    for _ in 0..size {
+        client.allocate_hidden_page().expect("Hidden page kept after the client was killed");
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_hidden_pool_disconnect",
+    test_fn: vboxvmi_hidden_pool_disconnect
+});
+
 /// For 3 s, the idle loop's and idle stack's pages (vCPU 0's) are restricted to R and lifted in
 /// turn, in the Default view and in a view every vCPU runs in, with the page-access Intercept on
 /// every vCPU and each event emulated (or, refused, stepped unrestricted). Afterwards no
