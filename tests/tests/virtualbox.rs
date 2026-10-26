@@ -2649,6 +2649,51 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_disconnect_clears_restrictions
 });
 
+/// An event reply's view switch moves only the parked vCPU: after vCPU 0's single-step reply puts
+/// it in a view whose copy of the idle loop has an int3, it alone stops there, the others idle on
+/// in the Default view. A reply naming a view that doesn't exist is refused with the vCPU parked.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_reply_switch(mut drv: Box<dyn Introspectable>) {
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let (gpa, hidden) = hidden_copy_of_rip_page(drv.as_mut(), true);
+    drv.remap_memory_page(view, gpa / PAGE, hidden).unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    drv.toggle_intercept(0, InterceptType::Singlestep, true).unwrap();
+    drv.resume().unwrap();
+    let step = drv.listen(5000).unwrap().expect("no step");
+    assert!(matches!(step.kind, EventType::Singlestep { .. }), "{:?}", step.kind);
+    assert_eq!((step.vcpu, step.view), (0, DEFAULT_MEMORY_VIEW));
+    drv.toggle_intercept(0, InterceptType::Singlestep, false).unwrap();
+    drv.reply_event(step, EventReplyType::Continue { reinject: false, view }).unwrap();
+
+    let breakpoint = drv.listen(5000).unwrap().expect("vCPU 0 did not reach the int3 of its new view");
+    assert!(matches!(breakpoint.kind, EventType::Breakpoint { gpa: address, .. } if address == gpa));
+    assert_eq!((breakpoint.vcpu, breakpoint.view), (0, view));
+    if drv.get_vcpu_count().unwrap() > 1 {
+        assert_no_event(drv.as_mut(), &mut || (), "a vCPU the reply didn't move reached the view's int3");
+    }
+    assert!(
+        drv.reply_event(breakpoint.clone(), EventReplyType::Continue { reinject: false, view: VIEW_MAX_TEST })
+            .is_err(),
+        "reply into a view that doesn't exist"
+    );
+    drv.reply_event(breakpoint, EventReplyType::Continue { reinject: false, view: DEFAULT_MEMORY_VIEW })
+        .unwrap(); // still parked: the refused reply left it waiting
+    end_views_test(drv.as_mut(), &mut Vec::new(), &[view], &[hidden]);
+}
+
+/// A view number no session creates (views are numbered from 1, at most 15 besides Default).
+#[cfg(feature = "virtualbox-vmi")]
+const VIEW_MAX_TEST: u16 = 15;
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_reply_switch",
+    test_fn: vboxvmi_memory_view_reply_switch
+});
+
 /// With every vCPU in a view, 200 Remap changes of the idle loop's page to an identical copy and
 /// back while they run; then, remapped to a copy with an int3, every vCPU stops at it (each idles
 /// there) in that view and continues in the Default view.
