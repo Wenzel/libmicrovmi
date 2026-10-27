@@ -153,6 +153,12 @@ runs in (after a switch, or after
 an event reply moved one vCPU), two views with different copies, a restored Remap (also while a vCPU
 is parked at it), and every vCPU stopping at the int3 after 200 Remap changes while they run.
 
+The Remap emulation tests execute an instruction fetched from a Hidden copy and read and write its
+data through that copy while events retain the source gpa and Active view. The read comparison
+restores the exact pre-`POP` registers and executes that same `POP` natively through EPT; emulation
+and hardware must produce the same value, RIP and RSP. Refused Remaps preserve both source and
+target pages; refused emulation preserves both pages and the parked vCPU registers.
+
 `vboxvmi_stealth_breakpoint_{page_access,memory_view}_guest_read` parks every vCPU, then has
 vCPU 0 execute a read and an overlapping write of an int3-patched idle-stack byte. The read must
 return the original byte, the write must reach the logical source, and the int3 must remain in the
