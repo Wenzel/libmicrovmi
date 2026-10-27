@@ -152,6 +152,13 @@ view, view numbering and the 15-view limit, no destroying the Default view or a 
 runs in (after a switch, or after
 an event reply moved one vCPU), two views with different copies, a restored Remap (also while a vCPU
 is parked at it), and every vCPU stopping at the int3 after 200 Remap changes while they run.
+
+`vboxvmi_stealth_breakpoint_{page_access,memory_view}_guest_read` parks every vCPU, then has
+vCPU 0 execute a read and an overlapping write of an int3-patched idle-stack byte. The read must
+return the original byte, the write must reach the logical source, and the int3 must remain in the
+page used for execution. The pair runs the same guest-visible assertion against the page-access
+and memory-view methods.
+
 `vboxvmi_hidden_pool_exhaustion` allocates the whole pool (distinct pages above the guest's memory,
 each read back with its own pattern), checks the next allocation, double and RAM-page frees fail and
 that a freed page is handed out again.

@@ -303,6 +303,19 @@ $ cargo build --features virtualbox-vmi --examples
 $ ./target/debug/examples/mem-dump --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock
 ~~~
 
+`stealth-breakpoint` plants an int3 at vCPU 0's `MSR_LSTAR` target without guest symbols. Override
+it with `--gpa <guest-physical-address>`. `--count 0` (the default) runs until Ctrl-C; either stop
+condition restores the original bytes, Intercepts, restrictions and views.
+~~~
+$ ./target/debug/examples/stealth-breakpoint --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --method page-access --count 100
+$ ./target/debug/examples/stealth-breakpoint --vbox_vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock --method memory-view --count 100
+~~~
+
+The page-access method denies access to the source page: reads and writes are emulated around the
+int3, and breakpoint hits execute the original instruction with `EmulateInsn`. The memory-view
+method executes an int3-patched Hidden-page copy while reads and writes step once in the untouched
+Default view. Hit counts and rates are reported per vCPU.
+
 Python (bindings built with the `virtualbox-vmi` feature):
 ~~~
 $ python3 python/examples/mem-dump.py --vbox-vmi ~/.config/VirtualBox/vmi/<vm uuid>.sock

@@ -2419,6 +2419,304 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_hidden_breakpoint
 });
 
+#[cfg(feature = "virtualbox-vmi")]
+#[derive(Clone, Copy)]
+enum StealthMethod {
+    PageAccess,
+    MemoryView,
+}
+
+/// Runs a read then a write of vCPU 0's idle-stack byte while every other vCPU is parked. Both
+/// stealth methods must return the original byte to the guest CPU and keep the int3 in the page
+/// the guest sees for execution.
+#[cfg(feature = "virtualbox-vmi")]
+fn stealth_breakpoint_guest_read(mut drv: Box<dyn Introspectable>, method: StealthMethod) {
+    drv.pause().unwrap();
+
+    // A step parks each vCPU at its own next instruction, so replacing vCPU 0's bytes can't make
+    // another vCPU execute the read probe.
+    let count = drv.get_vcpu_count().unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Singlestep, true);
+    drv.resume().unwrap();
+    let mut stops = vec![None; usize::from(count)];
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while stops.iter().any(Option::is_none) {
+        assert!(Instant::now() < deadline, "not every vCPU parked");
+        let Some(event) = drv.listen(1000).unwrap() else {
+            start_guest_process(); // wakes halted idle vCPUs
+            continue;
+        };
+        assert!(matches!(event.kind, EventType::Singlestep { .. }), "{:?}", event.kind);
+        let slot = &mut stops[usize::from(event.vcpu)];
+        assert!(slot.is_none(), "vCPU {} stopped twice", event.vcpu);
+        *slot = Some(event);
+    }
+    drv.pause().unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Singlestep, false);
+    let before = x86_registers(drv.as_ref(), 0);
+    let target_vaddr = before.rsp;
+    let target =
+        translate(drv.as_ref(), before.cr3, target_vaddr).expect("RSP is not mapped");
+    let target_page = target & !(PAGE - 1);
+    let target_offset = (target % PAGE) as usize;
+    let mut original_target = [0];
+    drv.read_physical(target, &mut original_target, &mut 0).unwrap();
+    assert_ne!(original_target, [0xcc], "stack target already contains int3");
+    let scratch = translate(drv.as_ref(), before.cr3, before.rip).expect("RIP is not mapped");
+    assert_ne!(scratch / PAGE, target / PAGE, "parked RIP is on the stack page");
+    assert!(scratch % PAGE <= PAGE - 22, "probe crosses a page");
+    let mut original_scratch = [0; 22];
+    drv.read_physical(scratch, &mut original_scratch, &mut 0).unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    let written = original_target[0] ^ 0x5a;
+    let mut probe = [0; 22];
+    probe[0] = 0xa0; // MOV AL, moffs64
+    probe[1..9].copy_from_slice(&target_vaddr.to_le_bytes());
+    probe[9..11].copy_from_slice(&[0x88, 0xc2]); // MOV DL, AL
+    probe[11..13].copy_from_slice(&[0xb0, written]); // MOV AL, imm8
+    probe[13] = 0xa2; // MOV moffs64, AL
+    probe[14..22].copy_from_slice(&target_vaddr.to_le_bytes());
+    drv.write_physical(scratch, &probe).unwrap();
+    let mut probe_regs = x86_registers(drv.as_ref(), 0);
+    probe_regs.rip = before.rip;
+    probe_regs.rax = 0;
+    probe_regs.rdx = 0;
+    drv.write_registers(0, Registers::X86(probe_regs)).unwrap();
+
+    let mut view = None;
+    let mut hidden = None;
+    match method {
+        StealthMethod::PageAccess => {
+            drv.write_physical(target, &[0xcc]).unwrap();
+            drv.set_page_access(DEFAULT_MEMORY_VIEW, target_page, Access::NIL)
+                .unwrap();
+        }
+        StealthMethod::MemoryView => {
+            drv.enable_memory_views(true).unwrap();
+            let execute = drv.create_memory_view().unwrap();
+            let copy = drv.allocate_hidden_page().unwrap();
+            let mut page = vec![0; PAGE as usize];
+            drv.read_physical(target_page, &mut page, &mut 0).unwrap();
+            page[target_offset] = 0xcc;
+            drv.write_physical(copy * PAGE, &page).unwrap();
+            drv.remap_memory_page(execute, target_page / PAGE, copy).unwrap();
+            drv.set_page_access(execute, target_page, Access::X).unwrap();
+            drv.switch_memory_view(execute).unwrap();
+            view = Some(execute);
+            hidden = Some(copy);
+        }
+    }
+    drv.toggle_intercept(0, InterceptType::Pagefault, true)
+        .unwrap();
+    let probe_event = stops[0].take().unwrap();
+    drv.reply_event(
+        probe_event,
+        EventReplyType::Continue {
+            reinject: false,
+            view: view.unwrap_or(DEFAULT_MEMORY_VIEW),
+        },
+    )
+    .unwrap();
+    drv.resume().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let read = loop {
+        assert!(Instant::now() < deadline, "guest read produced no page event");
+        let event = drv.listen(1000).unwrap().expect("no page event");
+        assert_eq!(event.vcpu, 0);
+        let (gpa, access) = match event.kind {
+            EventType::Pagefault { gpa, access, .. } => (gpa, access),
+            ref other => panic!("unexpected event: {:?}", other),
+        };
+        assert_eq!(gpa / PAGE, target / PAGE, "event outside the target page");
+        if gpa == target && access == Access::R {
+            break event;
+        }
+        match method {
+            StealthMethod::PageAccess => {
+                let retry = event.clone();
+                if drv
+                    .reply_event(
+                        event,
+                        EventReplyType::Emulate {
+                            view: KEEP_MEMORY_VIEW,
+                        },
+                    )
+                    .is_err()
+                {
+                    drv.reply_event(
+                        retry,
+                        EventReplyType::UnrestrictedStep {
+                            view: KEEP_MEMORY_VIEW,
+                        },
+                    )
+                    .unwrap();
+                }
+            }
+            StealthMethod::MemoryView => drv
+                .reply_event(
+                    event,
+                    EventReplyType::FastSingleStep {
+                        immediate_view: DEFAULT_MEMORY_VIEW,
+                        next_view: view.unwrap(),
+                    },
+                )
+                .unwrap(),
+        }
+    };
+    match method {
+        StealthMethod::PageAccess => {
+            let mut data = [0; 256];
+            data[0] = original_target[0];
+            drv.reply_event(
+                read,
+                EventReplyType::EmulateReadData {
+                    size: 1,
+                    data,
+                    view: KEEP_MEMORY_VIEW,
+                },
+            )
+            .unwrap();
+        }
+        StealthMethod::MemoryView => drv
+            .reply_event(
+                read,
+                EventReplyType::FastSingleStep {
+                    immediate_view: DEFAULT_MEMORY_VIEW,
+                    next_view: view.unwrap(),
+                },
+            )
+            .unwrap(),
+    }
+    // The next probe instruction overwrites the hooked byte. Its write must fault after the read
+    // completed, with AL proving what the guest CPU read.
+    let write = drv.listen(5000).unwrap().expect("guest write produced no page event");
+    assert_eq!(
+        x86_registers(drv.as_ref(), 0).rdx as u8,
+        original_target[0],
+        "guest CPU read the int3 instead of the original byte"
+    );
+    let mut patched = [0];
+    let patched_address = hidden.map_or(target, |page| page * PAGE + target % PAGE);
+    drv.read_physical(patched_address, &mut patched, &mut 0).unwrap();
+    assert_eq!(patched, [0xcc], "guest read removed the int3");
+    assert!(
+        matches!(write.kind, EventType::Pagefault { gpa, access, .. }
+            if gpa == target && access == Access::W),
+        "{:?}",
+        write.kind
+    );
+    drv.toggle_intercept(0, InterceptType::Singlestep, true)
+        .unwrap();
+    match method {
+        StealthMethod::PageAccess => {
+            drv.write_physical(target, &original_target).unwrap();
+            drv.reply_event(
+                write,
+                EventReplyType::Emulate {
+                    view: KEEP_MEMORY_VIEW,
+                },
+            )
+            .unwrap();
+        }
+        StealthMethod::MemoryView => drv
+            .reply_event(
+                write,
+                EventReplyType::Continue {
+                    reinject: false,
+                    view: DEFAULT_MEMORY_VIEW,
+                },
+            )
+            .unwrap(),
+    }
+    let write_step = drv.listen(5000).unwrap().expect("no step after guest write");
+    assert!(
+        matches!(write_step.kind, EventType::Singlestep { .. }),
+        "{:?}",
+        write_step.kind
+    );
+    drv.pause().unwrap();
+    let mut source = [0];
+    drv.read_physical(target, &mut source, &mut 0).unwrap();
+    assert_eq!(source, [written], "guest write was not emulated");
+    if matches!(method, StealthMethod::PageAccess) {
+        drv.write_physical(target, &[0xcc]).unwrap();
+    }
+    drv.read_physical(patched_address, &mut patched, &mut 0).unwrap();
+    assert_eq!(patched, [0xcc], "guest write removed the int3");
+
+
+    drv.pause().unwrap();
+    drv.write_registers(0, Registers::X86(before)).unwrap();
+    drv.write_physical(scratch, &original_scratch).unwrap();
+    drv.toggle_intercept(0, InterceptType::Singlestep, false)
+        .unwrap();
+    drv.toggle_intercept(0, InterceptType::Pagefault, false)
+        .unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, false);
+    match method {
+        StealthMethod::PageAccess => {
+            drv.set_page_access(DEFAULT_MEMORY_VIEW, target_page, Access::RWX)
+                .unwrap();
+            drv.write_physical(target, &original_target).unwrap();
+        }
+        StealthMethod::MemoryView => {
+            let execute = view.unwrap();
+            drv.switch_memory_view(DEFAULT_MEMORY_VIEW).unwrap();
+            drv.set_page_access(execute, target_page, Access::RWX).unwrap();
+            drv.remap_memory_page(execute, target_page / PAGE, RESTORE_PAGE)
+                .unwrap();
+            drv.write_physical(target, &original_target).unwrap();
+        }
+    }
+    drv.reply_event(
+        write_step,
+        EventReplyType::Continue {
+            reinject: false,
+            view: DEFAULT_MEMORY_VIEW,
+        },
+    )
+    .unwrap();
+    for event in stops.into_iter().flatten() {
+        drv.reply_event(
+            event,
+            EventReplyType::Continue {
+                reinject: false,
+                view: DEFAULT_MEMORY_VIEW,
+            },
+        )
+        .unwrap();
+    }
+    if let (Some(execute), Some(copy)) = (view, hidden) {
+        drv.destroy_memory_view(execute).unwrap();
+        drv.free_hidden_page(copy).unwrap();
+        drv.enable_memory_views(false).unwrap();
+    }
+    drv.resume().unwrap();
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_stealth_breakpoint_page_access_guest_read(drv: Box<dyn Introspectable>) {
+    stealth_breakpoint_guest_read(drv, StealthMethod::PageAccess);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_stealth_breakpoint_page_access_guest_read",
+    test_fn: vboxvmi_stealth_breakpoint_page_access_guest_read
+});
+
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_stealth_breakpoint_memory_view_guest_read(drv: Box<dyn Introspectable>) {
+    stealth_breakpoint_guest_read(drv, StealthMethod::MemoryView);
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_stealth_breakpoint_memory_view_guest_read",
+    test_fn: vboxvmi_stealth_breakpoint_memory_view_guest_read
+});
+
 /// Views are numbered from 1 and run out after 15 besides the Default view, which can't be
 /// destroyed. A view some vCPU runs in can't be destroyed: every vCPU after a switch, one vCPU
 /// after an event reply moved it there; it can once every vCPU left it.
