@@ -30,6 +30,11 @@ fn main() {
         tests::virtualbox::vboxvmi_hidden_child();
     }
 
+    #[cfg(all(feature = "virtualbox-vmi", not(feature = "kvm")))]
+    if std::env::var_os("MICROVMI_VBOXVMI_REMAP_CHILD").is_some() {
+        tests::virtualbox::vboxvmi_remap_child();
+    }
+
     // init logger
     env_logger::builder().is_test(true).init();
     // run only the tests whose name contains MICROVMI_TEST_FILTER

@@ -2931,6 +2931,92 @@ inventory::submit!(IntegrationTest {
     test_fn: vboxvmi_memory_view_remap_refusals_and_disconnect
 });
 
+/// Entry point for the subprocess killed by
+/// `vboxvmi_memory_view_killed_client_clears_remap`: leaves an int3 Remap in a view.
+#[cfg(feature = "virtualbox-vmi")]
+pub fn vboxvmi_remap_child() -> ! {
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .expect("Remap child failed to connect");
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let view = drv.create_memory_view().unwrap();
+    let (gpa, hidden) = hidden_copy_of_rip_page(drv.as_mut(), true);
+    drv.remap_memory_page(view, gpa / PAGE, hidden).unwrap();
+    println!("{:#x}", gpa);
+    std::io::stdout()
+        .flush()
+        .expect("Remap child failed to flush readiness");
+    loop {
+        sleep(Duration::from_secs(60));
+    }
+}
+
+/// Killing a client with an int3 Remap removes it: a fresh session reuses a fresh view and runs
+/// the source page's original instruction, with every vCPU resumed.
+#[cfg(feature = "virtualbox-vmi")]
+fn vboxvmi_memory_view_killed_client_clears_remap(drv: Box<dyn Introspectable>) {
+    drop(drv);
+    let child = Command::new(std::env::current_exe().unwrap())
+        .env("MICROVMI_VBOXVMI_REMAP_CHILD", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("failed to start Remap child");
+    let mut child = ChildGuard::new(child);
+    let mut ready = String::new();
+    BufReader::new(child.child_mut().stdout.take().unwrap())
+        .read_line(&mut ready)
+        .expect("failed to read Remap child readiness");
+    let gpa = u64::from_str_radix(ready.trim().trim_start_matches("0x"), 16)
+        .expect("Remap child did not print its source gpa");
+    child.kill_and_wait().expect("failed to kill Remap child");
+    drop(connect_vboxvmi()); // accepting the next client proves disconnect cleanup finished
+
+    let mut drv = microvmi::init(
+        Some(microvmi::api::DriverType::VirtualBox),
+        Some(microvmi::api::params::DriverInitParams {
+            virtualbox: Some(microvmi::api::params::VBoxInitParams::VBoxVMI {
+                socket_path: Some(vboxvmi_socket()),
+            }),
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    drv.pause().unwrap();
+    drv.enable_memory_views(true).unwrap();
+    let fresh = drv.create_memory_view().unwrap();
+    toggle_all(drv.as_mut(), InterceptType::Breakpoint, true);
+    drv.switch_memory_view(fresh).unwrap();
+    drv.resume().unwrap();
+    assert_no_event(
+        drv.as_mut(),
+        &mut start_guest_process,
+        &format!("int3 Remap at {:#x} from a killed client", gpa),
+    );
+    end_views_test(drv.as_mut(), &mut Vec::new(), &[fresh], &[]);
+    for vcpu in 0..usize::from(drv.get_vcpu_count().unwrap()) {
+        assert!(
+            vcpu_runs(vcpu),
+            "vCPU {} stayed stopped after killed client",
+            vcpu
+        );
+    }
+}
+
+#[cfg(feature = "virtualbox-vmi")]
+inventory::submit!(IntegrationTest {
+    name: "vboxvmi_memory_view_killed_client_clears_remap",
+    test_fn: vboxvmi_memory_view_killed_client_clears_remap
+});
+
 /// A write restriction in a non-default view only: an interrupt (the guest idles tickless; typing
 /// wakes it) pushes its frame onto vCPU 0's idle stack and reports a write in that view. With
 /// `VBOX_TEST_IEM` the push is VirtualBox's emulator's data access, which must honor the view as the

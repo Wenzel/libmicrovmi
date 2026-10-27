@@ -157,7 +157,9 @@ The Remap emulation tests execute an instruction fetched from a Hidden copy and 
 data through that copy while events retain the source gpa and Active view. The read comparison
 restores the exact pre-`POP` registers and executes that same `POP` natively through EPT; emulation
 and hardware must produce the same value, RIP and RSP. Refused Remaps preserve both source and
-target pages; refused emulation preserves both pages and the parked vCPU registers.
+target pages; refused emulation preserves both pages and the parked vCPU registers. A killed client
+leaving an int3 Remap is followed by a fresh session that reuses a clean view and has every vCPU
+running.
 
 `vboxvmi_stealth_breakpoint_{page_access,memory_view}_guest_read` parks every vCPU, then has
 vCPU 0 execute a read and an overlapping write of an int3-patched idle-stack byte. The read must
