@@ -240,12 +240,7 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         Ok(())
     }
 
-    fn set_page_access(
-        &self,
-        view: u16,
-        paddr: u64,
-        access: Access,
-    ) -> Result<(), Box<dyn Error>> {
+    fn set_page_access(&self, view: u16, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
         if view != DEFAULT_MEMORY_VIEW {
             return Err(MicrovmiError::NotSupported("set_page_access".into()).into());
         }
@@ -364,9 +359,10 @@ impl<T: KVMIntrospectable> Introspectable for Kvm<T> {
         reply_type: EventReplyType,
     ) -> Result<(), Box<dyn Error>> {
         let EventReplyType::Continue { reinject, view } = reply_type else {
-            return Err(
-                MicrovmiError::NotSupported("reply_event: KVM non-Continue replies".into()).into(),
-            );
+            return Err(MicrovmiError::NotSupported(
+                "reply_event: KVM non-Continue replies".into(),
+            )
+            .into());
         };
         if view != DEFAULT_MEMORY_VIEW && view != crate::api::KEEP_MEMORY_VIEW {
             return Err(MicrovmiError::NotSupported("reply_event: KVM Memory views".into()).into());

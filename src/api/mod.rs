@@ -320,7 +320,11 @@ mod tests {
             )
             .is_err());
         let e = d.inject_page_fault(0, 0x1234, 0).unwrap_err().to_string();
-        assert!(e.contains("inject_page_fault") && e.contains("not supported"), "{}", e);
+        assert!(
+            e.contains("inject_page_fault") && e.contains("not supported"),
+            "{}",
+            e
+        );
         let e = d.pause().unwrap_err().to_string();
         assert!(e.contains("pause") && e.contains("not supported"), "{}", e);
     }

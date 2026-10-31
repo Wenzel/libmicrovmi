@@ -441,9 +441,9 @@ impl Introspectable for Xen {
         if flag {
             Ok(Some(Event {
                 vcpu,
-                view: 0,  // Xen doesn't have memory views, always use default view
+                view: 0, // Xen doesn't have memory views, always use default view
                 kind: event_type,
-                regs: None,  // Xen doesn't provide registers in events
+                regs: None, // Xen doesn't provide registers in events
             }))
         } else {
             Ok(None)

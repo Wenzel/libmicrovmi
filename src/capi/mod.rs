@@ -290,10 +290,7 @@ pub unsafe extern "C" fn microvmi_get_page_access(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_enable_memory_views(
-    context: *mut c_void,
-    enabled: bool,
-) -> bool {
+pub unsafe extern "C" fn microvmi_enable_memory_views(context: *mut c_void, enabled: bool) -> bool {
     if context.is_null() {
         return false;
     }
@@ -347,10 +344,7 @@ pub unsafe extern "C" fn microvmi_destroy_memory_view(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_switch_memory_view(
-    context: *mut c_void,
-    view: uint16_t,
-) -> bool {
+pub unsafe extern "C" fn microvmi_switch_memory_view(context: *mut c_void, view: uint16_t) -> bool {
     if context.is_null() {
         return false;
     }
@@ -406,10 +400,7 @@ pub unsafe extern "C" fn microvmi_allocate_hidden_page(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn microvmi_free_hidden_page(
-    context: *mut c_void,
-    page: uint64_t,
-) -> bool {
+pub unsafe extern "C" fn microvmi_free_hidden_page(context: *mut c_void, page: uint64_t) -> bool {
     if context.is_null() {
         return false;
     }

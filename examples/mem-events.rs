@@ -82,13 +82,21 @@ fn main() {
                     "[{}] {} - {}:   gva = 0x{:x}    gpa = 0x{:x}    access = {:?} ",
                     ev_nb_output, vcpu_output, pagefault_output, gva, gpa, pf_access
                 );
-                let mut page_access = drv.get_page_access(DEFAULT_MEMORY_VIEW, gpa).expect("Failed to get page access");
+                let mut page_access = drv
+                    .get_page_access(DEFAULT_MEMORY_VIEW, gpa)
+                    .expect("Failed to get page access");
                 //setting the access bits in the page due to which page fault occurred
                 page_access |= pf_access;
                 drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, page_access)
                     .expect("Failed to set page access");
-                drv.reply_event(ev, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
-                    .expect("Failed to send event reply");
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: false,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),

@@ -74,8 +74,14 @@ fn main() {
                     ev_nb_output, vcpu_output, interrupt_output, gpa, insn_len
                 );
                 // the guest's own breakpoints: deliver them as if not intercepted
-                drv.reply_event(ev, EventReplyType::Continue { reinject: true, view: KEEP_MEMORY_VIEW })
-                    .expect("Failed to send event reply");
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: true,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),

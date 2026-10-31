@@ -222,7 +222,10 @@ fn power_off_and_restore() {
     // before VBoxHeadless exits and unlocks the machine, which restore needs.
     wait_for("power off and restore snapshot", || {
         let state = vm_info("VMState");
-        if matches!(state.as_str(), "running" | "paused" | "stuck" | "gurumeditation") {
+        if matches!(
+            state.as_str(),
+            "running" | "paused" | "stuck" | "gurumeditation"
+        ) {
             try_vboxmanage(&["controlvm", &vm, "poweroff"])?;
             return Err(format!("VM was {}", state));
         }
@@ -276,7 +279,8 @@ impl Context for VirtualBox {
             args.extend(modify.iter().map(String::as_str));
             vboxmanage(&args);
         }
-        let hidden_pages = env::var("VBOX_TEST_HIDDEN_PAGES").unwrap_or_else(|_| String::from("16"));
+        let hidden_pages =
+            env::var("VBOX_TEST_HIDDEN_PAGES").unwrap_or_else(|_| String::from("16"));
         let mut settings = vec![(VMI_HIDDEN_PAGES, Some(hidden_pages.as_str()))];
         settings.push((IEM_EXECUTES_ALL, env::var_os("VBOX_TEST_IEM").map(|_| "1")));
         // unset, not left as the VM has it: the default method then falls back, and no VBoxVMI
@@ -284,7 +288,10 @@ impl Context for VirtualBox {
         settings.extend(VMI_EXTRADATA.map(|key| (key, self.vmi_enabled.then_some("1"))));
         let mut prior = self.prior_extradata.lock();
         assert!(prior.is_empty(), "setup called twice without teardown");
-        *prior = settings.iter().map(|&(key, _)| (key, extradata(key))).collect();
+        *prior = settings
+            .iter()
+            .map(|&(key, _)| (key, extradata(key)))
+            .collect();
         for (key, value) in settings {
             let mut args = vec!["setextradata", &vm, key];
             args.extend(value);

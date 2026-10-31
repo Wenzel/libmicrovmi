@@ -78,9 +78,7 @@ pub enum EventType {
         insn_len: u8,
     },
     /// Debug exception (#DB): DR6 value at the exception; reinjected by default
-    Debug {
-        dr6: u32,
-    },
+    Debug { dr6: u32 },
 }
 
 ///Types of x86 control registers are listed here

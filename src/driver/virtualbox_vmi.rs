@@ -294,12 +294,7 @@ impl Introspectable for VBoxVmi {
     }
 
     /// Restricts `paddr`'s 4K RAM page in `view` to `access`; RWX lifts the restriction.
-    fn set_page_access(
-        &self,
-        view: u16,
-        paddr: u64,
-        access: Access,
-    ) -> Result<(), Box<dyn Error>> {
+    fn set_page_access(&self, view: u16, paddr: u64, access: Access) -> Result<(), Box<dyn Error>> {
         Ok(self
             .client
             .borrow_mut()
@@ -322,12 +317,7 @@ impl Introspectable for VBoxVmi {
         Ok(self.client.borrow_mut().switch_memory_view(view)?)
     }
 
-    fn remap_memory_page(
-        &self,
-        view: u16,
-        page: u64,
-        target: u64,
-    ) -> Result<(), Box<dyn Error>> {
+    fn remap_memory_page(&self, view: u16, page: u64, target: u64) -> Result<(), Box<dyn Error>> {
         Ok(self
             .client
             .borrow_mut()
@@ -433,51 +423,53 @@ impl Introspectable for VBoxVmi {
             },
             EventKind::Debug { dr6 } => EventType::Debug { dr6 },
         };
-        let regs = event.regs.parse().ok().map(|r| Box::new(X86Registers {
-            rax: r.rax,
-            rbx: r.rbx,
-            rcx: r.rcx,
-            rdx: r.rdx,
-            rsi: r.rsi,
-            rdi: r.rdi,
-            rsp: r.rsp,
-            rbp: r.rbp,
-            r8: r.r8,
-            r9: r.r9,
-            r10: r.r10,
-            r11: r.r11,
-            r12: r.r12,
-            r13: r.r13,
-            r14: r.r14,
-            r15: r.r15,
-            rip: r.rip,
-            rflags: r.rflags,
-            cr0: r.cr0,
-            cr2: r.cr2,
-            cr3: r.cr3,
-            cr4: r.cr4,
-            sysenter_cs: r.sysenter_cs,
-            sysenter_esp: r.sysenter_esp,
-            sysenter_eip: r.sysenter_eip,
-            msr_efer: r.efer,
-            msr_star: r.star,
-            msr_lstar: r.lstar,
-            efer: r.efer,
-            apic_base: r.apic_base,
-            msr_cstar: r.cstar,
-            msr_sfmask: r.sfmask,
-            shadow_gs_base: r.kernel_gs_base,
-            cs: segment_reg(&r.cs),
-            ds: segment_reg(&r.ds),
-            es: segment_reg(&r.es),
-            fs: segment_reg(&r.fs),
-            gs: segment_reg(&r.gs),
-            ss: segment_reg(&r.ss),
-            tr: segment_reg(&r.tr),
-            ldt: segment_reg(&r.ldtr),
-            idt: system_table_reg(&r.idtr),
-            gdt: system_table_reg(&r.gdtr),
-        }));
+        let regs = event.regs.parse().ok().map(|r| {
+            Box::new(X86Registers {
+                rax: r.rax,
+                rbx: r.rbx,
+                rcx: r.rcx,
+                rdx: r.rdx,
+                rsi: r.rsi,
+                rdi: r.rdi,
+                rsp: r.rsp,
+                rbp: r.rbp,
+                r8: r.r8,
+                r9: r.r9,
+                r10: r.r10,
+                r11: r.r11,
+                r12: r.r12,
+                r13: r.r13,
+                r14: r.r14,
+                r15: r.r15,
+                rip: r.rip,
+                rflags: r.rflags,
+                cr0: r.cr0,
+                cr2: r.cr2,
+                cr3: r.cr3,
+                cr4: r.cr4,
+                sysenter_cs: r.sysenter_cs,
+                sysenter_esp: r.sysenter_esp,
+                sysenter_eip: r.sysenter_eip,
+                msr_efer: r.efer,
+                msr_star: r.star,
+                msr_lstar: r.lstar,
+                efer: r.efer,
+                apic_base: r.apic_base,
+                msr_cstar: r.cstar,
+                msr_sfmask: r.sfmask,
+                shadow_gs_base: r.kernel_gs_base,
+                cs: segment_reg(&r.cs),
+                ds: segment_reg(&r.ds),
+                es: segment_reg(&r.es),
+                fs: segment_reg(&r.fs),
+                gs: segment_reg(&r.gs),
+                ss: segment_reg(&r.ss),
+                tr: segment_reg(&r.tr),
+                ldt: segment_reg(&r.ldtr),
+                idt: system_table_reg(&r.idtr),
+                gdt: system_table_reg(&r.gdtr),
+            })
+        });
         Ok(Some(Event {
             vcpu: u16::try_from(event.vcpu)?,
             view: event.view,
@@ -504,7 +496,10 @@ impl Introspectable for VBoxVmi {
                 reinject: *reinject,
                 view: *view,
             },
-            EventReplyType::FastSingleStep { immediate_view, next_view } => Reply::FastSingleStep {
+            EventReplyType::FastSingleStep {
+                immediate_view,
+                next_view,
+            } => Reply::FastSingleStep {
                 immediate_view: *immediate_view,
                 next_view: *next_view,
             },

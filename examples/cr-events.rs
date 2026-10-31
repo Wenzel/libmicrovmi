@@ -110,8 +110,14 @@ fn main() {
                     "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
                     ev_nb_output, vcpu_output, cr_output, old, new
                 );
-                drv.reply_event(ev, EventReplyType::Continue { reinject: false, view: KEEP_MEMORY_VIEW })
-                    .expect("Failed to send event reply");
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: false,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),
