@@ -8,7 +8,6 @@ See our talk at FOSDEM 2020: [Rustifying the Virtual Machine Introspection ecosy
 ## Debugging
 
 - [pyvmidbg](https://github.com/Wenzel/pyvmidbg)
-- [icebox](https://github.com/thalium/icebox)
 - [rVMI](https://github.com/fireeye/rvmi)
 
 ## Live Memory Forensics

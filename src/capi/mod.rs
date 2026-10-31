@@ -1,12 +1,13 @@
 use bitflags::_core::ptr::null_mut;
-use cty::{c_char, size_t, uint16_t, uint64_t, uint8_t};
+use cty::{c_char, size_t, uint16_t, uint32_t, uint64_t, uint8_t};
 
 use std::ffi::{c_void, CString};
 use std::slice;
 
+use crate::api::events::{Event, EventReplyType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::Registers;
-use crate::api::{DriverType, Introspectable};
+use crate::api::{Access, DriverType, Introspectable};
 use crate::capi::params::DriverInitParamsFFI;
 use crate::init;
 use std::convert::TryFrom;
@@ -47,15 +48,12 @@ pub unsafe extern "C" fn microvmi_init(
     };
     // check init params
     let optional_init_params = if init_params.is_null() {
-        None
+        Ok(None)
     } else {
-        Some(
-            DriverInitParams::try_from(init_params.read())
-                .expect("Failed to convert DriverInitParam C struct to Rust"),
-        )
+        DriverInitParams::try_from(init_params.read()).map(Some)
     };
 
-    match init(optional_driver_type, optional_init_params) {
+    match optional_init_params.and_then(|p| Ok(init(optional_driver_type, p)?)) {
         Ok(driver) => Box::into_raw(Box::new(driver)) as *mut c_void,
         Err(err) => {
             if !init_error.is_null() {
@@ -165,6 +163,44 @@ pub unsafe extern "C" fn microvmi_get_max_physical_addr(
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
+pub unsafe extern "C" fn microvmi_get_ram_size(
+    context: *mut c_void,
+    size_ptr: *mut uint64_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_ram_size() {
+        Ok(size) => {
+            size_ptr.write(size);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_vcpu_count(
+    context: *mut c_void,
+    count_ptr: *mut uint16_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_vcpu_count() {
+        Ok(count) => {
+            count_ptr.write(count);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
 pub unsafe extern "C" fn microvmi_read_registers(
     context: *mut c_void,
     vcpu: uint16_t,
@@ -180,6 +216,335 @@ pub unsafe extern "C" fn microvmi_read_registers(
             true
         }
         Err(_) => false,
+    }
+}
+
+/// Writes `*registers` to `vcpu`. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_write_registers(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    registers: *const Registers,
+) -> bool {
+    if context.is_null() || registers.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).write_registers(vcpu, registers.read()) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_write_registers: {}", e);
+            false
+        }
+    }
+}
+
+/// Sets the allowed access of `paddr`'s page in `view`. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_set_page_access(
+    context: *mut c_void,
+    view: uint16_t,
+    paddr: uint64_t,
+    access: Access,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).set_page_access(view, paddr, access) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_set_page_access: {}", e);
+            false
+        }
+    }
+}
+
+/// Writes the allowed access of `paddr`'s page in `view` to `*access`. Returns false on error,
+/// which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_get_page_access(
+    context: *mut c_void,
+    view: uint16_t,
+    paddr: uint64_t,
+    access: *mut Access,
+) -> bool {
+    if context.is_null() || access.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).get_page_access(view, paddr) {
+        Ok(a) => {
+            access.write(a);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_get_page_access: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_enable_memory_views(context: *mut c_void, enabled: bool) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).enable_memory_views(enabled) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_enable_memory_views: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_create_memory_view(
+    context: *mut c_void,
+    view: *mut uint16_t,
+) -> bool {
+    if context.is_null() || view.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).create_memory_view() {
+        Ok(created) => {
+            view.write(created);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_create_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_destroy_memory_view(
+    context: *mut c_void,
+    view: uint16_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).destroy_memory_view(view) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_destroy_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_switch_memory_view(context: *mut c_void, view: uint16_t) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).switch_memory_view(view) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_switch_memory_view: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_remap_memory_page(
+    context: *mut c_void,
+    view: uint16_t,
+    page: uint64_t,
+    target: uint64_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).remap_memory_page(view, page, target) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_remap_memory_page: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_allocate_hidden_page(
+    context: *mut c_void,
+    page: *mut uint64_t,
+) -> bool {
+    if context.is_null() || page.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).allocate_hidden_page() {
+        Ok(allocated) => {
+            page.write(allocated);
+            true
+        }
+        Err(e) => {
+            error!("microvmi_allocate_hidden_page: {}", e);
+            false
+        }
+    }
+}
+
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_free_hidden_page(context: *mut c_void, page: uint64_t) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).free_hidden_page(page) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_free_hidden_page: {}", e);
+            false
+        }
+    }
+}
+
+/// Returns the Hidden page pool size (VBoxInternal/VMI/HiddenPages), or 0 if not applicable or on error.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_hidden_page_pool_size(context: *mut c_void) -> uint32_t {
+    if context.is_null() {
+        return 0;
+    }
+    (*get_driver_mut_ptr(context)).hidden_page_pool_size()
+}
+
+/// Enables or disables an intercept on a vCPU. Returns false on error, which is logged.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_toggle_intercept(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    intercept_type: InterceptType,
+    enabled: bool,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).toggle_intercept(vcpu, intercept_type, enabled) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_toggle_intercept: {}", e);
+            false
+        }
+    }
+}
+
+/// Queues an x86 #PF for a parked vCPU before replying to its event. Returns false on error;
+/// the vCPU stays parked. `virtual_address` becomes CR2, `error_code` is the x86 PF error code.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_request_page_fault(
+    context: *mut c_void,
+    vcpu: uint16_t,
+    virtual_address: uint64_t,
+    error_code: uint32_t,
+) -> bool {
+    if context.is_null() {
+        return false;
+    }
+    match (*get_driver_mut_ptr(context)).inject_page_fault(vcpu, virtual_address, error_code) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("microvmi_request_page_fault: {}", e);
+            false
+        }
+    }
+}
+
+/// Waits up to `timeout_ms` for the next event. Returns false on error, which is logged. On
+/// success, `*event` is the event, owned by the caller until it is passed to
+/// `microvmi_reply_event`, or NULL after the timeout.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_listen(
+    context: *mut c_void,
+    timeout_ms: uint32_t,
+    event: *mut *mut Event,
+) -> bool {
+    if context.is_null() || event.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).listen(timeout_ms) {
+        Ok(ev) => {
+            event.write(ev.map_or(null_mut(), |ev| Box::into_raw(Box::new(ev))));
+            true
+        }
+        Err(e) => {
+            error!("microvmi_listen: {}", e);
+            false
+        }
+    }
+}
+
+/// Replies to an event from `microvmi_listen` and frees it on success. Returns false on error,
+/// which is logged; the caller then still owns the event and may reply to it again (a failed
+/// reply leaves the vCPU parked).
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_reply_event(
+    context: *mut c_void,
+    event: *mut Event,
+    reply: EventReplyType,
+) -> bool {
+    if event.is_null() || context.is_null() {
+        return false;
+    }
+    let driver = get_driver_mut_ptr(context);
+    match (*driver).reply_event((*event).clone(), reply) {
+        Ok(()) => {
+            drop(Box::from_raw(event));
+            true
+        }
+        Err(e) => {
+            error!("microvmi_reply_event: {}", e);
+            false
+        }
+    }
+}
+
+/// Frees an event from `microvmi_listen` the caller gives up replying to (its vCPU stays parked).
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_free_event(event: *mut Event) {
+    if !event.is_null() {
+        drop(Box::from_raw(event));
+    }
+}
+
+/// Checks if the event has registers and writes them to `*registers` if present.
+/// Returns true if registers were available, false otherwise.
+#[allow(clippy::missing_safety_doc)]
+#[no_mangle]
+pub unsafe extern "C" fn microvmi_event_get_registers(
+    event: *const Event,
+    registers: *mut Registers,
+) -> bool {
+    if event.is_null() || registers.is_null() {
+        return false;
+    }
+    match &(*event).regs {
+        Some(regs) => {
+            *registers = Registers::X86((**regs).clone());
+            true
+        }
+        None => false,
     }
 }
 

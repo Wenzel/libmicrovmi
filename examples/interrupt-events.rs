@@ -7,7 +7,7 @@ use colored::*;
 
 use microvmi::api::events::{EventReplyType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::Introspectable;
+use microvmi::api::{Introspectable, KEEP_MEMORY_VIEW};
 use utilities::Clappable;
 
 fn parse_args() -> ArgMatches<'static> {
@@ -73,8 +73,15 @@ fn main() {
                     "[{}] {} - {}: gpa = 0x{:x}    insn_len = 0x{:x}",
                     ev_nb_output, vcpu_output, interrupt_output, gpa, insn_len
                 );
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
+                // the guest's own breakpoints: deliver them as if not intercepted
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: true,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),

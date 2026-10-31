@@ -45,3 +45,29 @@ init_params.common = common
 init_params.kvm = kvm
 micro = Microvmi(DriverType.KVM, init_params)
 ~~~
+
+### Selecting the VirtualBox access method
+
+`init_params.virtualbox` takes a `VBoxInitParamsPy`, the equivalent of the Rust `VBoxInitParams`.
+Left unset, the driver uses its default access method: VBoxVMI at the VM's default socket, or
+MachineDebugger if VBoxVMI is not enabled on the VM (bindings built with the `virtualbox` feature).
+
+~~~Python
+from microvmi import Microvmi, DriverType, DriverInitParamsPy, CommonInitParamsPy, VBoxInitParamsPy
+
+# setup common params
+common = CommonInitParamsPy()
+common.vm_name = "windows10"
+# setup main init_params
+init_params = DriverInitParamsPy()
+init_params.common = common
+# default access method
+micro = Microvmi(DriverType.VirtualBox, init_params)
+# or the MachineDebugger access method (requires the bindings built with the virtualbox-api feature)
+init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+# or the VBoxVMI access method (virtualbox-vmi feature), which names the VM by its socket
+init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="/home/user/.config/VirtualBox/vmi/<VM UUID>.sock")
+# or the VM's default VBoxVMI socket (virtualbox feature)
+init_params.virtualbox = VBoxInitParamsPy.VBoxVMI()
+micro = Microvmi(DriverType.VirtualBox, init_params)
+~~~

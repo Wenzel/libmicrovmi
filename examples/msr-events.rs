@@ -7,7 +7,7 @@ use colored::*;
 
 use microvmi::api::events::{EventReplyType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::Introspectable;
+use microvmi::api::{Introspectable, KEEP_MEMORY_VIEW};
 use utilities::Clappable;
 
 // default set of MSRs to be intercepted
@@ -27,8 +27,8 @@ fn parse_args() -> ArgMatches<'static> {
                 ",
         )
         .arg(
-            Arg::with_name("MSR index")
-                .help("Specific set of MSRs to be intercepted")
+            Arg::with_name("register")
+                .help("Specific set of MSRs to be intercepted (decimal, or hex with 0x)")
                 .multiple(true)
                 .takes_value(true)
                 .short("r"),
@@ -60,8 +60,11 @@ fn main() {
 
     let mut registers: Vec<u32> = matches.values_of("register").map_or(Vec::new(), |v| {
         v.map(|s| {
-            s.parse::<u32>()
-                .expect("Unable to convert MSR index to u32")
+            match s.strip_prefix("0x") {
+                Some(hex) => u32::from_str_radix(hex, 16),
+                None => s.parse::<u32>(),
+            }
+            .expect("Unable to convert MSR index to u32")
         })
         .collect()
     });
@@ -94,8 +97,12 @@ fn main() {
         let event = drv.listen(1000).expect("Failed to listen for events");
         match event {
             Some(ev) => {
-                let (msr_type, value) = match ev.kind {
-                    EventType::Msr { msr_type, value } => (msr_type, value),
+                let (msr_type, value, old) = match ev.kind {
+                    EventType::Msr {
+                        msr_type,
+                        value,
+                        old,
+                    } => (msr_type, value, old),
                     _ => panic!("not msr event"),
                 };
                 let msr_color = "blue";
@@ -103,11 +110,17 @@ fn main() {
                 let vcpu_output = format!("VCPU {}", ev.vcpu).yellow();
                 let msr_output = format!("0x{:x}", msr_type).color(msr_color);
                 println!(
-                    "[{}] {} - {}: new value: 0x{:x}",
-                    ev_nb_output, vcpu_output, msr_output, value,
+                    "[{}] {} - {}:    old value: 0x{:x}    new value: 0x{:x}",
+                    ev_nb_output, vcpu_output, msr_output, old, value,
                 );
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: false,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),

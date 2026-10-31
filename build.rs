@@ -36,7 +36,8 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file(&out_path);
 
-    println!("cargo:rerun-if-changed=src/capi.rs");
+    // cbindgen reads the whole crate, not only src/capi/
+    println!("cargo:rerun-if-changed=src");
     // if it has been removed
     println!("cargo:rerun-if-changed={}", out_path.display());
 }

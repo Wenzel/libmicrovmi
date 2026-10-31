@@ -117,14 +117,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: clone Icebox repository
-        run: git clone https://github.com/thalium/icebox --depth 1
-      - name: Compile and install FDP library
-        run: |
-          cd icebox/src/FDP
-          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt
-          sudo cp include/* /usr/local/include
-          sudo cp libFDP.so /usr/local/lib
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
         with:
@@ -132,11 +124,15 @@ jobs:
       - uses: actions/checkout@v1
       - name: build and check VirtualBox driver
         run: |
+          cargo build --features virtualbox-api
+          cargo clippy --features virtualbox-api -- -D warnings
+          cargo test --features virtualbox-api --test virtualbox_errors
+          cargo build --features virtualbox-vmi
+          cargo clippy --features virtualbox-vmi -- -D warnings
+          cargo test --features virtualbox-vmi --test virtualbox_errors
           cargo build --features virtualbox
           cargo clippy --features virtualbox -- -D warnings
-        env:
-          LIBRARY_PATH: /usr/local/lib
-          LD_LIBRARY_PATH: /usr/local/lib
+          cargo clippy --features virtualbox --tests -- -D warnings
 
   virtualbox_windows:
     runs-on: windows-2022
@@ -147,41 +143,16 @@ jobs:
         with:
           components: clippy
 
-      - name: Clone Icebox repository
-        uses: actions/checkout@v2
-        with:
-          repository: thalium/icebox
-          path: icebox
 
       - uses: actions/checkout@v2
         with:
           path: libmicrovmi
 
-      # adds cl.exe in the PATH
-      - name: Setup command prompt for Microsoft Visual C++
-        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Compile and install FDP library
+      - name: compile-check VirtualBox API bindings (runtime unavailable on Windows)
         run: |
-          # install in C:\FDP to avoid issues with quotes etc
-          cl /c FDP.cpp /out:FDP.obj
-          cl /LD FDP.obj /link /out:FDP.dll
-          lib /NOLOGO FDP.obj /OUT:FDP.lib
-          dir
-          New-Item -Path "C:\FDP" -ItemType "directory"
-          copy FDP.dll "C:\FDP"
-          copy FDP.lib "C:\FDP"
-          copy "include\*" "C:\FDP"
-        working-directory: icebox/src/FDP
-
-      - name: Install Clang
-        run: choco install llvm
-
-      - name: build VirtualBox driver
-        run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox
-        env:
-          BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
-          CARGO_BUILD_RUSTFLAGS: -L C:\FDP
+          cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api
+          cargo clippy --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api -- -D warnings
 
   c_api:
     runs-on: ${{ matrix.os }}
@@ -255,7 +226,7 @@ jobs:
         working-directory: python
 
       - name: smoke test
-        run: python3 -c 'from microvmi import Microvmi, DriverType, CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy'
+        run: python3 -c 'from microvmi import Microvmi, DriverType, CommonInitParamsPy, DriverInitParamsPy, KVMInitParamsPy, VBoxInitParamsPy'
 
       - name: Build Wheels with manylinux
         run: nox -r -s generate_wheels -- --features xen,kvm,virtualbox,mflow --release
@@ -280,18 +251,6 @@ jobs:
       - name: install Xen headers
         run: sudo apt-get install -y libxen-dev
 
-      - name: clone Icebox
-        uses: actions/checkout@v2
-        with:
-          repository: thalium/icebox
-          path: icebox
-
-      - name: install VirtualBox's FDP headers
-        run: |
-          g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so -lrt
-          sudo cp include/* /usr/local/include
-          sudo cp libFDP.so /usr/local/lib
-        working-directory: icebox/src/FDP
 
       - name: clone libkvmi
         uses: actions/checkout@v2
@@ -346,41 +305,13 @@ jobs:
         with:
           components: clippy
 
-      - name: Clone Icebox repository
-        uses: actions/checkout@v2
-        with:
-          repository: thalium/icebox
-          path: icebox
-
       - uses: actions/checkout@v2
         with:
           path: libmicrovmi
 
-      # adds cl.exe in the PATH
-      - name: Setup command prompt for Microsoft Visual C++
-        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Compile and install FDP library
-        run: |
-          # install in C:\FDP to avoid issues with quotes etc
-          cl /c FDP.cpp /out:FDP.obj
-          cl /LD FDP.obj /link /out:FDP.dll
-          lib /NOLOGO FDP.obj /OUT:FDP.lib
-          dir
-          New-Item -Path "C:\FDP" -ItemType "directory"
-          copy FDP.dll "C:\FDP"
-          copy FDP.lib "C:\FDP"
-          copy "include\*" "C:\FDP"
-        working-directory: icebox/src/FDP
-
-      - name: Install Clang
-        run: choco install llvm
-
-      - name: build libmicrovmi with virtualbox and memflow driver
-        run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox,mflow --release
-        env:
-          BINDGEN_EXTRA_CLANG_ARGS: -I"C:\FDP" -L"C:\FDP"
-          CARGO_BUILD_RUSTFLAGS: -L C:\FDP
+      - name: build Windows artifact with compile-only VirtualBox API bindings and memflow
+        run: cargo build --manifest-path libmicrovmi/Cargo.toml --features virtualbox-api,mflow --release
 
       - name: create output directory and copy artifact content
         run: |

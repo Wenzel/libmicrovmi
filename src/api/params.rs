@@ -53,9 +53,23 @@ pub struct MemflowInitParams {
     pub connector_args: Option<MemflowConnectorParams>,
 }
 
-/// VirtualBox initialization parameters
+/// VirtualBox initialization parameters: selects one of the two access methods.
+///
+/// MachineDebugger names the VM by `common.vm_name`; VBoxVMI names it by its socket, or by
+/// `common.vm_name` when `socket_path` is omitted. Without this parameter, the VirtualBox driver
+/// uses the VBoxVMI method at the VM's default socket, and falls back to the MachineDebugger
+/// method only if that socket file does not exist.
 #[derive(Debug, Clone, PartialEq)]
-pub enum VBoxInitParams {}
+pub enum VBoxInitParams {
+    /// MachineDebugger access method (`virtualbox-api` or `virtualbox` feature):
+    /// VirtualBox's `IMachineDebugger` API
+    MachineDebugger,
+    /// VBoxVMI access method (`virtualbox-vmi` or `virtualbox` feature): the VM's VBoxVMI socket.
+    /// `None`: the VM's default socket, `<VirtualBox user home>/vmi/<VM UUID>.sock` or the VM's
+    /// `VBoxInternal/VMI/SocketPath` extradata (`virtualbox` feature only: resolved through the
+    /// VirtualBox API).
+    VBoxVMI { socket_path: Option<String> },
+}
 
 /// Common initialization parameters
 ///
@@ -74,7 +88,7 @@ pub struct CommonInitParams {
 /// ```no_run
 /// // Xen
 /// // common.vm_name: mandatory
-/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams};
+/// use microvmi::api::params::{DriverInitParams, CommonInitParams, KVMInitParams, MemflowInitParams, VBoxInitParams};
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
 ///     ..Default::default()
@@ -87,17 +101,26 @@ pub struct CommonInitParams {
 ///     kvm: Some(KVMInitParams::UnixSocket { path: String::from("/tmp/introspector")}),
 ///     ..Default::default()
 /// };
-/// // VirtualBox
+/// // VirtualBox, MachineDebugger access method
 /// // common.vm_name: mandatory
 /// let init_params = DriverInitParams {
 ///     common: Some(CommonInitParams { vm_name: String::from("windows10")}),
+///     virtualbox: Some(VBoxInitParams::MachineDebugger),
+///     ..Default::default()
+/// };
+/// // VirtualBox, VBoxVMI access method
+/// // virtualbox.socket_path: explicit socket path, or None for the default socket (with virtualbox-api)
+/// let init_params = DriverInitParams {
+///     virtualbox: Some(VBoxInitParams::VBoxVMI {
+///         socket_path: Some(String::from("/home/user/.config/VirtualBox/vmi/<vm uuid>.sock")),
+///     }),
 ///     ..Default::default()
 /// };
 /// // Memflow
 /// // memflow.connector_name: mandatory
 /// // memflow.connector_args: optional
 /// let init_params = DriverInitParams {
-///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"), ///
+///     memflow: Some(MemflowInitParams { connector_name: String::from("qemu"),
 ///         ..Default::default()}),
 ///     ..Default::default()
 /// };

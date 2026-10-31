@@ -14,14 +14,6 @@ RUN git clone https://github.com/bitdefender/libkvmi.git \
     && cd .. \
     && rm -rf libkvmi
 
-RUN git clone --depth 1 https://github.com/thalium/icebox \
-    && cd icebox/src/FDP \
-    && g++ -std=c++11 -shared -fPIC FDP.cpp -o libFDP.so \
-    && sudo mv include/* /usr/local/include/ \
-    && sudo mv libFDP.so /usr/local/lib/ \
-    && cd - \
-    && rm -rf icebox
-
 RUN rustup default stable \
     && cargo install cbindgen \
     && rustup component add clippy rustfmt

@@ -1,8 +1,10 @@
 use crate::api::params::{
     CommonInitParams, DriverInitParams, KVMInitParams, MemflowConnectorParams, MemflowInitParams,
+    VBoxInitParams,
 };
 use std::convert::TryFrom;
-use std::ffi::{CStr, IntoStringError};
+use std::error::Error;
+use std::ffi::CStr;
 use std::os::raw::c_char;
 
 /// equivalent of `CommonInitParams` with C compatibility
@@ -39,6 +41,27 @@ pub struct MemflowInitParamsFFI {
     pub connector_args: MemflowConnectorParamsFFI,
 }
 
+// `access_method = 0` means no VirtualBox parameters: the VirtualBox driver then uses its default
+// access method.
+/// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::MachineDebugger`
+pub const VBOX_ACCESS_METHOD_MACHINE_DEBUGGER: u32 = 1;
+/// `VBoxInitParamsFFI.access_method`: `VBoxInitParams::VBoxVMI`, with `VBoxInitParamsFFI.socket_path`
+pub const VBOX_ACCESS_METHOD_VBOXVMI: u32 = 2;
+
+/// equivalent of `Option<VBoxInitParams>` with C compatibility.
+///
+/// A zero-initialized struct has no VirtualBox parameters: the default access method.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct VBoxInitParamsFFI {
+    /// one of the `VBOX_ACCESS_METHOD_*` constants, or zero for the default access method
+    // plain integer, not a Rust enum: an out-of-range value from C would be UB in an enum
+    pub access_method: u32,
+    /// `VBOX_ACCESS_METHOD_VBOXVMI`: the VM's VBoxVMI socket path, or null for the VM's default
+    /// socket; ignored otherwise
+    pub socket_path: *mut c_char,
+}
+
 /// equivalent of `DriverInitParam` with C compatibility
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -46,11 +69,12 @@ pub struct DriverInitParamsFFI {
     pub common: CommonInitParamsFFI,
     pub kvm: KVMInitParamsFFI,
     pub memflow: MemflowInitParamsFFI,
+    pub virtualbox: VBoxInitParamsFFI,
 }
 
 // convert from FFI type to Rust type
 impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
-    type Error = IntoStringError;
+    type Error = Box<dyn Error>;
 
     fn try_from(value: DriverInitParamsFFI) -> Result<Self, Self::Error> {
         // build common params
@@ -112,10 +136,25 @@ impl TryFrom<DriverInitParamsFFI> for DriverInitParams {
                 connector_args: args,
             })
         };
+        let virtualbox = match value.virtualbox.access_method {
+            0 => None,
+            VBOX_ACCESS_METHOD_MACHINE_DEBUGGER => Some(VBoxInitParams::MachineDebugger),
+            VBOX_ACCESS_METHOD_VBOXVMI => {
+                let path = value.virtualbox.socket_path;
+                let socket_path = if path.is_null() {
+                    None
+                } else {
+                    Some(unsafe { CStr::from_ptr(path) }.to_owned().into_string()?)
+                };
+                Some(VBoxInitParams::VBoxVMI { socket_path })
+            }
+            other => return Err(format!("unknown VirtualBox access method: {}", other).into()),
+        };
         Ok(DriverInitParams {
             common,
             kvm,
             memflow,
+            virtualbox,
             ..Default::default()
         })
     }

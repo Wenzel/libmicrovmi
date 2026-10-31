@@ -1,4 +1,5 @@
-# keep in sync with dtolnay/rust-toolchain@<version> in .github/workflows/ci.yml and python/build-wheels.sh
+# Keep the version in sync with ci.yml and python/build-wheels.sh. CI jobs install
+# their required clippy/rustfmt components explicitly.
 [toolchain]
 channel = "1.99.0"
-components = ["clippy", "rustfmt"]
+profile = "minimal"

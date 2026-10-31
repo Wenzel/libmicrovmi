@@ -24,6 +24,7 @@ use crate::api::events::{CrType, Event, EventType, InterceptType};
 use crate::api::params::DriverInitParams;
 use crate::api::registers::{Registers, SegmentReg, SystemTableReg, X86Registers};
 use crate::api::{DriverType, Introspectable};
+use crate::errors::MicrovmiError;
 
 #[derive(Debug)]
 pub struct Xen {
@@ -409,11 +410,21 @@ impl Introspectable for Xen {
                     new,
                     old,
                 },
-                XenEventType::Msr { msr_type, value } => EventType::Msr { msr_type, value },
+                XenEventType::Msr { msr_type, value } => EventType::Msr {
+                    msr_type,
+                    value,
+                    old: 0,
+                },
                 XenEventType::Breakpoint { insn_len, .. } => {
                     EventType::Breakpoint { gpa: 0, insn_len }
                 }
-                _ => unimplemented!(),
+                other => {
+                    return Err(MicrovmiError::NotSupported(format!(
+                        "listen: Xen {:?} event",
+                        other
+                    ))
+                    .into())
+                }
             };
             vcpu = req.vcpu_id.try_into().map_err(XenDriverError::from)?;
             let mut rsp =
@@ -430,7 +441,9 @@ impl Introspectable for Xen {
         if flag {
             Ok(Some(Event {
                 vcpu,
+                view: 0, // Xen doesn't have memory views, always use default view
                 kind: event_type,
+                regs: None, // Xen doesn't provide registers in events
             }))
         } else {
             Ok(None)
@@ -463,7 +476,11 @@ impl Introspectable for Xen {
                 .xc
                 .monitor_software_breakpoint(self.domid, enabled)
                 .map_err(XenDriverError::from)?),
-            _ => unimplemented!(),
+            other => Err(MicrovmiError::NotSupported(format!(
+                "toggle_intercept: {:?} intercept",
+                other
+            ))
+            .into()),
         }
     }
 

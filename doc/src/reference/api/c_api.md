@@ -7,3 +7,31 @@ cargo build
 ~~~
 
 And look at `./target/debug/capi/libmicrovmi.h` header.
+
+Events use the C types `InterceptType`, `Event` and `EventReplyType` from that header.
+`microvmi_toggle_intercept(context, vcpu, intercept_type, enabled)` selects the event kind per
+vCPU; VBoxVMI supports breakpoint, single step, CR, MSR and `InterceptType_Pagefault`.
+`microvmi_listen(context, timeout_ms, &event)` returns `false` on error. On success, `event` is
+`NULL` at timeout, or points to an event owned by the caller. `microvmi_reply_event(context,
+event, reply)` frees the event **on success only**: on error the vCPU stays parked and the caller
+still owns the event, so it can reply again with it (for example `EventReplyType_UnrestrictedStep`
+after a failed emulation reply, which executes the instruction natively with the vCPU's page
+access restrictions lifted).
+Use `EventReplyType_Continue` with `.continue_.reinject = true` only to deliver an intercepted
+breakpoint to the guest; use `false` for single step and to re-execute an int3 after restoring
+its original byte. `EventReplyType_Emulate` and `EventReplyType_EmulateReadData`
+(`.emulate_read_data.size` bytes of `.emulate_read_data.data`, 1 to 256) emulate the instruction
+at a page-access event; `EventReplyType_EmulateInsn` runs the 16 `.emulate_insn.data` bytes at a
+breakpoint event (VBoxVMI only, ADR-0007). `EventReplyType` is
+passed by value and holds these buffers inline (about 260 bytes).
+`microvmi_set_page_access(context, view, paddr, access)` sets the allowed `Access` of `paddr`'s
+page in Memory view `view` (`DEFAULT_MEMORY_VIEW` for the Default view),
+`microvmi_get_page_access(context, view, paddr, &access)` reads it; both return `false` on error.
+`microvmi_enable_memory_views(context, enabled)`, `microvmi_create_memory_view(context, &view)`,
+`microvmi_destroy_memory_view(context, view)` and `microvmi_switch_memory_view(context, view)`
+manage Memory views; `microvmi_remap_memory_page(context, view, page, target)` remaps one page
+(page numbers, not byte addresses) in `view`; `microvmi_allocate_hidden_page(context, &page)` and
+`microvmi_free_hidden_page(context, page)` manage the Hidden page pool. `Event.view` is the
+vCPU's Active view; `EventReplyType_Continue`/`Emulate`/`EmulateReadData`/`EmulateInsn` all take a
+`.view` field, `KEEP_MEMORY_VIEW` to keep it.
+See `c_examples/vbox-events.c`.

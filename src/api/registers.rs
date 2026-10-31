@@ -1,6 +1,6 @@
 ///an x86 segment register
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SegmentReg {
     ///Stores the base address of a code segment
     pub base: u64,
@@ -13,7 +13,7 @@ pub struct SegmentReg {
 /// x86 System Table Registers
 /// (GDTR, IDTR)
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SystemTableReg {
     /// 32/64 bits linear base address
     pub base: u64,
@@ -23,7 +23,7 @@ pub struct SystemTableReg {
 
 ///Represents all x86 registers on a specific VCPU
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct X86Registers {
     /// 8 byte general purpose register.
     pub rax: u64,
@@ -81,10 +81,17 @@ pub struct X86Registers {
     pub msr_star: u64,
     ///Used to set the handler for SYSCALL and /or SYSRET instructions used for system calls. Its index value is 0xc0000082.
     pub msr_lstar: u64,
-    ///Extened Feature Enable Register
+    ///Extened Feature Enable Register. The VirtualBox driver has one EFER: `efer` and `msr_efer`
+    ///read the same value and must be equal in a write.
     pub efer: u64,
     ///Advanced Programmable Interrupt Control Register
     pub apic_base: u64,
+    ///Compatibility mode syscall target. Its index value is 0xc0000083.
+    pub msr_cstar: u64,
+    ///SYSCALL flag mask. Its index value is 0xc0000084.
+    pub msr_sfmask: u64,
+    ///Kernel GS base (shadow GS). Its index value is 0xc0000102.
+    pub shadow_gs_base: u64,
     ///Code segment register
     pub cs: SegmentReg,
     ///Data segment register
@@ -106,7 +113,7 @@ pub struct X86Registers {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Registers {
     X86(X86Registers),
 }

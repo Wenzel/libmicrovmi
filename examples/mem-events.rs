@@ -7,7 +7,7 @@ use colored::*;
 
 use microvmi::api::events::{EventReplyType, EventType, InterceptType};
 use microvmi::api::params::DriverInitParams;
-use microvmi::api::{Access, Introspectable};
+use microvmi::api::{Access, Introspectable, DEFAULT_MEMORY_VIEW, KEEP_MEMORY_VIEW};
 use utilities::Clappable;
 
 const PAGE_SIZE: usize = 4096;
@@ -61,9 +61,9 @@ fn main() {
     let max_addr = drv.get_max_physical_addr().unwrap();
 
     for cur_addr in (0..max_addr).step_by(PAGE_SIZE) {
-        let mut access: Access = drv.get_page_access(cur_addr).unwrap();
+        let mut access: Access = drv.get_page_access(DEFAULT_MEMORY_VIEW, cur_addr).unwrap();
         access &= !Access::X;
-        drv.set_page_access(cur_addr, access)
+        drv.set_page_access(DEFAULT_MEMORY_VIEW, cur_addr, access)
             .expect("failed to set page access");
     }
 
@@ -82,13 +82,21 @@ fn main() {
                     "[{}] {} - {}:   gva = 0x{:x}    gpa = 0x{:x}    access = {:?} ",
                     ev_nb_output, vcpu_output, pagefault_output, gva, gpa, pf_access
                 );
-                let mut page_access = drv.get_page_access(gpa).expect("Failed to get page access");
+                let mut page_access = drv
+                    .get_page_access(DEFAULT_MEMORY_VIEW, gpa)
+                    .expect("Failed to get page access");
                 //setting the access bits in the page due to which page fault occurred
                 page_access |= pf_access;
-                drv.set_page_access(gpa, page_access)
+                drv.set_page_access(DEFAULT_MEMORY_VIEW, gpa, page_access)
                     .expect("Failed to set page access");
-                drv.reply_event(ev, EventReplyType::Continue)
-                    .expect("Failed to send event reply");
+                drv.reply_event(
+                    ev,
+                    EventReplyType::Continue {
+                        reinject: false,
+                        view: KEEP_MEMORY_VIEW,
+                    },
+                )
+                .expect("Failed to send event reply");
                 i += 1;
             }
             None => println!("No events yet..."),

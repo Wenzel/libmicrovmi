@@ -54,6 +54,23 @@ impl MemflowInitParamsPy {
     }
 }
 
+/// equivalent of `VBoxInitParams` for Python: selects the VirtualBox access method
+///
+/// Usage from Python: `VBoxInitParamsPy.MachineDebugger()`,
+/// `VBoxInitParamsPy.VBoxVMI(socket_path="/path/to/vm.sock")`, or `VBoxInitParamsPy.VBoxVMI()`
+/// for the VM's default socket. Leave `DriverInitParamsPy.virtualbox` unset for the default
+/// access method.
+#[pyclass(from_py_object)]
+#[derive(Debug, Clone)]
+pub enum VBoxInitParamsPy {
+    // struct variant (not unit) so variants with fields can be added without changing the Python API
+    MachineDebugger {},
+    #[pyo3(constructor = (socket_path = None))]
+    VBoxVMI {
+        socket_path: Option<String>,
+    },
+}
+
 /// equivalent of `DriverInitParams` for Python
 ///
 /// # Examples
@@ -71,6 +88,9 @@ impl MemflowInitParamsPy {
 /// init_params = DriverInitParamsPy()
 /// init_params.common = common
 /// init_params.kvm = kvm
+/// # or select a VirtualBox access method
+/// init_params.virtualbox = VBoxInitParamsPy.MachineDebugger()
+/// init_params.virtualbox = VBoxInitParamsPy.VBoxVMI(socket_path="/path/to/vm.sock")
 /// ```
 #[pyclass(from_py_object)]
 #[derive(Default, Debug, Clone)]
@@ -81,6 +101,8 @@ pub struct DriverInitParamsPy {
     pub kvm: Option<KVMInitParamsPy>,
     #[pyo3(get, set)]
     pub memflow: Option<MemflowInitParamsPy>,
+    #[pyo3(get, set)]
+    pub virtualbox: Option<VBoxInitParamsPy>,
 }
 
 #[pymethods]

@@ -33,6 +33,19 @@ To pass the KVMi socket:
 
     vmi:///?vm_name=windows10&kvm_unix_socket=/tmp/introspector
 
+VirtualBox without `vbox_access_method` uses the driver's default access method (VBoxVMI if the VM
+serves its socket, else MachineDebugger):
+
+    vmi://VirtualBox/?vm_name=windows10
+
+To use VirtualBox's MachineDebugger access method:
+
+    vmi://VirtualBox/?vm_name=windows10&vbox_access_method=machinedebugger
+
+To use VirtualBox's VBoxVMI access method (the VM's default socket without `vbox_socket_path`):
+
+    vmi://VirtualBox/?vbox_access_method=vboxvmi&vbox_socket_path=/home/user/.config/VirtualBox/vmi/<VM UUID>.sock
+
 URL parameters:
 
 | name                     | description            |
@@ -40,6 +53,8 @@ URL parameters:
 | `vm_name`                | Name of the VM         |
 | `kvm_unix_socket`        | KVMi UNIX socket       |
 | `memflow_connector_name` | memflow connector name |
+| `vbox_access_method`     | VirtualBox access method: `machinedebugger` or `vboxvmi`; default if omitted |
+| `vbox_socket_path`       | VBoxVMI socket, for `vbox_access_method=vboxvmi` |
 
 ## Running volatility3
 

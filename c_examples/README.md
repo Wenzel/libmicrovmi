@@ -47,3 +47,12 @@ You need to adjust your `LD_LIBRARY_PATH`
 cd build
 LD_LIBRARY_PATH="$LD_LIBRARY_PATH:../../target/debug" <example> <vm_name>
 ~~~
+
+`vbox-read-page <vm_name> [physical_address]` selects the VirtualBox MachineDebugger access method
+and prints one page of guest physical memory. Given a VBoxVMI socket path instead of a VM name
+(`vbox-read-page /path/to/<VM UUID>.sock`), it uses the VBoxVMI access method. Build either with the
+method-specific feature or build both on Unix with `--features virtualbox`.
+
+`vbox-events /path/to/<VM UUID>.sock` enables single step on vCPU 0, prints three instruction
+addresses and clears the intercept before replying to the final event. It requires a patched
+VirtualBox with VBoxVMI protocol v2 and a `virtualbox-vmi` build of libmicrovmi.
