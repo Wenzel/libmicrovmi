@@ -66,7 +66,8 @@ fn not_supported<T>(operation: &str) -> Result<T, Box<dyn Error>> {
     Err(MicrovmiError::NotSupported(operation.into()).into())
 }
 
-/// Every method but `get_driver_type` defaults to a [`MicrovmiError::NotSupported`] error.
+/// Every method but `get_driver_type` and `hidden_page_pool_size` (0: no pool) defaults to a
+/// [`MicrovmiError::NotSupported`] error.
 pub trait Introspectable {
     /// Retrieve the number of VCPUs.
     ///
@@ -283,6 +284,8 @@ mod tests {
         assert!(d.read_physical(0, &mut [0; 1], &mut 0).is_err());
         assert!(d.write_physical(0, &[0]).is_err());
         assert!(d.get_max_physical_addr().is_err());
+        assert!(d.get_ram_size().is_err());
+        assert_eq!(d.hidden_page_pool_size(), 0);
         assert!(d.read_registers(0).is_err());
         assert!(d.get_page_access(DEFAULT_MEMORY_VIEW, 0).is_err());
         assert!(d
