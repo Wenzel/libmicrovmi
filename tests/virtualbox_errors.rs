@@ -124,13 +124,15 @@ mod vbox_vmi {
             let conn = unsafe { OwnedFd::from_raw_fd(accept(listener.as_raw_fd()).unwrap()) };
             let mut msg = Vec::new();
             // size, id, kind (hello), flags, rc
-            msg.extend_from_slice(&24u32.to_le_bytes());
+            msg.extend_from_slice(&32u32.to_le_bytes());
             msg.extend_from_slice(&0u32.to_le_bytes());
             msg.extend_from_slice(&1u16.to_le_bytes());
             msg.extend_from_slice(&0u16.to_le_bytes());
             msg.extend_from_slice(&0i32.to_le_bytes());
             msg.extend_from_slice(&magic.to_le_bytes());
             msg.extend_from_slice(&version.to_le_bytes());
+            // hidden_page_count, padding
+            msg.extend_from_slice(&[0u8; 8]);
             send(conn.as_raw_fd(), &msg, MsgFlags::empty()).unwrap();
         });
         let err = init_error(Some(DriverType::VirtualBox), vboxvmi(&dir));
