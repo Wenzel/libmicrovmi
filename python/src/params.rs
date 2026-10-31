@@ -60,7 +60,7 @@ impl MemflowInitParamsPy {
 /// `VBoxInitParamsPy.VBoxVMI(socket_path="/path/to/vm.sock")`, or `VBoxInitParamsPy.VBoxVMI()`
 /// for the VM's default socket. Leave `DriverInitParamsPy.virtualbox` unset for the default
 /// access method.
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Clone)]
 pub enum VBoxInitParamsPy {
     // struct variant (not unit) so variants with fields can be added without changing the Python API
