@@ -246,7 +246,7 @@ aggregate all four sessions (two per mode).
 | LibVMI dispatch **including** callback/reply | 672 / 3456 / 3968 | 672 / 736 / 864 | 800 / 4352 / 5376 | 800 / 4352 / 5376 |
 | DRAKVUF INT3 callback | 672 / 3712 / 4352 | 672 / 736 / 864 | 928 / 4352 / 5888 | 800 / 4352 / 4864 |
 | Reply socket round trip, including acknowledgment | 10 / 58 / 84 | 11 / 12 / 17 | 12 / 68 / 108 | 11 / 68 / 152 |
-| One EPT view switch | 0 / 5 / 7 | 1 / 1 / 1 | 1 / 6 / 12 | 1 / 5 / 11 |
+| One Memory view switch | 0 / 5 / 7 | 1 / 1 / 1 | 1 / 6 / 12 | 1 / 5 / 11 |
 
 **Throughput and guest slowdown.** On two vCPUs, normal host-bracketed
 25-command times were 5.119–17.993 s (median 11.018 s), or 197–693

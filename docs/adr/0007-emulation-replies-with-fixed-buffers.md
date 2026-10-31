@@ -4,8 +4,9 @@ Extends ADR-0005: besides `Continue { reinject }`, a reply can ask the hyperviso
 event's instruction once: `Emulate` and `EmulateReadData { size, data: [u8; 256] }` at a page-access
 event, `EmulateInsn { data: [u8; 16] }` at a breakpoint event. The buffers are inline, sized like
 LibVMI's `emul_read_t` and `emul_insn_t`, so the C layout stays plain and no pointer outlives the
-reply call. A plain `Continue` at a page-access event retries the access. Xen's `EMULATE_NOWRITE`
-is not offered.
+reply call. A plain `Continue` at a page-access event retries the access. `EmulateNoWrite`
+(LibVMI's `EMULATE_NOWRITE`), added later, emulates the instruction at a page-access event with its
+memory writes discarded: a guest read of a hidden breakpoint's page then sees the original byte.
 
 ## Considered options
 
