@@ -29,6 +29,10 @@ int main(int argc, char* argv[]) {
         rs_cstring_free((char*)init_error);
         return 1;
     }
+    uint16_t vcpu_count = 0;
+    if (microvmi_get_vcpu_count(driver, &vcpu_count)) {
+        fprintf(stderr, "vCPUs: %u\n", vcpu_count);
+    }
     uint8_t buffer[PAGE_SIZE];
     uint64_t bytes_read = 0;
     int ret = 0;
